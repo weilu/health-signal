@@ -76,7 +76,7 @@ The **generic library** ships the FastAPI app and the compiled React UI in one p
 |---|---|
 | Server | FastAPI (Python), deployed to Posit Connect as a Python app |
 | Frontend | React 18 + Vite, **plain JavaScript (JSX)**, no TypeScript |
-| UI components & theming | **MUI (Material UI)**; theme built at runtime from config (design tokens → `ThemeProvider` + CSS variables) for **per-government white-label** — no rebuild |
+| UI components & theming | **MUI (Material UI)** — canonical components + MUI styling APIs, **minimal custom CSS** (see §9); theme built at runtime from config (design tokens → `ThemeProvider` + CSS variables) for **per-government white-label** — no rebuild |
 | Routing | **React Router** — every page has its own URL path (deep-linkable, shareable) |
 | i18n | react-i18next; `en` + `el`; default `en` |
 | Charts | Chart.js (reused from the prototype) |
@@ -215,9 +215,15 @@ App factory: `create_app(config) -> FastAPI`, wiring the configured `DataSource`
   deep-linkable and shareable. Paths are derived from config (pathogen × section). The FastAPI
   catch-all (`GET /{path}`, auth-gated) serves `index.html` for all of them; React Router takes over
   client-side.
+- **Styling discipline — minimize custom CSS.** Use **canonical MUI components** and MUI's own
+  styling configs (the `theme` object, `sx` prop, `styled()`, component `variants`/`defaultProps`)
+  rather than bespoke stylesheets. The prototype's hand-rolled `styles.css` is **not** carried over —
+  its look is reproduced through MUI's system. Custom CSS is a last resort (a genuinely un-MUI layout
+  need), kept minimal and justified. This keeps the library consistent, themeable, and low-maintenance.
 - **Theming (per-government white-label).** MUI `ThemeProvider` + CSS variables built at runtime
   from the config branding block (palette, logo, favicon, typography, light/dark). A government
-  restyles via `dashboard.yaml` + assets — no rebuild, same UI bundle.
+  restyles via `dashboard.yaml` + assets — no rebuild, same UI bundle. Because styling flows through
+  the theme (not ad-hoc CSS), a theme swap restyles the whole app coherently.
 - **Method display.** When a config panel has multiple analytic methods in the feed (e.g. aedseo +
   MEM), the UI can show a method toggle / side-by-side comparison; labels and level vocabulary come
   from the method metadata + locales.
