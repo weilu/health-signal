@@ -279,6 +279,14 @@ tests exercise whole flows through real seams; write those first and drop to uni
 logic (schema validation, merge rules, parsing). Concrete per-phase test lists live in the
 implementation plan; this section sets the shape.
 
+**Data governance — synthetic fixtures only (public repo).** `health-signal` is **public**, so all
+test fixtures, sample feeds, example configs, and docs use **synthetic dummy data only**. **No
+confidential or pre-publication Greece pilot data** (EODY clinical figures, Psyttalia wastewater,
+unpublished analyses, real facility rosters) may appear in this repo — that data lives only in the
+private consumer repo. Fixtures are hand-crafted synthetic ERVISS/NWSS-shaped rows with obviously
+fake locations/values; any realistic sample is drawn only from the **openly-licensed** ERVISS/NWSS
+public datasets, never from the pilot's private feed.
+
 - **E2E (highest priority):** drive the running FastAPI app end-to-end — unauthenticated request is
   blocked → login → `/api/config` + `/api/data` → a page renders the expected panels; per-page URLs
   are deep-linkable behind auth; language switch swaps strings. Tooling: Playwright (or FastAPI
