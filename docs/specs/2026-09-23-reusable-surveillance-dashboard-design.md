@@ -76,6 +76,8 @@ The **generic library** ships the FastAPI app and the compiled React UI in one p
 |---|---|
 | Server | FastAPI (Python), deployed to Posit Connect as a Python app |
 | Frontend | React 18 + Vite, **plain JavaScript (JSX)**, no TypeScript |
+| UI components & theming | **MUI (Material UI)**; theme built at runtime from config (design tokens → `ThemeProvider` + CSS variables) for **per-government white-label** — no rebuild |
+| Routing | **React Router** — every page has its own URL path (deep-linkable, shareable) |
 | i18n | react-i18next; `en` + `el`; default `en` |
 | Charts | Chart.js (reused from the prototype) |
 | Contract validation | Pydantic models in the server (single source of truth) |
@@ -136,10 +138,16 @@ The ECDC/WHO-Europe *European Respiratory Virus Surveillance Summary* public dat
   `pathogen` spelling matches ERVISS so WW and clinical feeds join on *location × yearweek ×
   pathogen*. (EU note: the recast UWWTD 2024/3019 mandates WBS + AMR reporting but publishes no open
   field schema yet — provisions apply from 2027 — so NWSS is the defensible anchor today.)
-- **Derived analytics** — the aedseo outputs carried as data so the app stays presentation-only:
+- **Derived analytics** — the Status/Trend outputs carried as data so the app stays presentation-only:
   `indicator = "status_level"` (0–4 / "very low"…"very high"), `"trend"` (increasing/stable/
   decreasing/inconclusive), `"band"`/`"phase"` (season/wave shading + since-week). Computed by the
-  **country ETL**, not the app.
+  **country ETL**, not the app. Each derived row carries a **`method` field** (`aedseo` \| `mem` \| …)
+  plus method-specific metadata (aedseo burden bands + disease threshold; MEM epidemic + intensity
+  thresholds — which need not nest). **Methods can coexist**: the same indicator may have `aedseo`
+  and `mem` rows, and config decides whether the UI shows one, the other, or a comparison toggle.
+  This makes MEM-vs-aedseo configurable at the app **without any app logic** — it is a producer
+  choice plus a display toggle. *(Producing MEM and a shared `StatusTrendEstimator` abstraction with
+  pluggable aedseo/MEM estimators is an ETL / future-shared-analytics concern — see §13, post-MVP.)*
 
 ### 6.4 Future profiles (post-MVP)
 
@@ -202,9 +210,23 @@ App factory: `create_app(config) -> FastAPI`, wiring the configured `DataSource`
   indicator charts from it. Adding/removing/reconfiguring a surveillance target = config + data,
   no code. Prototype panels/logic (Status/Trend tiles, range selector, season/wave band, EuroMOMO
   strip, Methods view) port into config-driven React components.
-- **i18n.** react-i18next; `en` + `el`, default `en`; language switcher. UI strings in locale
-  files; data-driven labels (pathogen names, source subtitles) and the methodology note are
-  per-locale content supplied by the country.
+- **Routing (per-page URLs).** React Router gives every page its own path — e.g.
+  `/covid-19/overview`, `/covid-19/clinical`, `/covid-19/wastewater`, `/methods` — so pages are
+  deep-linkable and shareable. Paths are derived from config (pathogen × section). The FastAPI
+  catch-all (`GET /{path}`, auth-gated) serves `index.html` for all of them; React Router takes over
+  client-side.
+- **Theming (per-government white-label).** MUI `ThemeProvider` + CSS variables built at runtime
+  from the config branding block (palette, logo, favicon, typography, light/dark). A government
+  restyles via `dashboard.yaml` + assets — no rebuild, same UI bundle.
+- **Method display.** When a config panel has multiple analytic methods in the feed (e.g. aedseo +
+  MEM), the UI can show a method toggle / side-by-side comparison; labels and level vocabulary come
+  from the method metadata + locales.
+- **i18n (layered locales).** react-i18next; `en` + `el`, default `en`; language switcher. The
+  **library ships the base UI-string catalog** (generic chrome: nav, Status/Trend, "as of", login,
+  buttons — en/el, extensible to more languages). The **consumer supplies only country-specific and
+  data-driven strings** (pathogen display names, source subtitles, methodology text) and may override
+  library defaults. `/api/locales/{lang}` **deep-merges** library base + country overrides (country
+  wins) so no country re-translates the generic chrome.
 - **Charts.** Chart.js, reused.
 
 ## 10. Packaging & reuse
@@ -215,6 +237,7 @@ health-signal/                     # generic library repo (monorepo) — /Users/
 ├── src/health_signal/
 │   ├── app.py                     # create_app(config) -> FastAPI
 │   ├── auth/  data/  api/         # AuthProvider, DataSource, routes
+│   ├── locales/{en,el}.json       # BASE UI-string catalog (generic chrome); extensible
 │   └── _ui/                       # compiled React bundle (package data, gitignored)
 └── pyproject.toml                 # dist name "health-signal"; hatchling artifacts=["src/health_signal/_ui/**"]
 ```
@@ -229,7 +252,7 @@ greece-dashboard/                  # consumer repo (this repo's successor role)
 ├── pyproject.toml                 # depends on health-signal==X.Y.Z
 ├── app.py                         # from health_signal import create_app; create_app(load_config("dashboard.yaml"))
 ├── dashboard.yaml                 # pathogens, indicators, layout, branding, locales
-├── locales/{en,el}.json
+├── locales/{en,el}.json           # country OVERRIDES + data-driven strings (merged over library base)
 ├── data/                          # ERVISS-shaped feed produced by the ETL
 └── manifest / requirements        # rsconnect deploy to Posit Connect
 ```
@@ -251,8 +274,10 @@ greece-dashboard/                  # consumer repo (this repo's successor role)
 
 ## 13. Open questions / assumptions
 
-- Whether the aedseo derivation should later be factored into a shared optional Python package the
-  ETLs call (post-MVP).
+- A shared Status/Trend analytics package (post-MVP): a `StatusTrendEstimator` interface with
+  pluggable **aedseo** and **MEM** estimators, so ETLs produce comparable derived rows without each
+  reimplementing a method. The app already consumes the `method`-tagged output (§6.3), so this is a
+  producer-side addition, not an app change.
 - Exact per-country config schema (`dashboard.yaml`) fields — to be pinned in the implementation plan.
 - Whether the generic repo is a true monorepo (frontend + package together) or split — assume
   monorepo for MVP.
