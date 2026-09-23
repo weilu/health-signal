@@ -124,8 +124,18 @@ The ECDC/WHO-Europe *European Respiratory Virus Surveillance Summary* public dat
 
 ### 6.3 ERVISS-profile extensions (documented, namespaced)
 
-- **Wastewater** — `survtype = "wastewater"`, `indicator = "viral_load"` (unit `per_100k`), etc.
-  ERVISS has no wastewater indicator; this is our WBE signal.
+- **Wastewater (WBE)** — ERVISS has no wastewater indicator, so this is an extension, but it is
+  **anchored on the mature US CDC NWSS standard** re-projected into the tidy grid: wastewater viral
+  load is simply another `indicator` on the same *location × period × pathogen* grain, differing
+  from a clinical row only in `indicator`/`unit`. Indicators: `viral_load`, `viral_load_flowpop_norm`,
+  `viral_load_mic_norm` (e.g. per-PMMoV), `wval`; units from the NWSS vocab (`copies/L wastewater`,
+  `log10 copies/L`, `copies/g dry sludge`, or `index`/`z-score` for derived metrics); WW-specific
+  fields (`location_level` sewershed/city/region, `population_served`, `normalization`, `lod`,
+  `below_lod`, `flow_rate`, `quality_flag`) plus a **separate method/QC side-table** (PCR type,
+  concentration/extraction method, recovery efficiency) so the tidy feed stays one-value-per-row.
+  `pathogen` spelling matches ERVISS so WW and clinical feeds join on *location × yearweek ×
+  pathogen*. (EU note: the recast UWWTD 2024/3019 mandates WBS + AMR reporting but publishes no open
+  field schema yet — provisions apply from 2027 — so NWSS is the defensible anchor today.)
 - **Derived analytics** — the aedseo outputs carried as data so the app stays presentation-only:
   `indicator = "status_level"` (0–4 / "very low"…"very high"), `"trend"` (increasing/stable/
   decreasing/inconclusive), `"band"`/`"phase"` (season/wave shading + since-week). Computed by the
