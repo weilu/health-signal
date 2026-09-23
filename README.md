@@ -27,9 +27,20 @@ dashboards for them.
 
 ### Installation
 
+From PyPI (once published):
+
 ```bash
-pip install health-signal   # once published
+pip install health-signal
 ```
+
+Directly from GitHub — source install, which builds the bundled frontend, so **Node.js is required**:
+
+```bash
+pip install "git+https://github.com/weilu/health-signal.git"
+```
+
+> Released wheels bundle the pre-compiled frontend and install **without** Node; only the source
+> install above needs it.
 
 ### Usage
 
