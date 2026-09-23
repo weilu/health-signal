@@ -14,8 +14,7 @@ Connect).
 **Audience:** public-health agencies, epidemiologists, and the teams building surveillance
 dashboards for them.
 
-> **Status:** early development. The architecture and data contract are documented under
-> [`docs/specs`](docs/specs); the first functional release is in progress.
+> **Status:** early development; the first functional release is in progress.
 
 ## Getting started
 
@@ -51,13 +50,7 @@ app = create_app(load_config("dashboard.yaml"))
 ```
 
 A consuming repository supplies a `dashboard.yaml` (which pathogens/indicators, layout, branding,
-locales), translation overrides, and a data feed adhering to the contract. See
-[`docs/specs`](docs/specs) for the configuration schema and data contract.
-
-## Documentation
-
-Design and data-contract documentation lives in [`docs/`](docs). A hosted documentation site will
-follow.
+locales), translation overrides, and a data feed adhering to the contract.
 
 ## Contact
 
