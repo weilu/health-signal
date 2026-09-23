@@ -273,10 +273,25 @@ greece-dashboard/                  # consumer repo (this repo's successor role)
 
 ## 12. Testing
 
-- **Backend (pytest):** auth flows, `DataSource` implementations, API gating, and **contract
-  validation** against a sample ERVISS feed.
-- **Frontend (Vitest + React Testing Library):** config-driven rendering, i18n, panels.
-- **ETL:** existing suite stays; add a test that the Greek ETL output validates against the contract.
+**Strategy — favor end-to-end and integration tests first (outside-in TDD).** Because the app is
+mostly config-driven presentation plus a few boundaries (auth, data source), the highest-confidence
+tests exercise whole flows through real seams; write those first and drop to unit tests for focused
+logic (schema validation, merge rules, parsing). Concrete per-phase test lists live in the
+implementation plan; this section sets the shape.
+
+- **E2E (highest priority):** drive the running FastAPI app end-to-end — unauthenticated request is
+  blocked → login → `/api/config` + `/api/data` → a page renders the expected panels; per-page URLs
+  are deep-linkable behind auth; language switch swaps strings. Tooling: Playwright (or FastAPI
+  `TestClient` + a headless frontend harness) against the assembled app.
+- **Integration:** API routes with a real `DataSource` (`FileDataSource` over a sample feed) and a
+  real `AuthProvider`; **contract validation** of a sample feed against the active schema profile;
+  the locale deep-merge (library base + country overrides). Prefer these over mocking the seams.
+- **Unit (focused logic only):** Pydantic profile validation, config parsing, locale merge, small
+  frontend helpers.
+- **Frontend:** Vitest + React Testing Library for component/config-driven rendering where an E2E is
+  overkill.
+- **ETL (consumer side):** existing suite stays; add a test that the Greek ETL output validates
+  against the contract.
 
 ## 13. Open questions / assumptions
 
