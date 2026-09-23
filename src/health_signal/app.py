@@ -22,8 +22,7 @@ def create_app(config: Config) -> FastAPI:
     def healthz() -> dict:
         return {"status": "ok", "schema_version": config.schema_version}
 
-    has_ui = (_UI_DIR / "index.html").is_file()
-    if has_ui and (_UI_DIR / "assets").is_dir():
+    if (_UI_DIR / "assets").is_dir():
         app.mount("/assets", StaticFiles(directory=_UI_DIR / "assets"), name="assets")
 
     # Catch-all is registered LAST so future /api/* and /docs routes take precedence
