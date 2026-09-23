@@ -34,7 +34,7 @@ pip install health-signal   # once published
 ### Usage
 
 ```python
-from health_signal import create_app
+from health_signal import create_app, load_config
 
 app = create_app(load_config("dashboard.yaml"))
 ```
