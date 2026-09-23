@@ -31,8 +31,9 @@ HTML to Posit Connect. We now want an **MVP** that is:
 - Migrate the Greek dashboard onto the library.
 
 ### Non-goals (explicitly deferred)
-- Postgres connector, **DHIS2 connector**, OIDC/SAML SSO, in-app aedseo analytics, roles/permissions
-  beyond authenticated-or-not, data write-back, single-deployment multi-tenancy.
+- Postgres connector, **DHIS2 connector**, **MCP server** (AI-agent access — OpenAPI covers baseline
+  AI access, see §7.3), OIDC/SAML SSO, in-app aedseo analytics, roles/permissions beyond
+  authenticated-or-not, data write-back, single-deployment multi-tenancy.
 - **Non-respiratory schema profiles** (HIV, polio, AMR, Ebola, yellow fever, …). MVP ships only the
   ERVISS respiratory profile; the profile mechanism (§6) is designed so these add without a fork,
   but none are built now.
@@ -80,6 +81,7 @@ The **generic library** ships the FastAPI app and the compiled React UI in one p
 | Routing | **React Router** — every page has its own URL path (deep-linkable, shareable) |
 | i18n | react-i18next; `en` + `el`; default `en` |
 | Charts | Chart.js (reused from the prototype) |
+| API docs | FastAPI-generated **OpenAPI** — Swagger UI (`/docs`) + ReDoc (`/redoc`) + `/openapi.json`, auth-gated; optional static reference via Redoc (`@redocly/cli`) in CI |
 | Contract validation | Pydantic models in the server (single source of truth) |
 | Packaging | hatchling; Vite build baked into the wheel as package data |
 | Auth (MVP) | Local accounts via Connect secrets + signed-cookie sessions |
@@ -191,6 +193,16 @@ class AuthProvider(Protocol):
 - `OIDCProvider` — Authorization Code + PKCE against a configured IdP; country gov SSO. **Deferred.**
 - A `require_auth` dependency gates the SPA route and every `/api/*` route.
 
+### 7.3 AI access (OpenAPI now; MCP later)
+
+The gated JSON API plus its OpenAPI schema (§5) is already an **AI-consumable contract** — agents and
+LLM tool-use frameworks can call `/api/data` etc. straight from `/openapi.json`, so the app is
+"AI-ready" at the data layer with no extra work. An **MCP (Model Context Protocol) server** — exposing
+the same `DataSource` + config as MCP tools/resources (`list_indicators`, `query_series`,
+`get_status_trend`) behind the same `AuthProvider` (MCP supports OAuth) — is the standard way to reach
+MCP-native AI clients and plugs into the existing seam with **no core change**. **Deferred** (post-MVP);
+OpenAPI covers baseline AI access for now.
+
 ## 8. Server (FastAPI) — routes
 
 | Route | Auth | Purpose |
@@ -199,10 +211,14 @@ class AuthProvider(Protocol):
 | `GET /api/me` | required | current user (name/role for the UI) |
 | `GET /api/config` | required | which pathogens/indicators/layout/branding/locales |
 | `GET /api/data?…` | required | filtered feed rows (active schema profile) |
-| `GET /api/locales/{lang}` | required | translation bundle |
+| `GET /api/locales/{lang}` | required | translation bundle (library base + country overrides, merged) |
+| `GET /api/methodology/{lang}` | required | config-selected methodology content (Markdown) for the Methodology view |
+| `GET /docs`, `/redoc`, `/openapi.json` | required | auto-generated API documentation (Swagger UI / ReDoc / OpenAPI schema) |
 | `GET /` and `/{path}` | required | serves the compiled SPA (`_ui/index.html` + assets) |
 
 App factory: `create_app(config) -> FastAPI`, wiring the configured `DataSource` + `AuthProvider`.
+The SPA catch-all is registered **last** so `/api/*`, `/docs`, `/redoc`, and `/openapi.json` take
+precedence over client-side routes.
 
 ## 9. Frontend — modularity & i18n
 
@@ -233,6 +249,14 @@ App factory: `create_app(config) -> FastAPI`, wiring the configured `DataSource`
   data-driven strings** (pathogen display names, source subtitles, methodology text) and may override
   library defaults. `/api/locales/{lang}` **deep-merges** library base + country overrides (country
   wins) so no country re-translates the generic chrome.
+- **Methodology view (config-driven).** Generalizes the prototype's "Methods" page: a page that
+  renders **config-selected methodology content** (Markdown, per-locale, via `/api/methodology/{lang}`,
+  rendered with react-markdown). The methodology shown **matches the configured analytic method(s)**
+  (e.g. the Status & Trend note for aedseo, or MEM). The library ships base notes for methods it knows
+  (aedseo); the consumer overrides/adds country-specific methodology. This is in-app content
+  (config/data), independent of any repo `docs/` directory.
+- **API docs.** FastAPI serves Swagger UI at `/docs`, ReDoc at `/redoc`, and `/openapi.json`, all
+  behind the auth gate; generated from the route definitions + Pydantic models, so they track the code.
 - **Charts.** Chart.js, reused.
 
 ## 10. Packaging & reuse
