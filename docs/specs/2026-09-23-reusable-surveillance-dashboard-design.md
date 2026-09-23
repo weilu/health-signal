@@ -23,6 +23,7 @@ HTML to Posit Connect. We now want an **MVP** that is:
 ## 2. Goals & non-goals
 
 ### Goals (MVP)
+
 - One generic, config-driven dashboard reusable across countries.
 - App-managed authentication gating all content, no dependency beyond Posit Connect.
 - A documented, versioned ETL→app data contract based on the EU/WHO ERVISS model.
@@ -31,6 +32,7 @@ HTML to Posit Connect. We now want an **MVP** that is:
 - Migrate the Greek dashboard onto the library.
 
 ### Non-goals (explicitly deferred)
+
 - Postgres connector, **DHIS2 connector**, **MCP server** (AI-agent access — OpenAPI covers baseline
   AI access, see §7.3), OIDC/SAML SSO, in-app aedseo analytics, roles/permissions beyond
   authenticated-or-not, data write-back, single-deployment multi-tenancy.
@@ -50,7 +52,7 @@ serves the compiled React SPA and a gated JSON API**, deployed as one Python con
 
 ## 4. Architecture
 
-```
+```text
                          Posit Connect ("anyone can access")
    ┌──────────────────────────────────────────────────────────────────┐
    │  FastAPI app  (single Python content bundle)                       │
@@ -162,6 +164,7 @@ unchanged; a new domain is a new profile module (and its data), not a fork. WHO/
 ERVISS is for respiratory.
 
 ### 6.5 Versioning
+
 - `schema_version` (semver) on the feed, plus the active `profile` name/version; for ERVISS, the
   pinned snapshot date is recorded in the contract doc.
 - Long/tidy shape means new dimensions/indicators are new **rows**, not schema changes.
@@ -169,12 +172,14 @@ ERVISS is for respiratory.
 ## 7. Interfaces (the load-bearing seams)
 
 ### 7.1 `DataSource`
+
 ```python
 class DataSource(Protocol):
     def config_data(self) -> ConfigData: ...
     def query(self, *, pathogen=None, indicator=None, location=None,
               age=None, week_range=None) -> list[FeedRow]: ...
 ```
+
 - `FileDataSource(data_dir)` — reads profile-format CSV/parquet/JSON; validates via Pydantic. **MVP.**
 - `PostgresDataSource(dsn)` — same schema as a table/view. **Deferred.**
 - `DHIS2DataSource(base_url, token)` — pulls aggregate/analytics data via the DHIS2 Web API and maps
@@ -183,11 +188,13 @@ class DataSource(Protocol):
   validated against the active schema profile (§6).
 
 ### 7.2 `AuthProvider`
+
 ```python
 class AuthProvider(Protocol):
     def authenticate(self, credentials) -> Session | None: ...
     def current_user(self, request) -> User | None: ...
 ```
+
 - `LocalAccountsProvider` — accounts from Connect env/secrets (email + argon2/bcrypt hash),
   signed-cookie sessions (itsdangerous/JWT, HTTP-only, Secure). No DB. **MVP.**
 - `OIDCProvider` — Authorization Code + PKCE against a configured IdP; country gov SSO. **Deferred.**
@@ -261,7 +268,7 @@ precedence over client-side routes.
 
 ## 10. Packaging & reuse
 
-```
+```text
 health-signal/                     # generic library repo (monorepo) — /Users/wlu4/workspace/health-signal
 ├── frontend/                      # React + Vite (JS); vite build → ../src/health_signal/_ui
 ├── src/health_signal/
@@ -273,11 +280,12 @@ health-signal/                     # generic library repo (monorepo) — /Users/
 ```
 
 Package: distribution name `health-signal`, import name `health_signal`.
+
 - CI (Node present): `npm ci && npm run build` → `_ui/`, then `python -m build` → wheel with UI baked in.
 - Consumers `pip install` the **wheel** (Node-free), `create_app(config)`, deploy to Connect. The
   same generic UI serves any country via runtime `/api/config` + `/api/data`.
 
-```
+```text
 greece-dashboard/                  # consumer repo (this repo's successor role)
 ├── pyproject.toml                 # depends on health-signal==X.Y.Z
 ├── app.py                         # from health_signal import create_app; create_app(load_config("dashboard.yaml"))
