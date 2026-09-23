@@ -310,13 +310,10 @@ should be independently reviewable and, where practical, leave the app in a work
 The implementation plan (writing-plans) decomposes the build into stages that each satisfy this
 cap and lifecycle.
 
-**Prerequisite:** the `health-signal` repo (currently local-only) needs a **GitHub remote** before
-the PR flow can run — org/owner TBD (see §14).
+**Repo:** `weilu/health-signal` on GitHub — **public**, **MIT** licensed. The staged-PR flow runs here.
 
 ## 14. Open questions / assumptions
 
-- **GitHub remote for `health-signal`** — which owner/org (e.g. `dime-worldbank` alongside the Greek
-  repo, or a personal/other org), and public vs private. Needed before the staged-PR flow starts.
 - A shared Status/Trend analytics package (post-MVP): a `StatusTrendEstimator` interface with
   pluggable **aedseo** and **MEM** estimators, so ETLs produce comparable derived rows without each
   reimplementing a method. The app already consumes the `method`-tagged output (§6.3), so this is a
