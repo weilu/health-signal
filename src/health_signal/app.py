@@ -17,8 +17,7 @@ _PLACEHOLDER = (
 
 
 def create_app(config: Config) -> FastAPI:
-    title = config.site.title.get(config.site.default_locale, "health-signal")
-    app = FastAPI(title=title)
+    app = FastAPI(title=config.site.title)
 
     @app.get("/healthz")
     def healthz() -> dict:

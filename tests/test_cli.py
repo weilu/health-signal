@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from health_signal.__main__ import _parse, main
+from health_signal.cli import _parse, main
 
 
 def test_parse_defaults():
@@ -20,11 +20,11 @@ def test_parse_overrides():
 def test_main_builds_app_and_calls_uvicorn(tmp_path, monkeypatch):
     cfg = tmp_path / "dashboard.yaml"
     cfg.write_text(
-        "schema_version: '0.1'\nsite:\n  title: { en: 'X' }\n", encoding="utf-8"
+        "schema_version: '0.1'\nsite:\n  title: 'X'\n", encoding="utf-8"
     )
     captured = {}
     monkeypatch.setattr(
-        "health_signal.__main__.uvicorn.run",
+        "health_signal.cli.uvicorn.run",
         lambda app, host, port: captured.update(app=app, host=host, port=port),
     )
     main(["--config", str(cfg), "--host", "0.0.0.0", "--port", "1234"])

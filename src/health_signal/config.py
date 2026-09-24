@@ -11,7 +11,9 @@ class Branding(BaseModel):
 
 
 class SiteConfig(BaseModel):
-    title: dict[str, str]                 # locale code -> display title
+    # App/OpenAPI name only. User-facing display text (including a localized title) lives in the
+    # locale files and is resolved by i18n key -- config carries structure + keys, not translations.
+    title: str
     default_locale: str = "en"
     locales: list[str] = Field(default_factory=lambda: ["en"])
 

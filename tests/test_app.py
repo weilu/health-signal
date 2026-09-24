@@ -7,7 +7,7 @@ def _client(tmp_path):
     f.write_text(
         "schema_version: '0.1'\n"
         "site:\n"
-        "  title: { en: 'Test Dashboard' }\n"
+        "  title: 'Test Dashboard'\n"
         "  default_locale: en\n"
         "  locales: [en]\n",
         encoding="utf-8",
