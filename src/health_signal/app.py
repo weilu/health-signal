@@ -10,7 +10,9 @@ _UI_DIR = Path(__file__).resolve().parent / "_ui"
 _PLACEHOLDER = (
     "<!doctype html><meta charset='utf-8'>"
     "<title>health-signal</title>"
-    "<h1>health-signal</h1><p>UI not built in this deployment yet.</p>"
+    "<h1>health-signal</h1>"
+    "<p>The compiled frontend (<code>_ui/index.html</code>) was not found. "
+    "Build the frontend, or install a release wheel that bundles it.</p>"
 )
 
 
