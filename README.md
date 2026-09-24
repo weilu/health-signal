@@ -52,6 +52,16 @@ app = create_app(load_config("dashboard.yaml"))
 A consuming repository supplies a `dashboard.yaml` (which pathogens/indicators, layout, branding,
 locales), translation overrides, and a data feed adhering to the contract.
 
+### Development
+
+This project uses [uv](https://docs.astral.sh/uv/) for the development workflow (the build backend
+is still hatchling, so consumers install with plain `pip` as above):
+
+```bash
+uv sync          # create the venv and install the project + dev dependencies
+uv run pytest    # run the tests
+```
+
 ## Contact
 
 Wei Lu — <wlu4@worldbank.org>
