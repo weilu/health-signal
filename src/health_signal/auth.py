@@ -45,11 +45,12 @@ def _reject_cross_origin(request: Request) -> None:
     # riding the browser's ambient cookie must not be able to drive /login or
     # /logout. Requests with neither header (curl, some same-origin fetches)
     # are let through -- the attack is specifically the cross-site browser POST.
-    origin = request.headers.get("origin") or request.headers.get("referer")
-    if not origin:
-        return
-    origin_host = urlsplit(origin).netloc
-    if origin_host and origin_host != request.headers.get("host"):
+    source = request.headers.get("origin") or request.headers.get("referer")
+    if source is None:
+        return  # no Origin/Referer (non-browser client) — allowed
+    # A present Origin/Referer MUST match our host. "null" (sandboxed iframe) parses to netloc ""
+    # which != host, so it is rejected — closing the Origin: null CSRF bypass.
+    if urlsplit(source).netloc != request.headers.get("host"):
         raise HTTPException(status_code=403, detail="Cross-origin request rejected")
 
 

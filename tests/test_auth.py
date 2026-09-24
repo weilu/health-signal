@@ -118,6 +118,26 @@ def test_login_rejects_cross_origin():
     assert r.status_code == 403
 
 
+def test_login_rejects_null_origin():
+    r = _client().post(
+        "/login",
+        data={"email": _EMAIL, "password": _PASSWORD},
+        headers={"Origin": "null"},
+    )
+    assert r.status_code == 403
+
+
+def test_authenticated_unknown_api_path_returns_404():
+    client = _client()
+    login = client.post(
+        "/login", data={"email": _EMAIL, "password": _PASSWORD}, follow_redirects=False
+    )
+    assert login.status_code == 303
+
+    r = client.get("/api/does-not-exist")
+    assert r.status_code == 404
+
+
 def test_login_then_access_then_logout():
     client = _client()
     login = client.post(

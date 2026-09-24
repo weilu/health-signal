@@ -57,15 +57,23 @@ def create_app(config: Config, auth_provider: AuthProvider | None = None) -> Fas
         app.mount("/assets", StaticFiles(directory=_UI_DIR / "assets"), name="assets")
 
     # Registered last so more specific routes (e.g. /api/*, /login, /docs) take
-    # precedence. Applies the per-page access policy: public paths and
-    # authenticated users get the SPA/placeholder; otherwise /api/* gets a 401
-    # (JSON contract for API clients), everything else redirects to /login.
+    # precedence. Applies the per-page access policy: public paths get the
+    # SPA/placeholder unconditionally; otherwise an authenticated user gets the
+    # SPA for non-API paths but a 404 (JSON contract) for an unmatched /api/*
+    # path -- it fell through to this catch-all only because no real API route
+    # matched, so it must not silently serve HTML. An unauthenticated user gets
+    # a 401 for /api/* (JSON contract for API clients) or a redirect to /login.
     @app.get("/{path:path}")
     async def spa(path: str, request: Request) -> Response:
         full_path = "/" + path
-        if is_public(full_path) or await provider.current_user(request) is not None:
+        is_api = full_path == "/api" or full_path.startswith("/api/")
+        if is_public(full_path):
             return _serve_spa()
-        if full_path == "/api" or full_path.startswith("/api/"):
+        if await provider.current_user(request) is not None:
+            if is_api:
+                raise HTTPException(status_code=404, detail="Not found")
+            return _serve_spa()
+        if is_api:
             raise HTTPException(status_code=401, detail="Not authenticated")
         return RedirectResponse(url="/login", status_code=303)
 
