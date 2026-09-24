@@ -25,8 +25,8 @@ def create_app(config: Config) -> FastAPI:
     if (_UI_DIR / "assets").is_dir():
         app.mount("/assets", StaticFiles(directory=_UI_DIR / "assets"), name="assets")
 
-    # Catch-all is registered LAST so future /api/* and /docs routes take precedence
-    # (see spec §8). Serves the compiled SPA when present, else a placeholder.
+    # Registered last so more specific routes (e.g. /api/*, /docs) take precedence. Serves the
+    # compiled SPA when built, else a placeholder.
     @app.get("/{path:path}", response_class=HTMLResponse)
     def spa(path: str) -> HTMLResponse:
         index = _UI_DIR / "index.html"
