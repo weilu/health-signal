@@ -93,7 +93,7 @@ The **generic library** ships the FastAPI app and the compiled React UI in one p
 | API docs | FastAPI-generated **OpenAPI** — Swagger UI (`/docs`) + ReDoc (`/redoc`) + `/openapi.json`, auth-gated; optional static reference via Redoc (`@redocly/cli`) in CI |
 | Contract validation | Pydantic models in the server (single source of truth) |
 | Packaging | hatchling; Vite build baked into the wheel as package data |
-| Auth (MVP) | Local accounts via Connect secrets + signed-cookie sessions |
+| Auth | Pluggable `AuthProvider` — **not hand-rolled**: local = `fastapi-login` + argon2 (DB-free config accounts, MVP); SSO = **Authlib** OIDC RP (deferred). Per-page access policy (default locked, opt-in public) |
 | Data (MVP) | Files in ERVISS format via `FileDataSource` |
 
 ## 6. Data contract (ETL ↔ app boundary)
@@ -196,16 +196,27 @@ class DataSource(Protocol):
 
 ### 7.2 `AuthProvider`
 
+Auth risk is **not hand-rolled** — the risky pieces (session tokens, OAuth flows, password
+hashing) are delegated to maintained libraries. The provider owns its own **login routes** so a
+different login mechanism is a different provider, not an app change:
+
 ```python
 class AuthProvider(Protocol):
-    def authenticate(self, credentials) -> Session | None: ...
-    def current_user(self, request) -> User | None: ...
+    def install(self, app: FastAPI) -> None: ...       # register this provider's login/logout(/callback) routes
+    def current_user(self, request: Request) -> "User | None": ...   # read the established session (shared shape)
 ```
 
-- `LocalAccountsProvider` — accounts from Connect env/secrets (email + argon2/bcrypt hash),
-  signed-cookie sessions (itsdangerous/JWT, HTTP-only, Secure). No DB. **MVP.**
-- `OIDCProvider` — Authorization Code + PKCE against a configured IdP; country gov SSO. **Deferred.**
-- A `require_auth` dependency gates the SPA route and every `/api/*` route.
+- **`LocalAccountsProvider` (basic/demo — MVP):** DB-free, accounts from config/secrets
+  (`HEALTH_SIGNAL_ACCOUNTS` email→hash + `HEALTH_SIGNAL_SECRET_KEY`). Session cookie/token managed
+  by **`fastapi-login`** (`LoginManager` + a `user_loader` reading the config accounts); password
+  hashing by **argon2** (argon2-cffi/passlib). We write only thin glue — no hand-rolled session or
+  cookie crypto.
+- **`OIDCProvider` (SSO — deferred):** OAuth2 Authorization-Code + PKCE via **Authlib** (audited),
+  as an OIDC Relying Party to a managed IdP (Microsoft Entra/Azure AD, Auth0, or Keycloak — chosen
+  at that stage; Authlib treats them identically via discovery). Installs a redirect `/login` +
+  `/callback`; the app never handles credentials. Same seam, so it drops in without app changes.
+- **Shared, app-level (provider-agnostic):** the signed session, the `require_auth` dependency, and
+  the **per-page access policy** (§7.4) — these do not move when the provider changes.
 
 ### 7.3 AI access (OpenAPI now; MCP later)
 
@@ -216,6 +227,15 @@ the same `DataSource` + config as MCP tools/resources (`list_indicators`, `query
 `get_status_trend`) behind the same `AuthProvider` (MCP supports OAuth) — is the standard way to reach
 MCP-native AI clients and plugs into the existing seam with **no core change**. **Deferred** (post-MVP);
 OpenAPI covers baseline AI access for now.
+
+### 7.4 Per-page access policy (public vs locked)
+
+Page access is **configurable**: each page defaults to **`authenticated` (locked)** and is opted
+into **`public`** in config. The enforced boundary is the **data** (`/api`), not the HTML — the SPA
+is client-routed public code, so a public page's data is served unauthenticated while a locked
+page's data requires auth; the client shows a login CTA for locked pages. `require_auth` and the
+`/api` gate consult the config access policy (public resources bypass auth); `/healthz` and the
+provider's login routes are always public. Default-locked matches "keep content off public eyes."
 
 ## 8. Server (FastAPI) — routes
 
