@@ -1,15 +1,21 @@
 # health-signal
 
-A reusable, configuration-driven **respiratory-surveillance dashboard** library. It presents
-integrated public-health surveillance data — clinical indicators alongside wastewater signals —
-as status, trend, and seasonal onset/wave phase, behind app-managed authentication. It is designed
-to be deployed by any country or agency with its own data, branding, and languages.
+[![CI](https://github.com/weilu/health-signal/actions/workflows/ci.yml/badge.svg)](https://github.com/weilu/health-signal/actions/workflows/ci.yml)
+
+A reusable, configuration-driven **public-health surveillance dashboard** library. It presents
+integrated surveillance data — clinical indicators alongside complementary signals such as
+wastewater — as status, trend, and seasonal/wave phase, behind app-managed authentication. It is
+**modular**: which surveillance targets (pathogens, indicators, whole domains) appear is driven
+entirely by configuration and pluggable **schema profiles**, so it is not tied to any single
+disease area. It is designed to be deployed by any country or agency with its own data, branding,
+and languages.
 
 `health-signal` is a [FastAPI](https://fastapi.tiangolo.com/) application that serves a React
-([MUI](https://mui.com/)) single-page app plus a gated JSON API. It consumes a standards-based data
-feed (ECDC/WHO **ERVISS** for clinical indicators; US CDC **NWSS** for wastewater) and is packaged
-as a Python library that a country's own repository configures and deploys (for example, to Posit
-Connect).
+([MUI](https://mui.com/)) single-page app plus a gated JSON API. It ships a respiratory profile
+first (ECDC/WHO **ERVISS** clinical indicators + US CDC **NWSS** wastewater); further domains
+(e.g. AMR, vaccine-preventable diseases) are added as configuration plus a schema profile, not a
+fork. It is packaged as a Python library that a country's own repository configures and deploys
+(for example, to Posit Connect).
 
 **Audience:** public-health agencies, epidemiologists, and the teams building surveillance
 dashboards for them.
