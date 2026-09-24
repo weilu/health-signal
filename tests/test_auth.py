@@ -89,9 +89,16 @@ def test_api_me_requires_auth():
     assert r.status_code == 401
 
 
-def test_unknown_api_path_returns_401_unauthenticated():
-    r = _client().get("/api/does-not-exist")
-    assert r.status_code == 401
+def test_unknown_api_path_returns_404():
+    # Unknown /api routes are an auth-independent 404 -- never SPA HTML, and no 401 that would let
+    # anonymous probes distinguish real endpoints (the surface is public via /openapi.json anyway).
+    client = _client()
+    assert client.get("/api/does-not-exist").status_code == 404  # unauthenticated
+    login = client.post(
+        "/login", data={"email": _EMAIL, "password": _PASSWORD}, follow_redirects=False
+    )
+    assert login.status_code == 303
+    assert client.get("/api/does-not-exist").status_code == 404  # authenticated
 
 
 def test_spa_redirects_to_login_when_unauthenticated():
@@ -123,20 +130,9 @@ def test_login_rejects_cross_origin(origin):
 
 
 def test_public_root_still_gates_api():
-    # public_paths=["/"] makes pages public, but /api/* must keep the JSON contract:
-    # an unmatched API path is 401 (unauth), never SPA HTML.
+    # public_paths=["/"] makes pages public, but /api/* is still resolved first:
+    # an unmatched API path is 404, never SPA HTML.
     r = _client(public_paths=["/"]).get("/api/unknown", follow_redirects=False)
-    assert r.status_code == 401
-
-
-def test_authenticated_unknown_api_path_returns_404():
-    client = _client()
-    login = client.post(
-        "/login", data={"email": _EMAIL, "password": _PASSWORD}, follow_redirects=False
-    )
-    assert login.status_code == 303
-
-    r = client.get("/api/does-not-exist")
     assert r.status_code == 404
 
 
@@ -172,15 +168,11 @@ def test_public_paths_serve_pages(public_paths, path):
     assert r.status_code == 200
 
 
-def test_unauthenticated_post_api_returns_401():
-    r = _client().post("/api/whatever")
-    assert r.status_code == 401
-
-
-def test_docs_disabled():
+def test_docs_public_without_auth():
+    # API docs are intentionally public -- the structure isn't sensitive; only /api/* data is gated.
     client = _client()
-    assert client.get("/openapi.json").status_code == 404
-    assert client.get("/docs").status_code == 404
+    assert client.get("/openapi.json").status_code == 200
+    assert client.get("/docs").status_code == 200
 
 
 def test_from_env_rejects_non_string_account_values(monkeypatch):
