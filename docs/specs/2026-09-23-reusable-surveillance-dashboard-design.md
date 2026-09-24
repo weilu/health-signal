@@ -263,6 +263,13 @@ precedence over client-side routes.
   data-driven strings** (pathogen display names, source subtitles, methodology text) and may override
   library defaults. `/api/locales/{lang}` **deep-merges** library base + country overrides (country
   wins) so no country re-translates the generic chrome.
+  - **Config carries keys, not translations.** `dashboard.yaml` holds structure + stable ids/i18n
+    **keys**, never inline `{en, el}` maps. A display label is either an explicit i18n key or derived
+    by convention from a stable id (e.g. pathogen `id: covid-19` → `pathogens.covid-19.label`); the
+    text for that key lives in the locale files. This keeps **one source of truth** for translatable
+    text, so translators work in one place and adding a language is a single new locale file — no
+    config edits. (Config fields like `site.title` that name the app/OpenAPI, not user-facing UI, stay
+    plain strings.)
 - **Methodology view (config-driven).** Generalizes the prototype's "Methods" page: a page that
   renders **config-selected methodology content** (Markdown, per-locale, via `/api/methodology/{lang}`,
   rendered with react-markdown). The methodology shown **matches the configured analytic method(s)**
