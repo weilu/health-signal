@@ -128,6 +128,24 @@ def test_login_rejects_null_origin():
     assert r.status_code == 403
 
 
+def test_login_rejects_http_origin_on_https():
+    # Same host, wrong scheme -- a same-host http origin must not ride the Secure
+    # cookie to the https target.
+    r = _client().post(
+        "/login",
+        data={"email": _EMAIL, "password": _PASSWORD},
+        headers={"Origin": "http://testserver"},
+    )
+    assert r.status_code == 403
+
+
+def test_public_root_still_gates_api():
+    # public_paths=["/"] makes pages public, but /api/* must keep the JSON contract:
+    # an unmatched API path is 401 (unauth), never SPA HTML.
+    r = _client(public_paths=["/"]).get("/api/unknown", follow_redirects=False)
+    assert r.status_code == 401
+
+
 def test_authenticated_unknown_api_path_returns_404():
     client = _client()
     login = client.post(
