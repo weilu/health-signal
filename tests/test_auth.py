@@ -175,8 +175,14 @@ def test_docs_public_without_auth():
     assert client.get("/docs").status_code == 200
 
 
+def test_from_env_rejects_short_secret(monkeypatch):
+    monkeypatch.setenv("HEALTH_SIGNAL_SECRET_KEY", "x")
+    with pytest.raises(RuntimeError):
+        from_env()
+
+
 def test_from_env_rejects_non_string_account_values(monkeypatch):
-    monkeypatch.setenv("HEALTH_SIGNAL_SECRET_KEY", "test-secret")
+    monkeypatch.setenv("HEALTH_SIGNAL_SECRET_KEY", "s" * 32)
     monkeypatch.setenv("HEALTH_SIGNAL_ACCOUNTS", '{"a@x.org": 123}')
     with pytest.raises(RuntimeError):
         from_env()

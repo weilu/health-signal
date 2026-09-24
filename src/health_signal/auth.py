@@ -136,6 +136,12 @@ def from_env(max_age_s: int = 43200) -> LocalAccountsProvider:
     secret_key = os.environ.get("HEALTH_SIGNAL_SECRET_KEY")
     if not secret_key:
         raise RuntimeError("HEALTH_SIGNAL_SECRET_KEY is required to build an auth provider")
+    if len(secret_key.encode()) < 32:
+        raise RuntimeError(
+            "HEALTH_SIGNAL_SECRET_KEY must be at least 32 bytes: the session JWT is HMAC-signed "
+            "with it and a weak value can be brute-forced offline. Generate one with "
+            '`python -c "import secrets; print(secrets.token_urlsafe(32))"`.'
+        )
     raw = json.loads(os.environ.get("HEALTH_SIGNAL_ACCOUNTS", "{}"))
     if not isinstance(raw, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in raw.items()):
         raise RuntimeError("HEALTH_SIGNAL_ACCOUNTS must be a JSON object mapping email strings to hash strings.")
