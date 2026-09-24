@@ -16,6 +16,8 @@ class SiteConfig(BaseModel):
     title: str
     default_locale: str = "en"
     locales: list[str] = Field(default_factory=lambda: ["en"])
+    # Path prefixes that bypass auth. Default empty = everything is locked (opt-in public).
+    public_paths: list[str] = Field(default_factory=list)
 
 
 class Config(BaseModel):
