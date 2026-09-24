@@ -100,41 +100,24 @@ def test_spa_redirects_to_login_when_unauthenticated():
     assert r.headers["location"] == "/login"
 
 
-def test_public_path_bypasses_auth():
-    r = _client(public_paths=["/about"]).get("/about", follow_redirects=False)
-    assert r.status_code == 200
-
-
 def test_login_wrong_password_returns_401():
     r = _client().post("/login", data={"email": _EMAIL, "password": "wrong"})
     assert r.status_code == 401
 
 
-def test_login_rejects_cross_origin():
+@pytest.mark.parametrize(
+    "origin",
+    [
+        "https://evil.example",  # different host
+        "null",  # sandboxed iframe / opaque origin
+        "http://testserver",  # same host, wrong scheme -- must not ride the Secure cookie to https
+    ],
+)
+def test_login_rejects_cross_origin(origin):
     r = _client().post(
         "/login",
         data={"email": _EMAIL, "password": _PASSWORD},
-        headers={"origin": "https://evil.example"},
-    )
-    assert r.status_code == 403
-
-
-def test_login_rejects_null_origin():
-    r = _client().post(
-        "/login",
-        data={"email": _EMAIL, "password": _PASSWORD},
-        headers={"Origin": "null"},
-    )
-    assert r.status_code == 403
-
-
-def test_login_rejects_http_origin_on_https():
-    # Same host, wrong scheme -- a same-host http origin must not ride the Secure
-    # cookie to the https target.
-    r = _client().post(
-        "/login",
-        data={"email": _EMAIL, "password": _PASSWORD},
-        headers={"Origin": "http://testserver"},
+        headers={"Origin": origin},
     )
     assert r.status_code == 403
 
@@ -176,13 +159,16 @@ def test_login_then_access_then_logout():
     assert client.get("/api/me").status_code == 401
 
 
-def test_public_paths_root_makes_site_public():
-    r = _client(public_paths=["/"]).get("/anything", follow_redirects=False)
-    assert r.status_code == 200
-
-
-def test_public_path_prefix_matches_subpaths():
-    r = _client(public_paths=["/about"]).get("/about/team", follow_redirects=False)
+@pytest.mark.parametrize(
+    "public_paths,path",
+    [
+        (["/about"], "/about"),  # exact match
+        (["/about"], "/about/team"),  # subpath under the prefix
+        (["/"], "/anything"),  # "/" opens the whole site
+    ],
+)
+def test_public_paths_serve_pages(public_paths, path):
+    r = _client(public_paths=public_paths).get(path, follow_redirects=False)
     assert r.status_code == 200
 
 
