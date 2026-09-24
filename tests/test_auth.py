@@ -1,11 +1,12 @@
 import asyncio
 
+import pytest
 from fastapi import Response
 from fastapi.testclient import TestClient
 from starlette.requests import Request as StarletteRequest
 
 from health_signal.app import create_app
-from health_signal.auth import LocalAccountsProvider, hash_password
+from health_signal.auth import LocalAccountsProvider, from_env, hash_password
 from health_signal.config import Config, SiteConfig
 
 # Synthetic, throwaway test-only account -- never a real credential.
@@ -155,3 +156,31 @@ def test_login_then_access_then_logout():
 
     client.post("/logout", follow_redirects=False)
     assert client.get("/api/me").status_code == 401
+
+
+def test_public_paths_root_makes_site_public():
+    r = _client(public_paths=["/"]).get("/anything", follow_redirects=False)
+    assert r.status_code == 200
+
+
+def test_public_path_prefix_matches_subpaths():
+    r = _client(public_paths=["/about"]).get("/about/team", follow_redirects=False)
+    assert r.status_code == 200
+
+
+def test_unauthenticated_post_api_returns_401():
+    r = _client().post("/api/whatever")
+    assert r.status_code == 401
+
+
+def test_docs_disabled():
+    client = _client()
+    assert client.get("/openapi.json").status_code == 404
+    assert client.get("/docs").status_code == 404
+
+
+def test_from_env_rejects_non_string_account_values(monkeypatch):
+    monkeypatch.setenv("HEALTH_SIGNAL_SECRET_KEY", "test-secret")
+    monkeypatch.setenv("HEALTH_SIGNAL_ACCOUNTS", '{"a@x.org": 123}')
+    with pytest.raises(RuntimeError):
+        from_env()

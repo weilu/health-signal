@@ -129,5 +129,7 @@ def from_env(max_age_s: int = 43200) -> LocalAccountsProvider:
     secret_key = os.environ.get("HEALTH_SIGNAL_SECRET_KEY")
     if not secret_key:
         raise RuntimeError("HEALTH_SIGNAL_SECRET_KEY is required to build an auth provider")
-    accounts = json.loads(os.environ.get("HEALTH_SIGNAL_ACCOUNTS", "{}"))
-    return LocalAccountsProvider(accounts, secret_key, max_age_s=max_age_s)
+    raw = json.loads(os.environ.get("HEALTH_SIGNAL_ACCOUNTS", "{}"))
+    if not isinstance(raw, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in raw.items()):
+        raise RuntimeError("HEALTH_SIGNAL_ACCOUNTS must be a JSON object mapping email strings to hash strings.")
+    return LocalAccountsProvider(raw, secret_key, max_age_s=max_age_s)
