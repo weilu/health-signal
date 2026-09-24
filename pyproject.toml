@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "health-signal"
 version = "0.1.0"
-description = "Reusable, configuration-driven respiratory-surveillance dashboard library"
+description = "Reusable, configuration-driven public-health surveillance dashboard library"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
