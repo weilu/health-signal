@@ -74,9 +74,12 @@ class LocalAccountsProvider:
             default_expiry=timedelta(seconds=max_age_s),
         )
 
-        @self.manager.user_loader()
-        def _load_user(email: str) -> User | None:
-            return User(email=email) if email in self.accounts else None
+        self.manager.user_loader()(self._load_user)
+
+    def _load_user(self, email: str) -> User | None:
+        # fastapi-login user_loader: maps a validated token's `sub` back to a User, re-checking the
+        # account still exists so a removed account -> None (the session is effectively revoked).
+        return User(email=email) if email in self.accounts else None
 
     def authenticate(self, email: str, password: str) -> User | None:
         stored_hash = self.accounts.get(email)
@@ -87,8 +90,6 @@ class LocalAccountsProvider:
         return User(email=email) if stored_hash is not None else None
 
     async def current_user(self, request: Request) -> User | None:
-        # manager.optional() swallows missing/invalid/expired-token errors and
-        # returns None instead of raising, which is what a gate dependency needs.
         return await self.manager.optional(request)
 
     def _issue_session(self, response: Response, user: User) -> None:
