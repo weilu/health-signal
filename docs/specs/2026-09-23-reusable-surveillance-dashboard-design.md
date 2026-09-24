@@ -1,4 +1,4 @@
-# Reusable Respiratory-Surveillance Dashboard — Design
+# Reusable Public-Health Surveillance Dashboard — Design
 
 **Date:** 2026-09-23
 **Status:** Design (approved for planning)
@@ -19,6 +19,13 @@ HTML to Posit Connect. We now want an **MVP** that is:
   consumes it as a library and supplies only country specifics.
 - **Standards-based input** — the data feed adheres to an existing surveillance standard.
 - **Deployable on Posit Connect.**
+
+**Scope — not respiratory-specific.** The pilot and the MVP's first schema profile are respiratory
+(ERVISS clinical + NWSS wastewater), but the dashboard is a **general integrated public-health
+surveillance** platform. The data contract, auth, i18n, theming, and config-driven UI are
+**domain-agnostic**; other surveillance domains (AMR, vaccine-preventable diseases, HIV, polio, …)
+plug in as configuration plus a schema profile, without a fork (see §6.4). Nothing in the design is
+respiratory-specific — "respiratory" is the first profile, not a boundary.
 
 ## 2. Goals & non-goals
 
