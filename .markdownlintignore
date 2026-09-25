@@ -1,0 +1,4 @@
+# Internal working docs (implementation plans, design specs) are not consumer-facing;
+# exclude them from Markdown linting. They remain tracked in the repo and in git history.
+docs/plans/
+docs/specs/

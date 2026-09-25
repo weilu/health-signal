@@ -58,6 +58,34 @@ app = create_app(load_config("dashboard.yaml"))
 A consuming repository supplies a `dashboard.yaml` (which pathogens/indicators, layout, branding,
 locales), translation overrides, and a data feed adhering to the contract.
 
+### Authentication & access
+
+The dashboard is gated by an app-managed local auth provider (fastapi-login + argon2, no database),
+configured with two environment variables:
+
+- `HEALTH_SIGNAL_SECRET_KEY` — signs the session cookie. **Must be at least 32 bytes** (a weak value
+  can be brute-forced offline to forge sessions). Generate one with
+  `python -c "import secrets; print(secrets.token_urlsafe(32))"`.
+- `HEALTH_SIGNAL_ACCOUNTS` — a JSON object mapping each email to its argon2 hash.
+
+Access is **default-locked**: `public_paths` (in `dashboard.yaml`) lists the SPA **pages** that
+render without login. An unauthenticated request to any other page is redirected to `/login`.
+
+| `public_paths` | Public SPA pages |
+| --- | --- |
+| `[]` (default) | None — every page requires login |
+| `["/about"]` | `/about` and its sub-paths |
+| `["/"]` | All pages |
+
+`public_paths` controls **page (HTML) access only** — it does not open API endpoints. Gated routes
+such as `/api/me` stay authenticated even under `["/"]`, and the always-public routes — the OpenAPI
+docs (`/docs`, `/redoc`, `/openapi.json`) and `/healthz`, `/login`, `/logout` — are reachable
+regardless. Entries must be non-empty, and `/` is the only match-all value.
+
+`/login` runs an intentionally expensive argon2 verification on every attempt, so deploy it behind a
+proxy (e.g. Posit Connect or a reverse proxy) that rate-limits `/login` and returns HTTP 429 when
+exceeded — the library does not throttle in-process.
+
 ### Development
 
 This project uses [uv](https://docs.astral.sh/uv/) for the development workflow (the build backend
