@@ -68,18 +68,19 @@ configured with two environment variables:
   `python -c "import secrets; print(secrets.token_urlsafe(32))"`.
 - `HEALTH_SIGNAL_ACCOUNTS` — a JSON object mapping each email to its argon2 hash.
 
-Access is **default-locked**: unless a page's path prefix is listed in `public_paths` (in
-`dashboard.yaml`), unauthenticated requests to it are redirected to `/login`, and its data
-endpoints (`/api/*`) return `401` — locked content is never served without authentication.
+Access is **default-locked**: `public_paths` (in `dashboard.yaml`) lists the SPA **pages** that
+render without login. An unauthenticated request to any other page is redirected to `/login`.
 
-| `public_paths` | Effect |
+| `public_paths` | Public SPA pages |
 | --- | --- |
-| `[]` (default) | Whole site locked — everything behind auth |
-| `["/about"]` | Only that prefix (and its sub-paths) public |
-| `["/"]` | Whole site public |
+| `[]` (default) | None — every page requires login |
+| `["/about"]` | `/about` and its sub-paths |
+| `["/"]` | All pages |
 
-`/healthz`, `/login`, and `/logout` are always reachable (operational endpoints). Entries must be
-non-empty, and `/` is the only match-all value.
+`public_paths` controls **page (HTML) access only** — it does not open API endpoints. Gated routes
+such as `/api/me` stay authenticated even under `["/"]`, and the always-public routes — the OpenAPI
+docs (`/docs`, `/redoc`, `/openapi.json`) and `/healthz`, `/login`, `/logout` — are reachable
+regardless. Entries must be non-empty, and `/` is the only match-all value.
 
 `/login` runs an intentionally expensive argon2 verification on every attempt, so deploy it behind a
 proxy (e.g. Posit Connect or a reverse proxy) that rate-limits `/login` and returns HTTP 429 when

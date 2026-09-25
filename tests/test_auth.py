@@ -130,6 +130,27 @@ def test_login_rejects_cross_origin(origin):
     assert r.status_code == 403
 
 
+def test_login_rejects_cross_origin_referer():
+    # No Origin header -> the CSRF check falls back to Referer; a cross-origin Referer is rejected.
+    r = _client().post(
+        "/login",
+        data={"email": _EMAIL, "password": _PASSWORD},
+        headers={"Referer": "https://evil.example/page"},
+    )
+    assert r.status_code == 403
+
+
+def test_login_accepts_same_origin_referer():
+    # No Origin, same-origin Referer -> CSRF check passes, so a valid login proceeds (303), not 403.
+    r = _client().post(
+        "/login",
+        data={"email": _EMAIL, "password": _PASSWORD},
+        headers={"Referer": "https://testserver/some/page"},
+        follow_redirects=False,
+    )
+    assert r.status_code == 303
+
+
 def test_public_root_still_gates_api():
     # public_paths=["/"] makes pages public, but /api/* is still resolved first:
     # an unmatched API path is 404, never SPA HTML.
