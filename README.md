@@ -58,6 +58,32 @@ app = create_app(load_config("dashboard.yaml"))
 A consuming repository supplies a `dashboard.yaml` (which pathogens/indicators, layout, branding,
 locales), translation overrides, and a data feed adhering to the contract.
 
+### Authentication & access
+
+The dashboard is gated by an app-managed local auth provider (fastapi-login + argon2, no database),
+configured with two environment variables:
+
+- `HEALTH_SIGNAL_SECRET_KEY` — signs the session cookie. **Must be at least 32 bytes** (a weak value
+  can be brute-forced offline to forge sessions). Generate one with
+  `python -c "import secrets; print(secrets.token_urlsafe(32))"`.
+- `HEALTH_SIGNAL_ACCOUNTS` — a JSON object mapping each email to its argon2 hash.
+
+Access is **default-locked**: every page requires authentication unless its path prefix is listed in
+`public_paths` (in `dashboard.yaml`). The gate applies to the data (`/api/*`), not the HTML.
+
+| `public_paths` | Effect |
+| --- | --- |
+| `[]` (default) | Whole site locked — everything behind auth |
+| `["/about"]` | Only that prefix (and its sub-paths) public |
+| `["/"]` | Whole site public |
+
+`/healthz`, `/login`, and `/logout` are always reachable (operational endpoints). Entries must be
+non-empty, and `/` is the only match-all value.
+
+`/login` runs an intentionally expensive argon2 verification on every attempt, so deploy it behind a
+proxy (e.g. Posit Connect or a reverse proxy) that rate-limits `/login` and returns HTTP 429 when
+exceeded — the library does not throttle in-process.
+
 ### Development
 
 This project uses [uv](https://docs.astral.sh/uv/) for the development workflow (the build backend

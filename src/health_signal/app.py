@@ -31,7 +31,12 @@ def create_app(config: Config, auth_provider: AuthProvider | None = None) -> Fas
     provider.install(app)
 
     _ALWAYS_PUBLIC = ("/healthz", "/login", "/logout")
-    # Normalize each configured public path to a leading-slash, no-trailing-slash prefix ("" -> "/").
+    for p in config.site.public_paths:
+        # A blank entry would normalize to "/", which is_public treats as match-all -- a stray ""
+        # (e.g. public_paths: [""]) would silently unlock the whole site. Only an explicit "/" may.
+        if not p.strip():
+            raise ValueError("public_paths entries must be non-empty; use '/' to make the whole site public")
+    # Normalize each configured public path to a leading-slash, no-trailing-slash prefix.
     public_prefixes = list(_ALWAYS_PUBLIC) + ["/" + p.strip("/") for p in config.site.public_paths]
 
     def is_public(path: str) -> bool:

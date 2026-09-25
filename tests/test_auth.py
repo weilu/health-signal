@@ -175,6 +175,11 @@ def test_docs_public_without_auth():
     assert client.get("/docs").status_code == 200
 
 
+def test_blank_public_path_rejected():
+    with pytest.raises(ValueError):
+        _client(public_paths=[""])
+
+
 def test_from_env_rejects_short_secret(monkeypatch):
     monkeypatch.setenv("HEALTH_SIGNAL_SECRET_KEY", "x")
     with pytest.raises(RuntimeError):
