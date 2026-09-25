@@ -1,6 +1,7 @@
 import asyncio
 
 import pytest
+from pydantic import ValidationError
 from fastapi import Response
 from fastapi.testclient import TestClient
 from starlette.requests import Request as StarletteRequest
@@ -178,8 +179,13 @@ def test_docs_public_without_auth():
 @pytest.mark.parametrize("bad", ["", "//", "   ", "/ /"])
 def test_match_all_public_path_footguns_rejected(bad):
     # These all normalize to "/" (match-all) but aren't a literal "/"; must not silently open the site.
-    with pytest.raises(ValueError):
-        _client(public_paths=[bad])
+    with pytest.raises(ValidationError):
+        SiteConfig(title="Test", public_paths=[bad])
+
+
+def test_public_paths_normalized_at_parse():
+    site = SiteConfig(title="Test", public_paths=["about", "/data/", "/"])
+    assert site.public_paths == ["/about", "/data", "/"]
 
 
 def test_from_env_rejects_short_secret(monkeypatch):
