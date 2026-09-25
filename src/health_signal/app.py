@@ -31,14 +31,16 @@ def create_app(config: Config, auth_provider: AuthProvider | None = None) -> Fas
     provider.install(app)
 
     _ALWAYS_PUBLIC = ("/healthz", "/login", "/logout")
-    # config.site.public_paths is already validated + normalized (SiteConfig field validator).
-    public_prefixes = list(_ALWAYS_PUBLIC) + config.site.public_paths
 
     def is_public(path: str) -> bool:
-        # "/" opts the whole site public; otherwise match at a path boundary.
+        # Operational endpoints are always public, but only as exact matches -- a subpath such as
+        # /login/private must stay gated. Configured public_paths (already validated + normalized by
+        # SiteConfig) match by prefix: "/" opts the whole site public; others match at a path boundary.
+        if path in _ALWAYS_PUBLIC:
+            return True
         return any(
             prefix == "/" or path == prefix or path.startswith(prefix + "/")
-            for prefix in public_prefixes
+            for prefix in config.site.public_paths
         )
 
     async def require_auth(request: Request) -> User:

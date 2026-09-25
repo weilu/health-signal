@@ -183,6 +183,14 @@ def test_match_all_public_path_footguns_rejected(bad):
         SiteConfig(title="Test", public_paths=[bad])
 
 
+@pytest.mark.parametrize("path", ["/login/private", "/logout/x", "/healthz/secret"])
+def test_operational_endpoint_subpaths_stay_gated(path):
+    # Built-in routes are exact-match public; their subpaths must not inherit that.
+    r = _client().get(path, follow_redirects=False)
+    assert r.status_code == 303
+    assert r.headers["location"] == "/login"
+
+
 def test_public_paths_normalized_at_parse():
     site = SiteConfig(title="Test", public_paths=["about", "/data/", "/"])
     assert site.public_paths == ["/about", "/data", "/"]
