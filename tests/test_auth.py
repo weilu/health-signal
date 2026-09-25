@@ -175,9 +175,11 @@ def test_docs_public_without_auth():
     assert client.get("/docs").status_code == 200
 
 
-def test_blank_public_path_rejected():
+@pytest.mark.parametrize("bad", ["", "//", "   ", "/ /"])
+def test_match_all_public_path_footguns_rejected(bad):
+    # These all normalize to "/" (match-all) but aren't a literal "/"; must not silently open the site.
     with pytest.raises(ValueError):
-        _client(public_paths=[""])
+        _client(public_paths=[bad])
 
 
 def test_from_env_rejects_short_secret(monkeypatch):

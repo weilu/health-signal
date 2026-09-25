@@ -68,8 +68,9 @@ configured with two environment variables:
   `python -c "import secrets; print(secrets.token_urlsafe(32))"`.
 - `HEALTH_SIGNAL_ACCOUNTS` — a JSON object mapping each email to its argon2 hash.
 
-Access is **default-locked**: every page requires authentication unless its path prefix is listed in
-`public_paths` (in `dashboard.yaml`). The gate applies to the data (`/api/*`), not the HTML.
+Access is **default-locked**: unless a page's path prefix is listed in `public_paths` (in
+`dashboard.yaml`), unauthenticated requests to it are redirected to `/login`, and its data
+endpoints (`/api/*`) return `401` — locked content is never served without authentication.
 
 | `public_paths` | Effect |
 | --- | --- |

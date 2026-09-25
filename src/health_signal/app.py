@@ -32,9 +32,10 @@ def create_app(config: Config, auth_provider: AuthProvider | None = None) -> Fas
 
     _ALWAYS_PUBLIC = ("/healthz", "/login", "/logout")
     for p in config.site.public_paths:
-        # prevent [""] from making the whole site public ([] = all locked, ["/"] = all public)
-        if not p.strip():
-            raise ValueError("public_paths entries must be non-empty; use '/' to make the whole site public")
+        # Only a literal "/" may be match-all: reject "", "//", whitespace, etc. that also normalize
+        # to "/" and would silently make the whole site public ([] = all locked, ["/"] = all public).
+        if p != "/" and not p.strip("/").strip():
+            raise ValueError('public_paths entries must be non-empty paths; use "/" (exactly) for the whole site')
     # Normalize each configured public path to a leading-slash, no-trailing-slash prefix.
     public_prefixes = list(_ALWAYS_PUBLIC) + ["/" + p.strip("/") for p in config.site.public_paths]
 
