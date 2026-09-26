@@ -1,18 +1,45 @@
-import { Box, Paper, TextField, Button, Typography } from '@mui/material'
+import { useState } from 'react'
+import { Box, Paper, TextField, Button, Typography, Alert } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 
 export default function LoginPage({ config }) {
   const { t } = useTranslation()
+  const [error, setError] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setSubmitting(true)
+    setError(false)
+    const body = new URLSearchParams(new FormData(e.currentTarget))
+    // POST via fetch (not a native form) so a 401 renders inline instead of replacing the SPA with
+    // raw JSON. On success the server sets the cookie + 303s; redirect:'manual' surfaces that as an
+    // opaqueredirect, and a full navigation to '/' loads the authenticated SPA (which fetches /api/config).
+    const res = await fetch('/login', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body,
+      redirect: 'manual',
+    }).catch(() => null)
+    if (res && (res.ok || res.type === 'opaqueredirect' || res.status === 303)) {
+      window.location.assign('/')
+      return
+    }
+    setSubmitting(false)
+    setError(true)
+  }
+
   return (
     <Box sx={{ display: 'flex', justifyContent: 'center', mt: 6 }}>
       <Paper sx={{ p: 4, width: 360 }} elevation={2}>
         <Typography variant="h5" gutterBottom>{config.title}</Typography>
         <Typography variant="subtitle1" gutterBottom>{t('login.title')}</Typography>
-        {/* Native POST: server sets the session and 303-redirects to '/', which reloads with the full config. */}
-        <form method="post" action="/login">
+        {error && <Alert severity="error" sx={{ mb: 2 }}>{t('login.error')}</Alert>}
+        <form onSubmit={handleSubmit}>
           <TextField name="email" type="email" label={t('login.email')} fullWidth required margin="normal" />
           <TextField name="password" type="password" label={t('login.password')} fullWidth required margin="normal" />
-          <Button type="submit" variant="contained" fullWidth sx={{ mt: 2 }}>{t('login.submit')}</Button>
+          <Button type="submit" variant="contained" fullWidth sx={{ mt: 2 }} disabled={submitting}>{t('login.submit')}</Button>
         </form>
       </Paper>
     </Box>
