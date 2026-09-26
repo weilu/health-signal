@@ -50,7 +50,7 @@ Config reaches the client two ways, split on the auth boundary (this keeps spec 
 - `src/health_signal/app.py` (modify) — add a pure `render_index(html, config_payload)` helper (HTML-safe JSON injection); `_serve_spa` injects only the bootstrap projection into the served HTML, and a gated `GET /api/config` serves the full client view-model.
 - `src/health_signal/locales/en.json`, `src/health_signal/locales/el.json` (create) — base UI-string catalog (generic chrome).
 - `tests/test_config.py` (create) — projection unit tests.
-- `tests/test_app.py` (modify) — injection/tiering integration tests.
+- `tests/test_auth.py` (modify) — injection/tiering integration tests.
 
 **Frontend (`frontend/`, new — JS/JSX):**
 - `frontend/package.json`, `frontend/vite.config.js`, `frontend/index.html`, `frontend/.gitignore`
@@ -200,7 +200,7 @@ git commit -m "feat(config): view-model with bootstrap/client projections"
 
 **Files:**
 - Modify: `src/health_signal/app.py`
-- Test: `tests/test_app.py`
+- Test: `tests/test_auth.py`
 
 **Interfaces:**
 - Consumes: `Config.bootstrap_config()`, `Config.client_config()` (Task 1); `require_auth` + `_serve_spa` (existing).
@@ -211,7 +211,7 @@ git commit -m "feat(config): view-model with bootstrap/client projections"
 - [ ] **Step 1: Write failing tests**
 
 ```python
-# tests/test_app.py — add
+# tests/test_auth.py — add
 from health_signal.app import render_index
 from health_signal.config import Target, Page
 
@@ -253,7 +253,7 @@ Add a `_write_ui(tmp_path)` helper near the other test helpers (writes `index.ht
 
 - [ ] **Step 2: Run to verify failure**
 
-Run: `uv run pytest tests/test_app.py -k "render_index or bootstrap_only or api_config or placeholder" -v`
+Run: `uv run pytest tests/test_auth.py -k "render_index or bootstrap_only or api_config or placeholder" -v`
 Expected: FAIL (`ImportError: render_index`; `/api/config` 404).
 
 - [ ] **Step 3: Implement**
@@ -287,13 +287,13 @@ Update the catch-all's `_serve_spa()` call sites to `_serve_spa(config)`. Add th
 
 - [ ] **Step 4: Run to verify pass**
 
-Run: `uv run pytest tests/test_app.py -v`
+Run: `uv run pytest tests/test_auth.py -v`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/health_signal/app.py tests/test_app.py
+git add src/health_signal/app.py tests/test_auth.py
 git commit -m "feat(app): inject bootstrap config into SPA HTML; gated GET /api/config"
 ```
 
