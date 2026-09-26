@@ -6,9 +6,9 @@ from fastapi import Response
 from fastapi.testclient import TestClient
 from starlette.requests import Request as StarletteRequest
 
-from health_signal.app import create_app
+from health_signal.app import create_app, render_index
 from health_signal.auth import LocalAccountsProvider, from_env, hash_password
-from health_signal.config import Config, SiteConfig
+from health_signal.config import Config, SiteConfig, Target, Page
 
 # Synthetic, throwaway test-only account -- never a real credential.
 _EMAIL = "a@x.org"
@@ -25,15 +25,25 @@ def _request(cookie_header: str | None) -> StarletteRequest:
     return StarletteRequest(scope)
 
 
-def _client(public_paths: list[str] | None = None) -> TestClient:
+def _client(public_paths: list[str] | None = None, targets: list[Target] | None = None) -> TestClient:
     config = Config(
         schema_version="0.1",
         site=SiteConfig(title="Test", public_paths=public_paths or []),
+        targets=targets or [],
     )
     app = create_app(config, auth_provider=_provider())
     # Secure cookies are only ever replayed by an http client over https, so the
     # TestClient must use an https base_url for the login-then-access flow to work.
     return TestClient(app, base_url="https://testserver")
+
+
+def _write_ui(tmp_path):
+    ui_dir = tmp_path / "_ui"
+    ui_dir.mkdir()
+    (ui_dir / "index.html").write_text(
+        "<html><head></head><body></body></html>", encoding="utf-8"
+    )
+    return ui_dir
 
 
 def test_authenticate_valid_credentials():
@@ -228,3 +238,36 @@ def test_from_env_rejects_non_string_account_values(monkeypatch):
     monkeypatch.setenv("HEALTH_SIGNAL_ACCOUNTS", '{"a@x.org": 123}')
     with pytest.raises(RuntimeError):
         from_env()
+
+
+def test_render_index_injects_safe_json():
+    out = render_index("<html><head></head><body></body></html>", {"title": "A</script><b>"})
+    assert "window.__HS_CONFIG__" in out
+    assert "</script>" not in out.split("window.__HS_CONFIG__", 1)[1].split("</script>", 1)[0]  # no breakout
+    assert "\\u003c" in out  # '<' escaped
+
+
+def test_spa_injects_bootstrap_only(tmp_path, monkeypatch):
+    monkeypatch.setattr("health_signal.app._UI_DIR", _write_ui(tmp_path))  # writes index.html, returns dir
+    body = _client(public_paths=["/"]).get("/").text
+    assert "__HS_CONFIG__" in body and '"title"' in body
+    assert "targets" not in body  # structure is NOT injected; it comes from /api/config
+
+
+def test_spa_falls_back_to_placeholder_when_ui_missing():
+    r = _client(public_paths=["/"]).get("/")  # no _ui/index.html in tests
+    assert r.status_code == 200  # placeholder served, no crash
+
+
+def test_api_config_requires_auth():
+    assert _client().get("/api/config").status_code == 401
+
+
+def test_api_config_returns_view_model_when_authed():
+    client = _client(targets=[Target(id="covid-19", pages=[Page(id="ov", path="/covid-19/ov")])])
+    client.post("/login", data={"email": _EMAIL, "password": _PASSWORD}, follow_redirects=False)
+    r = client.get("/api/config")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["targets"][0]["id"] == "covid-19"
+    assert "public_paths" not in body  # server-only never exposed
