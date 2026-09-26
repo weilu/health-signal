@@ -319,11 +319,11 @@ git commit -m "feat(app): inject bootstrap config into SPA HTML; gated GET /api/
   "type": "module",
   "scripts": { "build": "vite build", "dev": "vite" },
   "dependencies": {
-    "react": "^18.3.1", "react-dom": "^18.3.1", "react-router-dom": "^6.26.0",
-    "@mui/material": "^5.16.0", "@emotion/react": "^11.13.0", "@emotion/styled": "^11.13.0",
-    "i18next": "^23.12.0", "react-i18next": "^15.0.0"
+    "react": "^19.3.0", "react-dom": "^19.3.0", "react-router-dom": "^7.18.0",
+    "@mui/material": "^9.4.0", "@emotion/react": "^11.14.0", "@emotion/styled": "^11.14.0",
+    "i18next": "^26.4.0", "react-i18next": "^17.0.0"
   },
-  "devDependencies": { "vite": "^5.4.0", "@vitejs/plugin-react": "^4.3.0" }
+  "devDependencies": { "vite": "^8.3.0", "@vitejs/plugin-react": "^6.1.0" }
 }
 ```
 
@@ -385,18 +385,21 @@ The FE reads these via `frontend/src/locales/*.json`; keep the two copies identi
 
 - [ ] **Step 3: Packaging + CI + gitignore**
 
-In `pyproject.toml`, ensure the hatch build includes the compiled UI:
+In `pyproject.toml`, register the Hatch build hook that compiles the UI and include the compiled output:
 ```toml
 [tool.hatch.build.targets.wheel]
 artifacts = ["src/health_signal/_ui/**"]
+
+[tool.hatch.build.targets.wheel.hooks.custom]
+path = "hatch_build.py"
 ```
+`hatch_build.py` runs `npm --prefix frontend install` + `run build` on distribution builds (and skips editable installs), so the Vite build is owned by the wheel build — CI never invokes npm directly.
 Add to `.gitignore`: `src/health_signal/_ui/` and `frontend/node_modules/`.
-In `.github/workflows/ci.yml`, add before the build/package job:
+In `.github/workflows/ci.yml`, put Node on PATH before the wheel build so the hook can compile the frontend:
 ```yaml
       - uses: actions/setup-node@v4
         with: { node-version: '20' }
-      - run: npm --prefix frontend install
-      - run: npm --prefix frontend run build
+      - run: uv build --wheel   # the Hatch hook compiles the frontend
 ```
 
 - [ ] **Step 4: Verify the build produces `_ui`**
