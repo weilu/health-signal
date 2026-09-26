@@ -8,5 +8,10 @@ export function initI18n({ defaultLocale = 'en' } = {}) {
     resources: { en: { translation: en }, el: { translation: el } },
     lng: defaultLocale, fallbackLng: 'en', interpolation: { escapeValue: false },
   })
+  // Reflect the active language on <html lang> so assistive tech reads the page correctly.
+  if (typeof document !== 'undefined') {
+    document.documentElement.lang = i18n.language || defaultLocale
+    i18n.on('languageChanged', (lng) => { document.documentElement.lang = lng })
+  }
   return i18n
 }
