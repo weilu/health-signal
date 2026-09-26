@@ -22,4 +22,13 @@ jobs:
       - name: Build wheel (build hook compiles the frontend) and verify the SPA is packaged
         run: |
           uv build --wheel
-          python -c "import glob, zipfile; whl = sorted(glob.glob('dist/*.whl'))[-1]; names = zipfile.ZipFile(whl).namelist(); assert any(n.endswith('health_signal/_ui/index.html') for n in names), 'SPA index.html missing from wheel'; assert any('health_signal/_ui/assets/' in n for n in names), 'SPA assets missing from wheel'; print('wheel packages the SPA:', whl)"
+          python - <<'PY'
+          import glob
+          import zipfile
+
+          whl = sorted(glob.glob("dist/*.whl"))[-1]
+          names = zipfile.ZipFile(whl).namelist()
+          assert any(n.endswith("health_signal/_ui/index.html") for n in names), "SPA index.html missing from wheel"
+          assert any("health_signal/_ui/assets/" in n for n in names), "SPA assets missing from wheel"
+          print("wheel packages the SPA:", whl)
+          PY

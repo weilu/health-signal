@@ -85,7 +85,7 @@ The **generic library** ships the FastAPI app and the compiled React UI in one p
 | Layer | Choice |
 |---|---|
 | Server | FastAPI (Python), deployed to Posit Connect as a Python app |
-| Frontend | React 18 + Vite, **plain JavaScript (JSX)**, no TypeScript |
+| Frontend | React 19 + Vite, **plain JavaScript (JSX)**, no TypeScript |
 | UI components & theming | **MUI (Material UI)** — canonical components + MUI styling APIs, **minimal custom CSS** (see §9); theme built at runtime from config (design tokens → `ThemeProvider` + CSS variables) for **per-government white-label** — no rebuild |
 | Routing | **React Router** — every page has its own URL path (deep-linkable, shareable) |
 | i18n | react-i18next; `en` + `el`; default `en` |

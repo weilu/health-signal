@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ship the config layer end-to-end — the server projects the loaded `dashboard.yaml` into two whitelisted views (a **bootstrap** slice injected into the HTML for pre-login rendering, and a **full view-model** served by a gated `GET /api/config`), and a React/Vite/MUI SPA foundation renders the shell, a login page, and a read-only Configuration view that fetches `/api/config`.
+**Goal:** Ship the config layer end-to-end — the server projects the loaded `dashboard.yaml` into two whitelisted views (a **bootstrap** slice injected into the HTML for pre-login rendering, and a **full view-model** served by a gated `GET /api/config`), and a React/Vite/MUI SPA foundation renders the shell, a login page, and a read-only Settings view that fetches `/api/config`.
 
 **Architecture:** Config has one source of truth — `dashboard.yaml` (loaded into `Config`). The server exposes it to the client two ways, split on auth: (1) a small **bootstrap** slice (title, branding, locales) injected into `index.html` as `window.__HS_CONFIG__`, so the shell + login render pre-login with no fetch; (2) the **full client view-model** (targets, pages, i18n keys) via the gated `GET /api/config`, which the authenticated SPA fetches. Server-only fields (`public_paths`, data-source, secrets) are in neither. Data (`/api/data`) is deferred to the next stage.
 
-**Tech Stack:** FastAPI (Python 3.11+, existing); React 18 + Vite, plain JavaScript/JSX (no TypeScript); MUI (Material UI) with minimal custom CSS; React Router; react-i18next (`en` + `el`, default `en`); hatchling (Vite build baked into the wheel as `src/health_signal/_ui/**`); uv for the Python dev workflow.
+**Tech Stack:** FastAPI (Python 3.11+, existing); React 19 + Vite, plain JavaScript/JSX (no TypeScript); MUI (Material UI) with minimal custom CSS; React Router; react-i18next (`en` + `el`, default `en`); hatchling (Vite build baked into the wheel as `src/health_signal/_ui/**`); uv for the Python dev workflow.
 
 **Spec:** `docs/specs/2026-09-23-reusable-surveillance-dashboard-design.md` (§5 tech stack, §6 config/data contract, §7.4 access policy, §8 routes, §9 frontend & i18n, §10 packaging).
 
