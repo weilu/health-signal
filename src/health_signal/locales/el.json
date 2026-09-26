@@ -1,3 +1,3 @@
-{ "app": { "loading": "Φόρτωση…" }, "nav": { "configuration": "Διαμόρφωση" },
+{ "app": { "loading": "Φόρτωση…" }, "nav": { "configuration": "Ρυθμίσεις" },
   "login": { "title": "Σύνδεση", "email": "Email", "password": "Κωδικός", "submit": "Σύνδεση" },
-  "config": { "title": "Διαμόρφωση", "targets": "Στόχοι επιτήρησης", "locales": "Γλώσσες", "error": "Αποτυχία φόρτωσης διαμόρφωσης" } }
+  "config": { "title": "Ρυθμίσεις", "targets": "Στόχοι επιτήρησης", "locales": "Γλώσσες", "error": "Αποτυχία φόρτωσης ρυθμίσεων" } }
