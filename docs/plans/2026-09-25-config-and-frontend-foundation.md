@@ -82,7 +82,7 @@ Config reaches the client two ways, split on the auth boundary (this keeps spec 
   - `class Target(BaseModel)`: `id: str`, `label_key: str | None = None`, `pages: list[Page] = []`
   - `class Page(BaseModel)`: `id: str`, `path: str`, `label_key: str | None = None`
   - `Config.bootstrap_config(self) -> dict` — `{"title", "branding", "defaultLocale", "locales"}`
-  - `Config.client_config(self) -> dict` — bootstrap fields **plus** `{"targets": [...], "pages": [...]}` (never `public_paths`, data-source, or `schema_version`)
+  - `Config.client_config(self) -> dict` — bootstrap fields **plus** `{"targets": [...]}` (each target nests its own `pages`; never `public_paths`, data-source, or `schema_version`)
 
 - [ ] **Step 1: Write failing tests**
 
