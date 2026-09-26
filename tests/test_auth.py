@@ -256,6 +256,15 @@ def test_spa_injects_bootstrap_only(tmp_path, monkeypatch):
     assert "targets" not in body  # structure is NOT injected; it comes from /api/config
 
 
+def test_login_path_serves_spa_under_locked_policy(tmp_path, monkeypatch):
+    # GET /login must reach the SPA (it's always-public), even under the default locked policy —
+    # guards against reintroducing a server-owned /login HTML route or breaking its public handling.
+    monkeypatch.setattr("health_signal.app._UI_DIR", _write_ui(tmp_path))
+    r = _client().get("/login", follow_redirects=False)  # default: everything locked
+    assert r.status_code == 200
+    assert "__HS_CONFIG__" in r.text  # the SPA (bootstrap-injected), not a redirect or server form
+
+
 def test_spa_falls_back_to_placeholder_when_ui_missing(tmp_path, monkeypatch):
     # Point _UI_DIR at an empty dir so the missing-index path is exercised deterministically,
     # regardless of whether the frontend happens to be built in this environment.
