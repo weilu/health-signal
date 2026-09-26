@@ -47,7 +47,7 @@ Config reaches the client two ways, split on the auth boundary (this keeps spec 
 
 **Backend (Python):**
 - `src/health_signal/config.py` (modify) — extend the Pydantic models with the view-model fields (targets/pathogens, pages/nav, i18n keys); add `bootstrap_config()` and `client_config()` projection methods returning plain whitelisted dicts.
-- `src/health_signal/app.py` (modify) — add a pure `render_index(html, config_payload)` helper (HTML-safe JSON injection) and make `_serve_spa` choose the bootstrap vs client projection by auth state.
+- `src/health_signal/app.py` (modify) — add a pure `render_index(html, config_payload)` helper (HTML-safe JSON injection); `_serve_spa` injects only the bootstrap projection into the served HTML, and a gated `GET /api/config` serves the full client view-model.
 - `src/health_signal/locales/en.json`, `src/health_signal/locales/el.json` (create) — base UI-string catalog (generic chrome).
 - `tests/test_config.py` (create) — projection unit tests.
 - `tests/test_app.py` (modify) — injection/tiering integration tests.
