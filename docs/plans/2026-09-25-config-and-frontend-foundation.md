@@ -426,7 +426,7 @@ git commit -m "build(frontend): Vite/React/MUI scaffold + base locales + CI buil
 
 **Interfaces:**
 - Consumes: `window.__HS_CONFIG__` (Task 2 injects it).
-- Produces: `getConfig()` (config.js), `buildTheme(branding)` (theme.js), an initialized i18n instance (i18n.js), and an `<App/>` that renders an MUI shell with nav derived from `config.targets`.
+- Produces: `getConfig()` (config.js), `buildTheme(branding)` (theme.js), an initialized i18n instance (i18n.js), and an `<App/>` that renders an MUI shell with a static nav (a Settings link); target-driven navigation is deferred to a later stage that consumes the gated `fetchConfig()` result, not the bootstrap.
 
 - [ ] **Step 1: config reader**
 
@@ -700,6 +700,6 @@ git commit -m "feat(frontend): read-only Configuration view"
 
 **2. Placeholder scan.** No TBD/TODO; each code step has concrete content. ✅
 
-**3. Type consistency.** `bootstrap_config`/`client_config` (Task 1) are the exact methods called in Task 2. `getConfig()` shape (`title/branding/defaultLocale/locales/targets`) matches what Task 2 injects and Tasks 4–6 consume. `Target.pages[].path` used consistently in Task 1 tests and Task 6. ✅
+**3. Type consistency.** `bootstrap_config`/`client_config` (Task 1) are the exact methods called in Task 2. `getConfig()` returns the bootstrap shape (`title/branding/defaultLocale/locales`) that Task 2 injects; `targets` come from the gated `fetchConfig()` (`/api/config`), consumed by Task 6. `Target.pages[].path` used consistently in Task 1 tests and Task 6. ✅
 
 **4. Review Focus.** `</script>` escaping → Task 2 `test_render_index_injects_safe_json`. Full-view-model leak → Task 2 `test_api_config_requires_auth` + `test_spa_injects_bootstrap_only`. Empty `targets` → Task 1 `test_empty_targets_projects_cleanly` + Task 6 renders empty list. Missing i18n key → i18n `fallbackLng: 'en'` (Task 4) + base catalog (Task 3). `_ui` absent → Task 2 `test_spa_falls_back_to_placeholder_when_ui_missing`. ✅
