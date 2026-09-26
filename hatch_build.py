@@ -16,9 +16,9 @@ class FrontendBuildHook(BuildHookInterface):
     PLUGIN_NAME = "frontend"
 
     def initialize(self, version, build_data):
+        # Rebuild unconditionally: a stale _ui from a previous build must never be packaged, and a
+        # prebuilt wheel skips this hook entirely (build hooks don't run on install).
         root = pathlib.Path(self.root)
-        if (root / "src" / "health_signal" / "_ui" / "index.html").exists():
-            return  # already built (e.g. CI built it before packaging) -- don't rebuild
         npm = shutil.which("npm")
         if npm is None:
             raise RuntimeError(
