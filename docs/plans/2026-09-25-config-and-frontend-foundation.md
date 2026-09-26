@@ -395,7 +395,7 @@ In `.github/workflows/ci.yml`, add before the build/package job:
 ```yaml
       - uses: actions/setup-node@v4
         with: { node-version: '20' }
-      - run: npm --prefix frontend ci
+      - run: npm --prefix frontend install
       - run: npm --prefix frontend run build
 ```
 
