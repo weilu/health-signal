@@ -16,7 +16,11 @@ class FrontendBuildHook(BuildHookInterface):
     PLUGIN_NAME = "frontend"
 
     def initialize(self, version, build_data):
-        # Rebuild unconditionally: a stale _ui from a previous build must never be packaged, and a
+        # Editable installs (uv sync / pip install -e) don't distribute _ui, so skip the build —
+        # otherwise a dev sync would need Node and rebuild the frontend every time.
+        if version == "editable":
+            return
+        # Rebuild unconditionally for distribution builds: a stale _ui must never be packaged, and a
         # prebuilt wheel skips this hook entirely (build hooks don't run on install).
         root = pathlib.Path(self.root)
         npm = shutil.which("npm")
