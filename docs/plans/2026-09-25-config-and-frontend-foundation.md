@@ -559,7 +559,7 @@ git commit -m "feat(frontend): bootstrap reader, MUI theme, i18n, router shell"
 - Consumes: `config` (title/branding), the existing `POST /login` route (form fields `email`, `password`, 303 redirect on success).
 - Produces: `<LoginPage config={config} />`.
 
-**Design note:** the page submits a **native HTML form** to `/login` (no `fetch`). On success the server sets the session cookie and 303-redirects to `/`; the browser's full navigation reloads `index.html` (bootstrap injected as always). The now-authenticated SPA then fetches the gated `/api/config` for the full view-model (Task 6) — the redirect establishes the session so that fetch succeeds. i18n strings come from the bundled base catalog, so the login page itself needs no config fetch.
+**Design note:** the page submits the credentials via `fetch` (`POST /login`, form-encoded, `credentials: 'same-origin'`, `redirect: 'manual'`) so a `401` renders inline instead of replacing the SPA with raw JSON. On success the server sets the session cookie and returns a 303 (surfaced as an `opaqueredirect`); the page then does a full navigation to `/`, which reloads `index.html` (bootstrap injected) and the now-authenticated SPA fetches the gated `/api/config` for the full view-model (Task 6). CSRF is covered by the server's `_reject_cross_origin` gate on `POST /login`. i18n strings come from the bundled base catalog, so the login page itself needs no config fetch.
 
 - [ ] **Step 1: Implement the page**
 
