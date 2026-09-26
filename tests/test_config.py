@@ -1,6 +1,6 @@
 import pytest
 from pydantic import ValidationError
-from health_signal.config import load_config
+from health_signal.config import Branding, Config, Page, SiteConfig, Target, load_config
 
 
 def test_load_valid_config(tmp_path):
@@ -22,3 +22,57 @@ def test_missing_required_field_raises(tmp_path):
     f.write_text("site:\n  title: 'X'\n", encoding="utf-8")   # no schema_version
     with pytest.raises(ValidationError):
         load_config(f)
+
+
+def _cfg(**site_over):
+    site = {"title": "Demo", "default_locale": "en", "locales": ["en", "el"]}
+    site.update(site_over)
+    return Config(schema_version="0.1", site=SiteConfig(**site))
+
+
+def test_bootstrap_config_is_whitelisted():
+    cfg = _cfg(public_paths=["/about"])
+    b = cfg.bootstrap_config()
+    assert b == {
+        "title": "Demo",
+        "branding": {"logo": None, "favicon": None, "theme": {}},
+        "defaultLocale": "en",
+        "locales": ["en", "el"],
+    }
+    # server-only fields never leak into the client payload
+    assert "public_paths" not in b and "schema_version" not in b
+
+
+def test_client_config_adds_structure_but_not_server_only():
+    cfg = Config(
+        schema_version="0.1",
+        site=SiteConfig(title="Demo", public_paths=["/about"]),
+        targets=[Target(id="covid-19", pages=[Page(id="overview", path="/covid-19/overview")])],
+    )
+    c = cfg.client_config()
+    assert c["title"] == "Demo"
+    assert c["targets"][0]["id"] == "covid-19"
+    assert c["targets"][0]["pages"][0]["path"] == "/covid-19/overview"
+    assert "public_paths" not in c and "schema_version" not in c
+
+
+def test_empty_targets_projects_cleanly():
+    c = _cfg().client_config()
+    assert c["targets"] == []
+
+
+def test_page_requires_path():
+    with pytest.raises(ValidationError):
+        Page(id="overview")  # no path
+
+
+def test_branding_projection_is_json_safe():
+    import datetime, json
+    cfg = Config(
+        schema_version="0.1",
+        site=SiteConfig(title="D"),
+        branding=Branding(theme={"launched": datetime.date(2026, 1, 1)}),
+    )
+    # Non-JSON YAML scalars (e.g. an unquoted ISO date) must serialize cleanly downstream.
+    json.dumps(cfg.bootstrap_config())
+    json.dumps(cfg.client_config())

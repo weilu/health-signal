@@ -1,0 +1,12 @@
+{
+  "name": "health-signal-ui",
+  "private": true,
+  "type": "module",
+  "scripts": { "build": "vite build", "dev": "vite" },
+  "dependencies": {
+    "react": "^19.3.0", "react-dom": "^19.3.0", "react-router-dom": "^7.18.0",
+    "@mui/material": "^9.4.0", "@emotion/react": "^11.14.0", "@emotion/styled": "^11.14.0",
+    "i18next": "^26.4.0", "react-i18next": "^17.0.0"
+  },
+  "devDependencies": { "vite": "^8.3.0", "@vitejs/plugin-react": "^6.1.0" }
+}

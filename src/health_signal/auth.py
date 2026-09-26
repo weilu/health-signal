@@ -7,7 +7,7 @@ from urllib.parse import urlsplit
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerifyMismatchError
 from fastapi import Depends, FastAPI, Form, HTTPException, Request, Response
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import RedirectResponse
 from fastapi_login import LoginManager
 from pydantic import BaseModel
 
@@ -15,15 +15,6 @@ _ph = PasswordHasher()
 # Always verified against on an unknown email so authenticate() takes the same
 # time whether the email exists or not (no timing-based account enumeration).
 _DUMMY_HASH = _ph.hash("hs-auth-dummy-password-do-not-use")
-
-_LOGIN_FORM_HTML = (
-    "<!doctype html><meta charset='utf-8'><title>Sign in</title>"
-    "<form method='post' action='/login'>"
-    "<label>Email <input name='email' type='email' required></label>"
-    "<label>Password <input name='password' type='password' required></label>"
-    "<button type='submit'>Sign in</button>"
-    "</form>"
-)
 
 
 class User(BaseModel):
@@ -112,10 +103,9 @@ class LocalAccountsProvider:
         )
 
     def install(self, app: FastAPI) -> None:
-        @app.get("/login", response_class=HTMLResponse)
-        def login_form() -> HTMLResponse:
-            return HTMLResponse(_LOGIN_FORM_HTML)
-
+        # No GET /login here: the SPA renders the (branded, i18n) login page, and GET /login falls
+        # through to the SPA catch-all. This provider only owns the auth POSTs. (An OIDC provider
+        # would instead register its own GET /login redirect.)
         @app.post("/login", dependencies=[Depends(_reject_cross_origin)])
         def login(email: str = Form(...), password: str = Form(...)) -> Response:
             user = self.authenticate(email, password)
