@@ -14,7 +14,7 @@ export default function App({ config }) {
           <Button color="inherit" component={Link} to="/config">{t('nav.configuration')}</Button>
         </Toolbar>
       </AppBar>
-      <Container sx={{ py: 3 }}>
+      <Container component="main" sx={{ py: 3 }}>
         <Routes>
           <Route path="/login" element={<LoginPage config={config} />} />
           <Route path="/config" element={<ConfigView />} />
