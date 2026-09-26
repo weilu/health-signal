@@ -256,9 +256,13 @@ def test_spa_injects_bootstrap_only(tmp_path, monkeypatch):
     assert "targets" not in body  # structure is NOT injected; it comes from /api/config
 
 
-def test_spa_falls_back_to_placeholder_when_ui_missing():
-    r = _client(public_paths=["/"]).get("/")  # no _ui/index.html in tests
-    assert r.status_code == 200  # placeholder served, no crash
+def test_spa_falls_back_to_placeholder_when_ui_missing(tmp_path, monkeypatch):
+    # Point _UI_DIR at an empty dir so the missing-index path is exercised deterministically,
+    # regardless of whether the frontend happens to be built in this environment.
+    monkeypatch.setattr("health_signal.app._UI_DIR", tmp_path)
+    r = _client(public_paths=["/"]).get("/")
+    assert r.status_code == 200
+    assert "not found" in r.text.lower()  # the placeholder, not a real SPA build
 
 
 def test_api_config_requires_auth():
