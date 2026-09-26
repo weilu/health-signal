@@ -241,10 +241,12 @@ def test_from_env_rejects_non_string_account_values(monkeypatch):
 
 
 def test_render_index_injects_safe_json():
-    out = render_index("<html><head></head><body></body></html>", {"title": "A</script><b>"})
+    out = render_index("<html><head></head><body></body></html>", {"t": "</script> < > &"})
     assert "window.__HS_CONFIG__" in out
-    assert "</script>" not in out.split("window.__HS_CONFIG__", 1)[1].split("</script>", 1)[0]  # no breakout
-    assert "\\u003c" in out  # '<' escaped
+    # Only the real tag-closer remains; the payload's </script> was escaped (would be 2 if it broke out).
+    assert out.count("</script>") == 1
+    # <, >, & in the payload are all escaped, not emitted literally inside the script.
+    assert "\\u003c" in out and "\\u003e" in out and "\\u0026" in out
 
 
 def test_spa_injects_bootstrap_only(tmp_path, monkeypatch):
@@ -271,3 +273,4 @@ def test_api_config_returns_view_model_when_authed():
     body = r.json()
     assert body["targets"][0]["id"] == "covid-19"
     assert "public_paths" not in body  # server-only never exposed
+    assert "schema_version" not in body  # server-only never exposed
