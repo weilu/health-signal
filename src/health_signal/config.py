@@ -56,7 +56,7 @@ class Config(BaseModel):
         # Whitelisted slice injected pre-login: only what the shell + login page need.
         return {
             "title": self.site.title,
-            "branding": self.branding.model_dump(),
+            "branding": self.branding.model_dump(mode="json"),
             "defaultLocale": self.site.default_locale,
             "locales": self.site.locales,
         }
@@ -66,7 +66,7 @@ class Config(BaseModel):
         # fields (public_paths, schema_version, future data-source config).
         return {
             **self.bootstrap_config(),
-            "targets": [t.model_dump() for t in self.targets],
+            "targets": [t.model_dump(mode="json") for t in self.targets],
         }
 
 

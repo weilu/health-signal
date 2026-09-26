@@ -64,3 +64,15 @@ def test_empty_targets_projects_cleanly():
 def test_page_requires_path():
     with pytest.raises(ValidationError):
         Page(id="overview")  # no path
+
+
+def test_branding_projection_is_json_safe():
+    import datetime, json
+    cfg = Config(
+        schema_version="0.1",
+        site=SiteConfig(title="D"),
+        branding=Branding(theme={"launched": datetime.date(2026, 1, 1)}),
+    )
+    # Non-JSON YAML scalars (e.g. an unquoted ISO date) must serialize cleanly downstream.
+    json.dumps(cfg.bootstrap_config())
+    json.dumps(cfg.client_config())
