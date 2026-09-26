@@ -1,0 +1,3 @@
+{ "app": { "loading": "Φόρτωση…" }, "nav": { "configuration": "Διαμόρφωση" },
+  "login": { "title": "Σύνδεση", "email": "Email", "password": "Κωδικός", "submit": "Σύνδεση" },
+  "config": { "title": "Διαμόρφωση", "targets": "Στόχοι επιτήρησης", "locales": "Γλώσσες", "error": "Αποτυχία φόρτωσης διαμόρφωσης" } }

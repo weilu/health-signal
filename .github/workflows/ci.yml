@@ -17,3 +17,9 @@ jobs:
         run: uv sync
       - name: Test
         run: uv run pytest -q
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: Frontend install
+        run: npm --prefix frontend install
+      - name: Frontend build
+        run: npm --prefix frontend run build
