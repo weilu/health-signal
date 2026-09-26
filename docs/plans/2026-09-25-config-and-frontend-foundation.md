@@ -699,7 +699,7 @@ git commit -m "feat(frontend): read-only Configuration view"
 
 ## Self-Review
 
-**1. Spec coverage.** §5 tech stack — React18/Vite/JS/MUI/React Router/react-i18next all in Tasks 3–4 ✅. §6 config structure — `targets`/`pages` in Task 1 (data-feed spine/profile is Stage 4) ✅. §7.4 access — reuses the merged policy; `/api/config` gated via `require_auth` (Task 2) ✅. §8 `/api/config` (required) — Task 2 ✅; injection adds pre-login bootstrap on top. §9 config-driven rendering, MUI theming from branding, layered i18n base catalog, config-carries-keys (`label_key`) — Tasks 1,3,4,6 ✅; methodology view + charts + `/api/locales`/`/api/methodology`/`/api/data` are deferred (Stage 4/later) — noted. §10 packaging (`frontend/` → `_ui`, artifacts, CI Node) — Task 3 ✅.
+**1. Spec coverage.** §5 tech stack — React 19/Vite/JS/MUI/React Router/react-i18next all in Tasks 3–4 ✅. §6 config structure — `targets`/`pages` in Task 1 (data-feed spine/profile is Stage 4) ✅. §7.4 access — reuses the merged policy; `/api/config` gated via `require_auth` (Task 2) ✅. §8 `/api/config` (required) — Task 2 ✅; injection adds pre-login bootstrap on top. §9 config-driven rendering, MUI theming from branding, layered i18n base catalog, config-carries-keys (`label_key`) — Tasks 1,3,4,6 ✅; methodology view + charts + `/api/locales`/`/api/methodology`/`/api/data` are deferred (Stage 4/later) — noted. §10 packaging (`frontend/` → `_ui`, artifacts, CI Node) — Task 3 ✅.
 
 **2. Placeholder scan.** No TBD/TODO; each code step has concrete content. ✅
 
