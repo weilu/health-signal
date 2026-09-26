@@ -8,10 +8,12 @@ export function initI18n({ defaultLocale = 'en' } = {}) {
     resources: { en: { translation: en }, el: { translation: el } },
     lng: defaultLocale, fallbackLng: 'en', interpolation: { escapeValue: false },
   })
-  // Reflect the active language on <html lang> so assistive tech reads the page correctly.
+  // Reflect the RESOLVED language on <html lang> (after fallback) so an unsupported default like
+  // 'fr' doesn't label English fallback content as French for assistive tech.
   if (typeof document !== 'undefined') {
-    document.documentElement.lang = i18n.language || defaultLocale
-    i18n.on('languageChanged', (lng) => { document.documentElement.lang = lng })
+    const applyLang = () => { document.documentElement.lang = i18n.resolvedLanguage || defaultLocale }
+    applyLang()
+    i18n.on('languageChanged', applyLang)
   }
   return i18n
 }
