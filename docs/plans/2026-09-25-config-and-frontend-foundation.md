@@ -15,7 +15,7 @@
 - **Frontend language: plain JavaScript (JSX), no TypeScript** (spec §5).
 - **UI via canonical MUI components + MUI styling (`theme`, `sx`, `styled`); custom CSS is a last resort** — the prototype's `styles.css` is not carried over (spec §9).
 - **Theme is built at runtime from the config branding block** (MUI `ThemeProvider`); a government restyles via `dashboard.yaml` with no rebuild (spec §9).
-- **i18n: react-i18next, locales `en` + `el`, default `en`; the library ships the base UI-string catalog** at `src/health_signal/locales/{en,el}.json` (spec §9, §10).
+- **i18n: react-i18next, locales `en` + `el`, default `en`; the base UI-string catalog is bundled into the SPA** at `frontend/src/locales/{en,el}.json` (spec §9, §10). A server-side catalog served via `/api/locales` (library base + country overrides) is deferred to Stage 4.
 - **Config carries keys, not translations** — `dashboard.yaml` holds structure + i18n keys, never inline `{en, el}` maps. `site.title` (names the app) stays a plain string (spec §9).
 - **Packaging:** distribution name `health-signal`, import `health_signal`; `pyproject.toml` `artifacts=["src/health_signal/_ui/**"]`; `frontend/` builds to `src/health_signal/_ui` (spec §10). `_ui/` is gitignored (compiled artifact).
 - **Synthetic data only** — this repo is public; no pilot data in fixtures/examples (spec §12).
@@ -48,7 +48,6 @@ Config reaches the client two ways, split on the auth boundary (this keeps spec 
 **Backend (Python):**
 - `src/health_signal/config.py` (modify) — extend the Pydantic models with the view-model fields (targets/pathogens, pages/nav, i18n keys); add `bootstrap_config()` and `client_config()` projection methods returning plain whitelisted dicts.
 - `src/health_signal/app.py` (modify) — add a pure `render_index(html, config_payload)` helper (HTML-safe JSON injection); `_serve_spa` injects only the bootstrap projection into the served HTML, and a gated `GET /api/config` serves the full client view-model.
-- `src/health_signal/locales/en.json`, `src/health_signal/locales/el.json` (create) — base UI-string catalog (generic chrome).
 - `tests/test_config.py` (create) — projection unit tests.
 - `tests/test_auth.py` (modify) — injection/tiering integration tests.
 
@@ -61,7 +60,7 @@ Config reaches the client two ways, split on the auth boundary (this keeps spec 
 - `frontend/src/App.jsx` — Router + shell (nav from config).
 - `frontend/src/pages/LoginPage.jsx` — MUI login page (fetch POST to `/login`, inline 401).
 - `frontend/src/pages/ConfigView.jsx` — read-only Configuration view.
-- `frontend/src/locales/{en,el}.json` — copies of the base catalog for the FE bundle (kept in sync with the Python-side base; see Task 3).
+- `frontend/src/locales/{en,el}.json` — the base UI-string catalog (generic chrome), bundled into the SPA. Single source of truth this stage; a server-side catalog + `/api/locales` merge is deferred to Stage 4.
 
 **Packaging / CI:**
 - `pyproject.toml` (modify) — confirm/add `artifacts=["src/health_signal/_ui/**"]`.
@@ -303,7 +302,7 @@ git commit -m "feat(app): inject bootstrap config into SPA HTML; gated GET /api/
 
 **Files:**
 - Create: `frontend/package.json`, `frontend/vite.config.js`, `frontend/index.html`, `frontend/.gitignore`, `frontend/src/main.jsx`, `frontend/src/App.jsx`
-- Create: `src/health_signal/locales/en.json`, `src/health_signal/locales/el.json`
+- Create: `frontend/src/locales/en.json`, `frontend/src/locales/el.json`
 - Modify: `pyproject.toml`, `.github/workflows/ci.yml`, `.gitignore`
 
 **Interfaces:**
@@ -367,14 +366,14 @@ export default function App() {
 
 - [ ] **Step 2: Base locale catalogs**
 
-`src/health_signal/locales/en.json`:
+`frontend/src/locales/en.json`:
 ```json
 { "app": { "loading": "Loading…" }, "nav": { "configuration": "Configuration" },
   "login": { "title": "Sign in", "email": "Email", "password": "Password", "submit": "Sign in" },
   "config": { "title": "Configuration", "targets": "Surveillance targets", "locales": "Languages", "error": "Couldn't load configuration" } }
 ```
 
-`src/health_signal/locales/el.json` (same keys, Greek values):
+`frontend/src/locales/el.json` (same keys, Greek values):
 ```json
 { "app": { "loading": "Φόρτωση…" }, "nav": { "configuration": "Διαμόρφωση" },
   "login": { "title": "Σύνδεση", "email": "Email", "password": "Κωδικός", "submit": "Σύνδεση" },
@@ -415,7 +414,7 @@ Expected: `_ui/index.html` exists; Python tests still pass (the placeholder path
 - [ ] **Step 5: Commit**
 
 ```bash
-git add frontend pyproject.toml .gitignore .github/workflows/ci.yml src/health_signal/locales
+git add frontend pyproject.toml .gitignore .github/workflows/ci.yml
 git commit -m "build(frontend): Vite/React/MUI scaffold + base locales + CI build step"
 ```
 

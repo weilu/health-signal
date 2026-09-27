@@ -270,10 +270,14 @@ precedence over client-side routes.
   rather than bespoke stylesheets. The prototype's hand-rolled `styles.css` is **not** carried over —
   its look is reproduced through MUI's system. Custom CSS is a last resort (a genuinely un-MUI layout
   need), kept minimal and justified. This keeps the library consistent, themeable, and low-maintenance.
-- **Theming (per-government white-label).** MUI `ThemeProvider` + CSS variables built at runtime
-  from the config branding block (palette, logo, favicon, typography, light/dark). A government
-  restyles via `dashboard.yaml` + assets — no rebuild, same UI bundle. Because styling flows through
-  the theme (not ad-hoc CSS), a theme swap restyles the whole app coherently.
+- **Theming (per-government white-label).** MUI `ThemeProvider` built at runtime from the config
+  branding block. `branding.theme` **is a MUI theme-options object** (e.g. `palette.mode`,
+  `palette.primary.main`, typography) passed straight to `createTheme` — authors use MUI's own
+  documented schema rather than a bespoke vocabulary, and MUI's validation is the validation (a
+  malformed theme fails fast with a debuggable error, not a silent fallback). `logo`/`favicon` are
+  separate branding assets. A government restyles via `dashboard.yaml` + assets — no rebuild, same UI
+  bundle. Because styling flows through the theme (not ad-hoc CSS), a theme swap restyles the whole
+  app coherently.
 - **Method display.** When a config panel has multiple analytic methods in the feed (e.g. aedseo +
   MEM), the UI can show a method toggle / side-by-side comparison; labels and level vocabulary come
   from the method metadata + locales.

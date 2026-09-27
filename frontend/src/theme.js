@@ -1,14 +1,16 @@
 import { createTheme } from '@mui/material/styles'
 
+// branding.theme is a MUI theme-options object, handed straight to createTheme (MUI's own schema and
+// validation). Malformed config throws by design; re-thrown with its location + value so the failure
+// is debuggable rather than a silently unthemed app.
 export function buildTheme(branding = {}) {
-  const t = branding.theme || {}
-  const mode = t.mode === 'dark' ? 'dark' : 'light'
-  // Only a string primary is valid; a non-string (number/object) or bad color from config must not
-  // crash createTheme and blank the whole SPA — fall back to defaults on any malformed value.
-  const primary = typeof t.primary === 'string' ? { primary: { main: t.primary } } : {}
+  const options = branding.theme || {}
   try {
-    return createTheme({ palette: { mode, ...primary } })
-  } catch {
-    return createTheme({ palette: { mode } })
+    return createTheme(options)
+  } catch (err) {
+    throw new Error(
+      `Invalid branding.theme in dashboard.yaml: ${err.message}\nProvided: ${JSON.stringify(options)}`,
+      { cause: err },
+    )
   }
 }

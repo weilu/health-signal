@@ -9,7 +9,7 @@ import App from './App.jsx'
 
 const cfg = getConfig()
 document.title = cfg.title
-const i18n = initI18n({ defaultLocale: cfg.defaultLocale })
+const i18n = initI18n({ defaultLocale: cfg.defaultLocale, locales: cfg.locales })
 createRoot(document.getElementById('root')).render(
   <ThemeProvider theme={buildTheme(cfg.branding)}>
     <CssBaseline />
