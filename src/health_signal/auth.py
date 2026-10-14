@@ -103,9 +103,6 @@ class LocalAccountsProvider:
         )
 
     def install(self, app: FastAPI) -> None:
-        # No GET /login here: the SPA renders the (branded, i18n) login page, and GET /login falls
-        # through to the SPA catch-all. This provider only owns the auth POSTs. (An OIDC provider
-        # would instead register its own GET /login redirect.)
         @app.post("/login", dependencies=[Depends(_reject_cross_origin)])
         def login(email: str = Form(...), password: str = Form(...)) -> Response:
             user = self.authenticate(email, password)

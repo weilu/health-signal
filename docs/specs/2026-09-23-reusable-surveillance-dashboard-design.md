@@ -278,6 +278,11 @@ precedence over client-side routes.
   separate branding assets. A government restyles via `dashboard.yaml` + assets — no rebuild, same UI
   bundle. Because styling flows through the theme (not ad-hoc CSS), a theme swap restyles the whole
   app coherently.
+- **Data fetching.** Pages fetch through a small `useResource` hook + a shared `ResourceBoundary`
+  that centralizes loading, the 401→login redirect, and error UI, so per-page boilerplate and the
+  auth-redirect policy live in one place. When the data layer lands (charts + multiple `/api/data`
+  queries), adopt **TanStack Query** as the fetching layer (caching, dedup, refetch/polling) rather
+  than growing bespoke hooks.
 - **Method display.** When a config panel has multiple analytic methods in the feed (e.g. aedseo +
   MEM), the UI can show a method toggle / side-by-side comparison; labels and level vocabulary come
   from the method metadata + locales.
