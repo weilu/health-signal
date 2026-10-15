@@ -91,10 +91,10 @@ The **generic library** ships the FastAPI app and the compiled React UI in one p
 | i18n | react-i18next; `en` + `el`; default `en` |
 | Charts | Chart.js (reused from the prototype) |
 | API docs | FastAPI-generated **OpenAPI** — Swagger UI (`/docs`) + ReDoc (`/redoc`) + `/openapi.json`, auth-gated; optional static reference via Redoc (`@redocly/cli`) in CI |
-| Contract validation | Pydantic models in the server (single source of truth) |
+| Contract validation | Pydantic models declare the contract (profile vocab + `FeedRow`, the single source of truth); pandas applies the profile rules vectorized when loading |
 | Packaging | hatchling; Vite build baked into the wheel as package data |
 | Auth | Pluggable `AuthProvider` — **not hand-rolled**: local = `fastapi-login` + argon2 (DB-free config accounts, MVP); SSO = **Authlib** OIDC RP (deferred). Per-page access policy (default locked, opt-in public) |
-| Data (MVP) | Files in ERVISS format via `FileDataSource` |
+| Data (MVP) | CSV files in ERVISS format via `FileDataSource` (pandas) |
 
 ## 6. Data contract (ETL ↔ app boundary)
 
@@ -124,18 +124,25 @@ add pathogens/strata/indicators within a profile.
 ### 6.2 ERVISS profile (respiratory — MVP)
 
 The ECDC/WHO-Europe *European Respiratory Virus Surveillance Summary* public data model (repo
-`EU-ECDC/Respiratory_viruses_weekly_data`, EUPL-1.2). Its `dimensions` and indicator vocabulary:
+`EU-ECDC/Respiratory_viruses_weekly_data`, EUPL-1.2), pinned to the **2026-W40** snapshot. Its
+`dimensions` and indicator vocabulary, taken from the published files:
 
 | Field | Type | Notes / allowed values |
 |---|---|---|
-| `survtype` | enum | `primary care sentinel` \| `primary care syndromic` \| `non-sentinel` \| `SARI syndromic` \| `SARI virological` (+ extensions in §6.3) |
+| `survtype` | enum | `primary care sentinel` \| `primary care syndromic` \| `non-sentinel` \| `SARI syndromic` \| `SARI virological` |
 | `pathogen` | enum, nullable | `Influenza` \| `RSV` \| `SARS-CoV-2` (null for pure ILI/ARI syndromic) |
-| `pathogentype` | enum, nullable | `Influenza A/B`, `RSV-A/B`, `SARS-CoV-2`, … |
-| `pathogensubtype` | enum, nullable | `A(H1)pdm09`, `A(H3)`, `B/Vic`, `B/Yam`, `total`, … |
+| `pathogentype` | enum, nullable | `Influenza`, `Influenza A`, `Influenza B`, `Influenza untyped`, `RSV`, `RSV untyped`, `RSV-A`, `RSV-B`, `SARS-CoV-2` |
+| `pathogensubtype` | enum, nullable | `A (unknown)`, `A(H1)pdm09`, `A(H3)`, `B (unknown)`, `B/Vic`, `B/Yam`, `Influenza untyped`, `NA` *(a literal ERVISS value)*, `RSV`, `SARS-CoV-2`, `total` |
 | `age` | enum | `0-4` \| `5-14` \| `15-64` \| `65+` \| `total` \| `unk` |
 | `indicator` | enum | `ILIconsultationrate`, `ARIconsultationrate`, `SARIrate`, `tests`, `detections`, `positivity`, `hospitaladmissions`, `ICUadmissions`, `ICUinpatients`, `deaths` |
 
-### 6.3 ERVISS-profile extensions (documented, namespaced)
+ERVISS's published files use `countryname`/`yearweek` and carry no `unit`; mapping them onto the
+spine (`location`, `period`, `unit`) is the producing ETL's job. Unit vocabulary includes ERVISS's
+reporting exceptions: ILI/ARI rates are per 100 000 population except per 100 consultations (Cyprus,
+Luxembourg, Malta) and per 100 000 consultations (Finland), per the ERVISS README. ERVISS's variant
+and sequencing files have a different shape and belong to the variant track.
+
+### 6.3 Extensions and derived analytics
 
 - **Wastewater (WBE)** — ERVISS has no wastewater indicator, so this is an extension, but it is
   **anchored on the mature US CDC NWSS standard** re-projected into the tidy grid: wastewater viral
@@ -149,16 +156,25 @@ The ECDC/WHO-Europe *European Respiratory Virus Surveillance Summary* public dat
   `pathogen` spelling matches ERVISS so WW and clinical feeds join on *location × yearweek ×
   pathogen*. (EU note: the recast UWWTD 2024/3019 mandates WBS + AMR reporting but publishes no open
   field schema yet — provisions apply from 2027 — so NWSS is the defensible anchor today.)
-- **Derived analytics** — the Status/Trend outputs carried as data so the app stays presentation-only:
-  `indicator = "status_level"` (0–4 / "very low"…"very high"), `"trend"` (increasing/stable/
-  decreasing/inconclusive), `"band"`/`"phase"` (season/wave shading + since-week). Computed by the
-  **country ETL**, not the app. Each derived row carries a **`method` field** (`aedseo` \| `mem` \| …)
-  plus method-specific metadata (aedseo burden bands + disease threshold; MEM epidemic + intensity
-  thresholds — which need not nest). **Methods can coexist**: the same indicator may have `aedseo`
-  and `mem` rows, and config decides whether the UI shows one, the other, or a comparison toggle.
-  This makes MEM-vs-aedseo configurable at the app **without any app logic** — it is a producer
-  choice plus a display toggle. *(Producing MEM and a shared `StatusTrendEstimator` abstraction with
-  pluggable aedseo/MEM estimators is an ETL / future-shared-analytics concern — see §13, post-MVP.)*
+- **Derived analytics (Status / Trend / season phase) — a separate, method-agnostic contract, not
+  feed rows.** These are *assessments of a series* by a method (aedseo, MEM, …), not observations:
+  categorical, carrying uncertainty, thresholds and method parameters that do not fit a numeric feed
+  row. Computed by the **country ETL** (e.g. greece-public-health's aedseo bridge); the app only
+  presents them. Three tables, each at its natural grain:
+  - **assessment** — series key (`location` + the profile's `dimensions` + `indicator`) × `period` ×
+    `method` → `level` (`very low`…`very high`, null = no data), `provisional` (too little history),
+    `trend` (`increasing`/`stable`/`decreasing`/`inconclusive`, null where the method has none, e.g.
+    MEM), `growth_rate` + `growth_lower`/`growth_upper` (nullable).
+  - **thresholds** — series × season × `method` → the level boundaries (and aedseo's disease
+    threshold), so charts can draw the bands.
+  - **phase** — `location` × `pathogen` × `period` × `method` → `in season` / `pre-season` /
+    `in wave` / `between waves` and the shaded band (the pathogen-level, multi-stream rollup).
+
+  **Methods coexist** as rows with different `method` values; config decides whether the UI shows one,
+  the other, or a comparison — a producer choice plus a display toggle, no app logic. Whether MEM is
+  viable for a series is a data-depth question (its thresholds need several seasons of history), not a
+  schema one. Implemented with the Status/Trend UI (Stage 4c). *(A shared `StatusTrendEstimator` with
+  pluggable aedseo/MEM estimators remains a post-MVP producer-side idea — §14.)*
 
 ### 6.4 Future profiles (post-MVP)
 
@@ -182,12 +198,12 @@ ERVISS is for respiratory.
 
 ```python
 class DataSource(Protocol):
-    def config_data(self) -> ConfigData: ...
-    def query(self, *, pathogen=None, indicator=None, location=None,
-              age=None, week_range=None) -> list[FeedRow]: ...
+    def query(self, *, location=None, pathogen=None, indicator=None,
+              age=None, week_from=None, week_to=None) -> list[FeedRow]: ...
 ```
 
-- `FileDataSource(data_dir)` — reads profile-format CSV/parquet/JSON; validates via Pydantic. **MVP.**
+- `FileDataSource(data_dir)` — reads profile-format CSV with pandas and validates every row against the
+  active profile (fails at load naming the file and data row). **MVP.** Parquet/JSON can be added behind it later.
 - `PostgresDataSource(dsn)` — same schema as a table/view. **Deferred.**
 - `DHIS2DataSource(base_url, token)` — pulls aggregate/analytics data via the DHIS2 Web API and maps
   it into the active schema profile, for countries that run DHIS2 as their HMIS. **Deferred.**

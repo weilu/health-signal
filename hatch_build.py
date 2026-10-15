@@ -29,7 +29,8 @@ class FrontendBuildHook(BuildHookInterface):
                 "Building health-signal from source needs Node/npm to compile the frontend. "
                 "Install Node, or install the prebuilt wheel (which bundles the compiled UI)."
             )
-        # --include=dev: vite + the plugin are devDependencies; without this a source build under
-        # NODE_ENV=production (or npm omit=dev) would skip them and the build would fail.
-        subprocess.run([npm, "--prefix", "frontend", "install", "--include=dev"], cwd=root, check=True)
+        # ci: install exactly the committed lockfile, so a new upstream release can't change or break
+        # the build. --include=dev: vite + the plugin are devDependencies; without it a build under
+        # NODE_ENV=production (or npm omit=dev) would skip them and fail.
+        subprocess.run([npm, "--prefix", "frontend", "ci", "--include=dev"], cwd=root, check=True)
         subprocess.run([npm, "--prefix", "frontend", "run", "build"], cwd=root, check=True)

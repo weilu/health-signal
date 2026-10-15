@@ -18,7 +18,7 @@ jobs:
       - name: Test
         run: uv run pytest -q
       - uses: actions/setup-node@v4
-        with: { node-version: '20' }
+        with: { node-version: '22' }
       - name: Build wheel (build hook compiles the frontend) and verify the SPA is packaged
         run: |
           uv build --wheel
