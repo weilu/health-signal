@@ -1,10 +1,14 @@
-import csv
 from pathlib import Path
 from typing import Protocol
 
+import pandas as pd
+
 from .profile import ERVISS, FeedRow, Profile
 
-_REQUIRED = ("location", "period", "indicator", "value", "unit")
+_REQUIRED = pd.Index(["location", "period", "indicator", "value", "unit"])
+# Read every cell as text and keep blanks as "": pandas' default NaN/type inference would silently
+# turn a blank value into nan and reshape codes like "0-4". utf-8-sig drops Excel's BOM.
+_READ_CSV = dict(dtype=str, keep_default_na=False, na_filter=False, encoding="utf-8-sig")
 
 
 class DataSource(Protocol):
@@ -24,52 +28,51 @@ class FileDataSource:
             # A mistyped/missing dir would otherwise serve an empty feed that looks healthy.
             raise ValueError(f"data dir {str(data_dir)!r} is not a directory")
         self._profile = profile
-        self._rows = [r for path in sorted(data_dir.glob("*.csv")) for r in self._load(path)]
+        frames = [self._load(path) for path in sorted(data_dir.glob("*.csv"))]
+        # Files may carry different optional columns; concat leaves those cells NaN, so restore "".
+        df = pd.concat(frames, ignore_index=True).fillna("") if frames else pd.DataFrame(columns=_REQUIRED)
+        self._df = df.astype({"value": float})
 
-    def _load(self, path: Path) -> list[FeedRow]:
-        rows: list[FeedRow] = []
+    def _load(self, path: Path) -> pd.DataFrame:
         try:
-            # utf-8-sig: Excel's "CSV UTF-8" export prepends a BOM that would otherwise corrupt the first header.
-            with path.open(newline="", encoding="utf-8-sig") as f:
-                reader = csv.DictReader(f)
-                missing = [c for c in _REQUIRED if c not in (reader.fieldnames or [])]
-                if missing:
-                    raise ValueError(f"{path.name}: missing column(s) {', '.join(missing)}")
-                for i, rec in enumerate(reader, start=2):  # line 1 is the header
-                    cell = {k: (v or "").strip() for k, v in rec.items() if k is not None}
-                    dims = {k: cell[k] for k in self._profile.dimension_keys if cell.get(k)}
-                    try:
-                        row = FeedRow(
-                            location=cell["location"], period=cell["period"],
-                            indicator=cell["indicator"], value=cell["value"],
-                            unit=cell["unit"], datasource=cell.get("datasource") or None,
-                            dimensions=dims,
-                        )
-                        self._profile.validate_row(row)
-                    except (ValueError, KeyError) as e:  # ValidationError is a ValueError
-                        # Name the file/line so a bad feed is debuggable, not a bare traceback.
-                        raise ValueError(f"{path.name}:{i}: {e}") from e
-                    rows.append(row)
+            df = pd.read_csv(path, **_READ_CSV)
         except UnicodeDecodeError as e:
             # The bare decode error doesn't say which file; Greek Excel's plain "CSV" is cp1253.
             raise ValueError(f"{path.name}: not valid UTF-8 (byte {e.start}) — re-save it as 'CSV UTF-8'") from e
-        return rows
+        except pd.errors.ParserError as e:
+            # e.g. an unclosed quote, which would otherwise swallow the rows after it.
+            raise ValueError(f"{path.name}: malformed CSV ({e})") from e
+        df.columns = df.columns.str.strip()
+        missing = _REQUIRED.difference(df.columns, sort=False)
+        if not missing.empty:
+            raise ValueError(f"{path.name}: missing column(s) {', '.join(missing)}")
+        df = df.apply(lambda col: col.str.strip())
+        if (violation := self._profile.first_violation(df)) is not None:
+            label, message = violation
+            raise ValueError(f"{path.name}:{label + 2}: {message}")  # +2: 1-based, after the header line
+        return df
 
     def query(self, *, pathogen=None, indicator=None, location=None,
               age=None, week_from=None, week_to=None) -> list[FeedRow]:
-        out = []
-        for r in self._rows:
-            if location is not None and r.location != location:
-                continue
-            if indicator is not None and r.indicator != indicator:
-                continue
-            if pathogen is not None and r.dimensions.get("pathogen") != pathogen:
-                continue
-            if age is not None and r.dimensions.get("age") != age:
-                continue
-            if week_from is not None and r.period < week_from:
-                continue
-            if week_to is not None and r.period > week_to:
-                continue
-            out.append(r)
-        return out
+        df = self._df
+        mask = pd.Series(True, index=df.index)
+        for column, wanted in (("location", location), ("indicator", indicator),
+                               ("pathogen", pathogen), ("age", age)):
+            if wanted is not None:
+                mask &= df[column].eq(wanted) if column in df.columns else False
+        if week_from is not None:
+            mask &= df["period"].ge(week_from)
+        if week_to is not None:
+            mask &= df["period"].le(week_to)
+        return self._to_rows(df[mask])
+
+    def _to_rows(self, df: pd.DataFrame) -> list[FeedRow]:
+        dims = [k for k in self._profile.dimension_keys if k in df.columns]
+        return [
+            FeedRow(
+                location=r["location"], period=r["period"], indicator=r["indicator"],
+                value=r["value"], unit=r["unit"], datasource=r.get("datasource") or None,
+                dimensions={k: r[k] for k in dims if r[k]},
+            )
+            for r in df.to_dict("records")
+        ]

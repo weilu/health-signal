@@ -1,5 +1,18 @@
+import pandas as pd
 import pytest
 from health_signal.profile import ERVISS, FeedRow, Profile
+
+_VALID = {
+    "location": "Attica", "period": "2025-W01", "survtype": "non-sentinel", "pathogen": "Influenza",
+    "age": "total", "indicator": "positivity", "value": "12.3", "unit": "percent",
+}
+
+
+def _violation(**over):
+    # Cells are strings, as FileDataSource reads them; a None override drops that column.
+    row = {k: v for k, v in {**_VALID, **over}.items() if v is not None}
+    found = ERVISS.first_violation(pd.DataFrame([row]))
+    return found and found[1]
 
 
 def _row(**over):
@@ -13,22 +26,34 @@ def _row(**over):
 
 
 def test_erviss_accepts_a_valid_clinical_row():
-    ERVISS.validate_row(_row())  # no raise
+    assert _violation() is None
 
 
 def test_erviss_rejects_unknown_indicator():
-    with pytest.raises(ValueError, match="indicator"):
-        ERVISS.validate_row(_row(indicator="not_an_indicator"))
+    assert "indicator" in _violation(indicator="not_an_indicator")
 
 
 def test_erviss_rejects_unknown_unit():
-    with pytest.raises(ValueError, match="unit"):
-        ERVISS.validate_row(_row(unit="furlongs"))
+    assert "unit" in _violation(unit="furlongs")
 
 
 def test_erviss_rejects_out_of_vocab_dimension_value():
-    with pytest.raises(ValueError, match="pathogen"):
-        ERVISS.validate_row(_row(dimensions={"pathogen": "Measles", "age": "total"}))
+    assert "pathogen" in _violation(pathogen="Measles")
+
+
+def test_erviss_rejects_non_iso_week_period():
+    for bad in ("2025-W5", "2025-01-15"):
+        assert "period" in _violation(period=bad)
+
+
+def test_erviss_rejects_non_finite_or_blank_value():
+    for bad in ("nan", "inf", "", "lots"):
+        assert "value" in _violation(value=bad)
+
+
+def test_erviss_rejects_blank_location_and_period():
+    assert "location" in _violation(location="")
+    assert "period" in _violation(period="")
 
 
 def test_erviss_ingests_status_level_but_not_categorical_trend():
@@ -37,18 +62,21 @@ def test_erviss_ingests_status_level_but_not_categorical_trend():
 
 
 def test_status_level_must_be_a_level_0_to_4():
-    for bad in (7, -1, 2.5):
-        with pytest.raises(ValueError, match="status_level"):
-            ERVISS.validate_row(_row(indicator="status_level", value=bad, unit="level"))
-    ERVISS.validate_row(_row(indicator="status_level", value=3, unit="level"))
+    for bad in ("7", "-1", "2.5"):
+        assert "status_level" in _violation(indicator="status_level", value=bad, unit="level")
+    assert _violation(indicator="status_level", value="3", unit="level") is None
 
 
 def test_erviss_requires_non_nullable_dimensions():
-    with pytest.raises(ValueError, match="survtype"):
-        ERVISS.validate_row(_row(dimensions={"pathogen": "Influenza", "age": "total"}))
-    with pytest.raises(ValueError, match="age"):
-        ERVISS.validate_row(_row(dimensions={"survtype": "non-sentinel"}))
-    ERVISS.validate_row(_row(dimensions={"survtype": "non-sentinel", "age": "total"}))  # pathogen is nullable
+    assert "survtype" in _violation(survtype=None)
+    assert "age" in _violation(age="")
+    assert _violation(pathogen=None) is None  # pathogen is nullable
+
+
+def test_first_violation_points_at_the_offending_row():
+    df = pd.DataFrame([_VALID, {**_VALID, "unit": "furlongs"}, {**_VALID, "unit": "bogus"}])
+    label, message = ERVISS.first_violation(df)
+    assert label == 1 and "furlongs" in message
 
 
 def test_feedrow_requires_numeric_value():
@@ -67,12 +95,6 @@ def test_feedrow_rejects_blank_location_and_period():
         _row(location="")
     with pytest.raises(Exception):
         _row(period="")
-
-
-def test_erviss_rejects_non_iso_week_period():
-    for bad in ("2025-W5", "2025-01-15"):
-        with pytest.raises(ValueError, match="period"):
-            ERVISS.validate_row(_row(period=bad))
 
 
 def test_profile_does_not_shadow_pydantic_validate():

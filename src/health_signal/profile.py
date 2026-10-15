@@ -1,5 +1,5 @@
-import re
-
+import numpy as np
+import pandas as pd
 from pydantic import BaseModel, Field
 
 
@@ -24,24 +24,35 @@ class Profile(BaseModel):
     required_dimensions: set[str] = set()
     indicator_values: dict[str, set[float]] = {}  # indicator -> allowed values (e.g. a level scale)
 
-    def validate_row(self, row: FeedRow) -> None:
-        if not re.fullmatch(self.period_pattern, row.period):
-            raise ValueError(f"period {row.period!r} does not match {self.period_pattern!r} for profile {self.name}")
-        if row.indicator not in self.indicators:
-            raise ValueError(f"unknown indicator {row.indicator!r} for profile {self.name}")
-        if row.unit not in self.units:
-            raise ValueError(f"unknown unit {row.unit!r} for profile {self.name}")
-        for key, value in row.dimensions.items():
-            allowed = self.dimension_vocab.get(key)
-            # Dimensions without a vocab entry (e.g. pathogensubtype) are unconstrained.
-            if allowed is not None and value not in allowed:
-                raise ValueError(f"value {value!r} not allowed for dimension {key!r} in profile {self.name}")
-        missing = self.required_dimensions - row.dimensions.keys()
-        if missing:
-            raise ValueError(f"missing required dimension(s) {', '.join(sorted(missing))} for profile {self.name}")
-        levels = self.indicator_values.get(row.indicator)
-        if levels is not None and row.value not in levels:
-            raise ValueError(f"{row.indicator} value {row.value!r} not in {sorted(levels)} for profile {self.name}")
+    def first_violation(self, df: pd.DataFrame) -> tuple[int, str] | None:
+        """(row label, message) of the first row breaking the profile, rule by rule; None if clean."""
+        value = pd.to_numeric(df["value"], errors="coerce")
+        rules = [
+            (df["location"].eq(""), lambda r: "location is empty"),
+            (df["period"].eq(""), lambda r: "period is empty"),
+            (~np.isfinite(value), lambda r: f"value {r['value']!r} is not a finite number"),
+            (~df["period"].str.fullmatch(self.period_pattern),
+             lambda r: f"period {r['period']!r} does not match {self.period_pattern!r} for profile {self.name}"),
+            (~df["indicator"].isin(self.indicators),
+             lambda r: f"unknown indicator {r['indicator']!r} for profile {self.name}"),
+            (~df["unit"].isin(self.units), lambda r: f"unknown unit {r['unit']!r} for profile {self.name}"),
+        ]
+        # Dimensions without a vocab entry (e.g. pathogensubtype) are unconstrained.
+        for dim, allowed in self.dimension_vocab.items():
+            if dim in df.columns:
+                rules.append((df[dim].ne("") & ~df[dim].isin(allowed),
+                              lambda r, d=dim: f"value {r[d]!r} not allowed for dimension {d!r} in profile {self.name}"))
+        for dim in sorted(self.required_dimensions):
+            absent = df[dim].eq("") if dim in df.columns else pd.Series(True, index=df.index)
+            rules.append((absent, lambda r, d=dim: f"missing required dimension {d!r} for profile {self.name}"))
+        for ind, levels in self.indicator_values.items():
+            rules.append((df["indicator"].eq(ind) & ~value.isin(levels),
+                          lambda r, i=ind, lv=levels: f"{i} value {r['value']!r} not in {sorted(lv)} for profile {self.name}"))
+        for mask, message in rules:
+            if mask.any():
+                label = mask.idxmax()
+                return label, message(df.loc[label])
+        return None
 
 
 # ECDC/WHO-Europe ERVISS respiratory clinical profile (spec §6.2). Wastewater (§6.3) and categorical

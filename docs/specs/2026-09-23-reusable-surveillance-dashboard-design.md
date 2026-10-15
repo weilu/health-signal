@@ -91,10 +91,10 @@ The **generic library** ships the FastAPI app and the compiled React UI in one p
 | i18n | react-i18next; `en` + `el`; default `en` |
 | Charts | Chart.js (reused from the prototype) |
 | API docs | FastAPI-generated **OpenAPI** — Swagger UI (`/docs`) + ReDoc (`/redoc`) + `/openapi.json`, auth-gated; optional static reference via Redoc (`@redocly/cli`) in CI |
-| Contract validation | Pydantic models in the server (single source of truth) |
+| Contract validation | Pydantic models declare the contract (profile vocab + `FeedRow`, the single source of truth); pandas applies the profile rules vectorized when loading |
 | Packaging | hatchling; Vite build baked into the wheel as package data |
 | Auth | Pluggable `AuthProvider` — **not hand-rolled**: local = `fastapi-login` + argon2 (DB-free config accounts, MVP); SSO = **Authlib** OIDC RP (deferred). Per-page access policy (default locked, opt-in public) |
-| Data (MVP) | Files in ERVISS format via `FileDataSource` |
+| Data (MVP) | CSV files in ERVISS format via `FileDataSource` (pandas) |
 
 ## 6. Data contract (ETL ↔ app boundary)
 
@@ -187,7 +187,8 @@ class DataSource(Protocol):
               age=None, week_range=None) -> list[FeedRow]: ...
 ```
 
-- `FileDataSource(data_dir)` — reads profile-format CSV/parquet/JSON; validates via Pydantic. **MVP.**
+- `FileDataSource(data_dir)` — reads profile-format CSV with pandas and validates every row against the
+  active profile (fails at load with `file:line`). **MVP.** Parquet/JSON can be added behind it later.
 - `PostgresDataSource(dsn)` — same schema as a table/view. **Deferred.**
 - `DHIS2DataSource(base_url, token)` — pulls aggregate/analytics data via the DHIS2 Web API and maps
   it into the active schema profile, for countries that run DHIS2 as their HMIS. **Deferred.**

@@ -87,3 +87,23 @@ def test_non_utf8_file_names_the_file(tmp_path):
     (d / "feed.csv").write_bytes(header + "\u0391\u03c4\u03c4\u03b9\u03ba\u03ae".encode("cp1253") + b",2025-W01,non-sentinel,Influenza,total,deaths,1,count\n")
     with pytest.raises(ValueError, match=r"feed\.csv: not valid UTF-8"):
         FileDataSource(d)
+
+
+_H = "location,period,survtype,pathogen,age,indicator,value,unit,datasource\n"
+_OK = "A,2025-W01,non-sentinel,Influenza,total,deaths,1,count,X\n"
+
+
+def test_unclosed_quote_fails_instead_of_swallowing_rows(tmp_path):
+    with pytest.raises(ValueError, match=r"feed\.csv: malformed CSV"):
+        _src(tmp_path, _H + _OK.replace(",X", ',"X') + _OK + _OK)
+
+
+
+
+def test_files_with_different_optional_columns_combine(tmp_path):
+    d = tmp_path / "data"
+    d.mkdir()
+    (d / "a.csv").write_text(_H + _OK, encoding="utf-8")
+    (d / "b.csv").write_text("location,period,survtype,age,indicator,value,unit\nB,2025-W02,non-sentinel,total,deaths,2,count\n", encoding="utf-8")
+    rows = FileDataSource(d).query()
+    assert [(r.location, r.datasource, "pathogen" in r.dimensions) for r in rows] == [("A", "X", True), ("B", None, False)]
