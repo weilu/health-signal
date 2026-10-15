@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from .profile import ERVISS
 
@@ -51,6 +51,7 @@ _WEEK = r"^\d{4}-W\d{2}$"
 
 class PanelQuery(BaseModel):
     # Mirrors /api/data's filters. Validated against the ERVISS profile so a config typo fails at load.
+    model_config = ConfigDict(extra="forbid")  # a misspelt filter would otherwise be silently dropped
     indicator: str
     location: str | None = None
     survtype: str | None = None
@@ -73,6 +74,7 @@ class PanelQuery(BaseModel):
 
 
 class Panel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     id: str
     type: Literal["timeseries"]
     label_key: str | None = None
@@ -87,15 +89,38 @@ class Panel(BaseModel):
         return v
 
 
+# Server routes and SPA routes a page path must not shadow (a reload would hit the server route).
+_RESERVED_PATHS = ("/login", "/logout", "/config", "/api", "/docs", "/redoc", "/openapi.json", "/healthz", "/assets")
+
+
 class Page(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     id: str
     path: str
     label_key: str | None = None  # i18n key; text lives in locale files, not config
     panels: list[Panel] = Field(default_factory=list)
 
+    @field_validator("path")
+    @classmethod
+    def _routable(cls, path: str) -> str:
+        # Literal paths only: ":" and "*" are react-router patterns; "/" is the redirect to the first page.
+        if not path.startswith("/") or path == "/" or any(c in path for c in ":*"):
+            raise ValueError(f"page path {path!r} must be a literal path starting with '/' (not '/' itself)")
+        if any(path == r or path.startswith(r + "/") for r in _RESERVED_PATHS):
+            raise ValueError(f"page path {path!r} collides with an app route")
+        return path
+
+    @model_validator(mode="after")
+    def _unique_panel_ids(self) -> "Page":
+        ids = [panel.id for panel in self.panels]
+        if len(ids) != len(set(ids)):
+            raise ValueError(f"page {self.id!r} has duplicate panel ids")
+        return self
+
 
 class Target(BaseModel):
     # A surveillance target (e.g. a pathogen). label_key -> locale files; id can derive one by convention.
+    model_config = ConfigDict(extra="forbid")
     id: str
     label_key: str | None = None
     pages: list[Page] = Field(default_factory=list)
@@ -112,6 +137,17 @@ class Config(BaseModel):
     targets: list[Target] = Field(default_factory=list)
     # Server-only: neither projection below references it, so it never reaches the client.
     data: DataConfig | None = None
+
+    @model_validator(mode="after")
+    def _unique_pages(self) -> "Config":
+        # Two pages on one path would shadow each other as routes; ids key nav and React lists.
+        pages = [page for target in self.targets for page in target.pages]
+        for attr, label in (("path", "path"), ("id", "page id")):
+            values = [getattr(page, attr) for page in pages]
+            dupes = sorted({v for v in values if values.count(v) > 1})
+            if dupes:
+                raise ValueError(f"duplicate {label}(s) {', '.join(dupes)} across targets")
+        return self
 
     def bootstrap_config(self) -> dict:
         # Whitelisted slice injected pre-login: only what the shell + login page need.

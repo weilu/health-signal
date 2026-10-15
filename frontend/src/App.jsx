@@ -9,6 +9,7 @@ import ConfigView from './pages/ConfigView.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import TargetPage from './pages/TargetPage.jsx'
 import { LocaleToggle } from './LocaleToggle.jsx'
+import { configLabel } from './labels.js'
 
 const navSx = { borderRadius: 0, borderBottom: 2, borderColor: 'transparent', '&.active': { borderColor: 'currentColor' } }
 
@@ -19,7 +20,9 @@ function AppRoutes({ view }) {
   return (
     <Routes>
       {pages.map(({ target, page }) => (
-        <Route key={page.path} path={page.path} element={<TargetPage target={target} page={page} />} />
+        // Keyed by path: react-router reuses an unkeyed element across routes, carrying one page's
+        // panel state (and fetched data) into the next.
+        <Route key={page.path} path={page.path} element={<TargetPage key={page.path} target={target} page={page} />} />
       ))}
       <Route path="/config" element={<ConfigView />} />
       <Route path="/" element={<Navigate to={home} replace />} />
@@ -66,7 +69,7 @@ function Shell({ config }) {
           <Typography variant="h6" component="h1" sx={{ flexGrow: 1 }}>{config.title}</Typography>
           {targets.map((target) => (
             <Button key={target.id} color="inherit" component={NavLink} to={target.pages[0].path} sx={navSx}>
-              {t(target.label_key, { defaultValue: target.id })}
+              {configLabel(t, target.label_key, target.id)}
             </Button>
           ))}
           <Button color="inherit" component={NavLink} to="/config" sx={navSx}>{t('nav.configuration')}</Button>

@@ -1,8 +1,10 @@
+import { useMemo } from 'react'
 import { Box } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
 import { useTranslation } from 'react-i18next'
 import { CategoryScale, Chart as ChartJS, Legend, LinearScale, LineElement, PointElement, Tooltip } from 'chart.js'
 import { Line } from 'react-chartjs-2'
+import { endLabelsFit } from '../series.js'
 
 ChartJS.register(CategoryScale, LinearScale, LineElement, PointElement, Tooltip, Legend)
 
@@ -24,20 +26,25 @@ const crosshair = {
   },
 }
 
-// End-of-line labels (≤4 series) in ink, never the series colour: they back up the legend.
+const LABEL_GAP = 14  // px between end-label baselines at 12px type
+
+// End-of-line labels (≤4 series) in ink, never the series colour: they back up the legend. Only series
+// that reach the last week get one (else it lands mid-plot), and none are drawn if any two would collide.
 const endLabels = {
   id: 'endLabels',
   afterDatasetsDraw(chart, _args, opts) {
     if (!opts.enabled) return
+    const last = chart.data.labels.length - 1
+    const ends = chart.data.datasets
+      .map((ds, i) => ({ label: ds.label, point: chart.getDatasetMeta(i).data[last], visible: chart.isDatasetVisible(i) && ds.data[last] != null }))
+      .filter((e) => e.visible && e.point)
+    if (!endLabelsFit(ends.map((e) => e.point.y), LABEL_GAP)) return
     const { ctx } = chart
     ctx.save()
     ctx.fillStyle = opts.color
     ctx.font = opts.font
     ctx.textBaseline = 'middle'
-    chart.data.datasets.forEach((ds, i) => {
-      const point = chart.getDatasetMeta(i).data[ds.data.findLastIndex((v) => v != null)]
-      if (point) ctx.fillText(ds.label, point.x + 6, point.y)
-    })
+    ends.forEach((e) => ctx.fillText(e.label, e.point.x + 6, e.point.y))
     ctx.restore()
   },
 }
@@ -56,6 +63,14 @@ export function TimeSeriesChart({ periods, series, unit }) {
   const rule = theme.palette.divider
   const font = { family: theme.typography.fontFamily, size: 12 }
   const labelled = series.length >= 2 && series.length <= 4
+  const labelFont = `12px ${theme.typography.fontFamily}`
+  // Reserve exactly the room the longest end-label needs, so it isn't clipped at the canvas edge.
+  const labelRoom = useMemo(() => {
+    if (!labelled) return 8
+    const ctx = document.createElement('canvas').getContext('2d')
+    ctx.font = labelFont
+    return Math.ceil(Math.max(...series.map((s) => ctx.measureText(s.label).width))) + 12
+  }, [labelled, labelFont, series])
   const data = {
     labels: periods,
     datasets: series.map((s, i) => ({
@@ -67,7 +82,7 @@ export function TimeSeriesChart({ periods, series, unit }) {
   const options = {
     responsive: true, maintainAspectRatio: false, animation: false,
     interaction: { mode: 'index', intersect: false },
-    layout: { padding: { right: labelled ? 96 : 8 } },
+    layout: { padding: { right: labelRoom } },
     scales: {
       x: { grid: { display: false }, border: { color: rule }, ticks: { color: ink2, font, maxTicksLimit: 10, maxRotation: 0 } },
       y: {
@@ -87,7 +102,7 @@ export function TimeSeriesChart({ periods, series, unit }) {
         },
       },
       crosshair: { color: rule },
-      endLabels: { enabled: labelled, color: ink2, font: `12px ${theme.typography.fontFamily}` },
+      endLabels: { enabled: labelled, color: ink2, font: labelFont },
     },
   }
   return (

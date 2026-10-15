@@ -21,3 +21,10 @@ export function toChartModel(rows, seriesBy, maxSeries) {
     series: keys.map((key) => ({ key, values: periods.map((p) => byKey.get(key).get(p) ?? null) })),
   }
 }
+
+// Whether direct end-labels (pixel y positions) can be drawn without overlapping. When they can't,
+// draw none and let the legend + tooltip carry identity — nudging labels detaches them from their lines.
+export function endLabelsFit(ys, minGap) {
+  const sorted = [...ys].sort((a, b) => a - b)
+  return sorted.every((y, i) => i === 0 || y - sorted[i - 1] >= minGap)
+}

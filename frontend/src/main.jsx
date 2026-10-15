@@ -5,7 +5,7 @@ import '@fontsource/ibm-plex-sans/500.css'
 import '@fontsource/ibm-plex-sans/600.css'
 import { ThemeProvider, CssBaseline } from '@mui/material'
 import { I18nextProvider } from 'react-i18next'
-import { QueryClient, QueryClientProvider, keepPreviousData } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { getConfig } from './config.js'
 import { buildTheme } from './theme.js'
 import { initI18n } from './i18n.js'
@@ -16,7 +16,6 @@ const queryClient = new QueryClient({
     queries: {
       retry: (count, err) => err?.status !== 401 && count < 2,  // a 401 won't fix itself
       staleTime: 5 * 60 * 1000,  // weekly data: no refetch on every page switch
-      placeholderData: keepPreviousData,  // a refetch keeps the previous frame instead of flashing
     },
   },
 })

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { toChartModel } from './series.js'
+import { endLabelsFit, toChartModel } from './series.js'
 
 const row = (period, value, dims = {}, unit = 'percent') => ({ period, value, unit, dimensions: dims })
 
@@ -35,5 +35,15 @@ describe('toChartModel', () => {
   })
   it('makes one series when nothing splits it', () => {
     expect(toChartModel([row('2025-W01', 4)], null, 8).series).toEqual([{ key: '', values: [4] }])
+  })
+})
+
+
+describe('endLabelsFit', () => {
+  it('fits labels that are far enough apart', () => expect(endLabelsFit([10, 40, 90], 14)).toBe(true))
+  it('rejects labels that would overlap, in any order', () => expect(endLabelsFit([90, 10, 20], 14)).toBe(false))
+  it('fits zero or one label', () => {
+    expect(endLabelsFit([], 14)).toBe(true)
+    expect(endLabelsFit([50], 14)).toBe(true)
   })
 })

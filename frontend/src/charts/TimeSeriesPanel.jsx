@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Alert, Box, Button, Paper, Stack, Typography } from '@mui/material'
+import { Alert, Button, Paper, Stack, Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { fetchData } from '../api.js'
 import { ResourceBoundary } from '../ResourceBoundary.jsx'
 import { toChartModel } from '../series.js'
+import { configLabel } from '../labels.js'
 import { SeriesTable } from './SeriesTable.jsx'
 import { TimeSeriesChart, useChartPalette } from './TimeSeriesChart.jsx'
 
@@ -13,7 +14,7 @@ export function TimeSeriesPanel({ panel }) {
   const palette = useChartPalette()
   const [asTable, setAsTable] = useState(false)
   const query = useQuery({ queryKey: ['data', panel.query], queryFn: () => fetchData(panel.query) })
-  const title = t(panel.label_key, { defaultValue: panel.id })
+  const title = configLabel(t, panel.label_key, panel.id)
   return (
     <Paper component="section" variant="outlined" aria-label={title} sx={{ p: 2 }}>
       <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
@@ -29,11 +30,9 @@ export function TimeSeriesPanel({ panel }) {
           const series = model.series.map((s) => ({ ...s, label: panel.series_by ? s.key || t('chart.unspecified') : title }))
           const unit = t(`unit.${model.unit}`, { defaultValue: model.unit })
           return (
-            <Box sx={{ opacity: query.isPlaceholderData ? 0.5 : 1 }}>
-              {asTable
-                ? <SeriesTable periods={model.periods} series={series} unit={unit} />
-                : <TimeSeriesChart periods={model.periods} series={series} unit={unit} />}
-            </Box>
+            asTable
+              ? <SeriesTable periods={model.periods} series={series} unit={unit} />
+              : <TimeSeriesChart periods={model.periods} series={series} unit={unit} />
           )
         }}
       </ResourceBoundary>

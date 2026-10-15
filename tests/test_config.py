@@ -111,3 +111,40 @@ def test_panel_config_typos_fail_at_load(bad):
 def test_example_config_loads():
     cfg = load_config("examples/greece.dashboard.yaml")
     assert all(p.panels for t in cfg.targets for p in t.pages)
+
+
+@pytest.mark.parametrize("bad", [
+    {"query": {"indicator": "positivity", "agee": "65+"}},  # misspelt filter
+    {"seriesby": "survtype"},                               # misspelt panel key
+])
+def test_panel_unknown_keys_fail_at_load(bad):
+    with pytest.raises(ValidationError):
+        Panel(**{**_PANEL, **bad})
+
+
+def test_page_unknown_key_fails_at_load():
+    with pytest.raises(ValidationError):
+        Page(id="o", path="/flu", panel=[_PANEL])  # misspelt `panels`
+
+
+@pytest.mark.parametrize("path", ["/", "/login", "/config", "/api/x", "/docs", "/assets/a", "flu", "/flu/:id", "/flu/*"])
+def test_page_path_must_not_collide_or_be_a_pattern(path):
+    with pytest.raises(ValidationError):
+        Page(id="o", path=path)
+
+
+def _cfg_pages(*pages):
+    return dict(schema_version="1", site=SiteConfig(title="T"),
+                targets=[Target(id=f"t{i}", pages=[p]) for i, p in enumerate(pages)])
+
+
+def test_duplicate_page_paths_and_ids_fail_at_load():
+    with pytest.raises(ValidationError, match="path"):
+        Config(**_cfg_pages(Page(id="a", path="/flu"), Page(id="b", path="/flu")))
+    with pytest.raises(ValidationError, match="page id"):
+        Config(**_cfg_pages(Page(id="a", path="/flu"), Page(id="a", path="/rsv")))
+
+
+def test_duplicate_panel_ids_on_a_page_fail_at_load():
+    with pytest.raises(ValidationError):
+        Page(id="o", path="/flu", panels=[Panel(**_PANEL), Panel(**_PANEL)])
