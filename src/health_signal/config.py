@@ -56,11 +56,17 @@ class Target(BaseModel):
     pages: list[Page] = Field(default_factory=list)
 
 
+class DataConfig(BaseModel):
+    dir: str
+
+
 class Config(BaseModel):
     schema_version: str
     site: SiteConfig
     branding: Branding = Field(default_factory=Branding)
     targets: list[Target] = Field(default_factory=list)
+    # Server-only: neither projection below references it, so it never reaches the client.
+    data: DataConfig | None = None
 
     def bootstrap_config(self) -> dict:
         # Whitelisted slice injected pre-login: only what the shell + login page need.

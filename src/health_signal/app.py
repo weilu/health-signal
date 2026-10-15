@@ -1,13 +1,16 @@
 import json
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from . import auth as _auth
 from .auth import AuthProvider, User
 from .config import Config
+from .datasource import DataSource, EmptyDataSource, FileDataSource
+
+_WEEK = r"^\d{4}-W\d{2}$"  # ISO year-week; a malformed value 422s instead of reaching the source
 
 _UI_DIR = Path(__file__).resolve().parent / "_ui"
 _PLACEHOLDER = (
@@ -34,10 +37,14 @@ def _serve_spa(config: Config) -> Response:
     return HTMLResponse(render_index(index.read_text(encoding="utf-8"), config.bootstrap_config()))
 
 
-def create_app(config: Config, auth_provider: AuthProvider | None = None) -> FastAPI:
+def create_app(
+    config: Config, auth_provider: AuthProvider | None = None, data_source: DataSource | None = None
+) -> FastAPI:
     app = FastAPI(title=config.site.title)
     provider = auth_provider if auth_provider is not None else _auth.from_env()
     provider.install(app)
+    if data_source is None:
+        data_source = FileDataSource(config.data.dir) if config.data else EmptyDataSource()
 
     _ALWAYS_PUBLIC = ("/healthz", "/login", "/logout")
 
@@ -69,6 +76,22 @@ def create_app(config: Config, auth_provider: AuthProvider | None = None) -> Fas
     @app.get("/api/config")
     def get_config(user: User = Depends(require_auth)) -> dict:
         return config.client_config()
+
+    @app.get("/api/data")
+    def get_data(
+        user: User = Depends(require_auth),
+        pathogen: str | None = None,
+        indicator: str | None = None,
+        location: str | None = None,
+        age: str | None = None,
+        week_from: str | None = Query(default=None, pattern=_WEEK),
+        week_to: str | None = Query(default=None, pattern=_WEEK),
+    ) -> list[dict]:
+        rows = data_source.query(
+            pathogen=pathogen, indicator=indicator, location=location,
+            age=age, week_from=week_from, week_to=week_to,
+        )
+        return [r.model_dump(mode="json") for r in rows]
 
     if (_UI_DIR / "assets").is_dir():
         app.mount("/assets", StaticFiles(directory=_UI_DIR / "assets"), name="assets")
