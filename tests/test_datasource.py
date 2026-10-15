@@ -16,7 +16,7 @@ def test_reads_and_folds_dimensions(tmp_path):
     rows = _src(tmp_path).query()
     assert len(rows) == 4
     r = rows[0]
-    assert r.location == "Attica" and r.indicator == "positivity" and r.value == 12.3
+    assert r.location == "Greece" and r.indicator == "positivity" and r.value == 12.3
     assert r.dimensions["pathogen"] == "Influenza" and r.dimensions["age"] == "total"
     assert "indicator" not in r.dimensions  # spine columns are not dimensions
 
@@ -69,9 +69,9 @@ def test_missing_column_names_the_column(tmp_path):
 
 
 def test_spine_cells_are_trimmed(tmp_path):
-    text = "location,period,survtype,pathogen,age,indicator,value,unit,datasource\n Attica , 2025-W01 , non-sentinel ,Influenza,total, deaths , 3 , count , ERVISS \n"
+    text = "location,period,survtype,pathogen,age,indicator,value,unit,datasource\n Greece , 2025-W01 , non-sentinel ,Influenza,total, deaths , 3 , count , ERVISS \n"
     r = _src(tmp_path, text).query()[0]
-    assert (r.location, r.period, r.indicator, r.value, r.unit, r.datasource) == ("Attica", "2025-W01", "deaths", 3.0, "count", "ERVISS")
+    assert (r.location, r.period, r.indicator, r.value, r.unit, r.datasource) == ("Greece", "2025-W01", "deaths", 3.0, "count", "ERVISS")
 
 
 def test_vocab_error_names_file_and_line(tmp_path):

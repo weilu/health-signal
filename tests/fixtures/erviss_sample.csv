@@ -1,5 +1,5 @@
 location,period,survtype,pathogen,age,indicator,value,unit,datasource
-Attica,2025-W01,non-sentinel,Influenza,total,positivity,12.3,percent,ERVISS
-Attica,2025-W02,non-sentinel,Influenza,total,positivity,15.0,percent,ERVISS
-Attica,2025-W02,non-sentinel,RSV,0-4,detections,42,count,ERVISS
-Attica,2025-W03,non-sentinel,SARS-CoV-2,65+,deaths,7,count,ERVISS
+Greece,2025-W01,non-sentinel,Influenza,total,positivity,12.3,percent,ERVISS
+Greece,2025-W02,non-sentinel,Influenza,total,positivity,15.0,percent,ERVISS
+Greece,2025-W02,non-sentinel,RSV,0-4,detections,42,count,ERVISS
+Greece,2025-W03,non-sentinel,SARS-CoV-2,65+,deaths,7,count,ERVISS
