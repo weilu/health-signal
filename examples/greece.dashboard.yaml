@@ -23,17 +23,47 @@ branding:
         secondary: "#5C5650"            # --ink-2
       divider: "#D9D2C5"                # --rule
 
-# Surveillance targets × pages. Labels are i18n keys resolved from the locale catalogs, not text.
+# Surveillance targets × pages × panels. Labels are i18n keys resolved from the locale catalogs, not
+# text. A panel's `query` is a set of /api/data filters; it should match one row per series per week
+# (these were checked against the public ERVISS snapshot), and `series_by` splits it into lines.
 targets:
   - id: covid
     label_key: "targets.covid"
     pages:
-      - { id: covid-overview, path: /covid, label_key: "pages.overview" }
+      - id: covid-overview
+        path: /covid
+        label_key: "pages.overview"
+        panels:
+          - id: covid-positivity
+            type: timeseries
+            label_key: "panels.positivity"
+            query: { indicator: positivity, location: Greece, pathogen: SARS-CoV-2, age: total }
+            series_by: survtype
   - id: influenza
     label_key: "targets.influenza"
     pages:
-      - { id: flu-overview, path: /influenza, label_key: "pages.overview" }
+      - id: flu-overview
+        path: /influenza
+        label_key: "pages.overview"
+        panels:
+          - id: flu-positivity
+            type: timeseries
+            label_key: "panels.positivity"
+            query: { indicator: positivity, location: Greece, pathogen: Influenza, pathogentype: Influenza, pathogensubtype: total, age: total }
+            series_by: survtype
+          - id: ili-rate
+            type: timeseries
+            label_key: "panels.ili"
+            query: { indicator: ILIconsultationrate, location: Greece, age: total }
   - id: rsv
     label_key: "targets.rsv"
     pages:
-      - { id: rsv-overview, path: /rsv, label_key: "pages.overview" }
+      - id: rsv-overview
+        path: /rsv
+        label_key: "pages.overview"
+        panels:
+          - id: rsv-positivity
+            type: timeseries
+            label_key: "panels.positivity"
+            query: { indicator: positivity, location: Greece, pathogen: RSV, pathogentype: RSV, age: total }
+            series_by: survtype

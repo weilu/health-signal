@@ -121,6 +121,10 @@ A profile is a Pydantic-backed declaration: `dimensions` (names + controlled voc
 `indicators`, `units`, `period` granularity, and validation rules. New rows — not schema changes —
 add pathogens/strata/indicators within a profile.
 
+Pages declare **panels** in config — `type: timeseries`, a `query` (a set of `/api/data` filters that
+should match one row per series per week) and an optional `series_by` dimension that splits it into
+lines. Panel config is validated against the profile at load, so a typo fails before the app serves.
+
 ### 6.2 ERVISS profile (respiratory — MVP)
 
 The ECDC/WHO-Europe *European Respiratory Virus Surveillance Summary* public data model (repo
@@ -198,8 +202,8 @@ ERVISS is for respiratory.
 
 ```python
 class DataSource(Protocol):
-    def query(self, *, location=None, pathogen=None, indicator=None,
-              age=None, week_from=None, week_to=None) -> list[FeedRow]: ...
+    def query(self, *, location=None, indicator=None, week_from=None, week_to=None,
+              **dimensions) -> list[FeedRow]: ...   # any profile dimension; unknown names raise
 ```
 
 - `FileDataSource(data_dir)` — reads profile-format CSV with pandas and validates every row against the
@@ -260,7 +264,7 @@ provider's login routes are always public. Default-locked matches "keep content 
 | `GET /login`, `POST /login`, `POST /logout` | public / session | account login, session cookie |
 | `GET /api/me` | required | current user (name/role for the UI) |
 | `GET /api/config` | required | which pathogens/indicators/layout/branding/locales |
-| `GET /api/data?…` | required | filtered feed rows (active schema profile) |
+| `GET /api/data?…` | required | filtered feed rows (active schema profile); filters: `location`, `indicator`, `week_from`/`week_to`, and any profile dimension |
 | `GET /api/locales/{lang}` | required | translation bundle (library base + country overrides, merged) |
 | `GET /api/methodology/{lang}` | required | config-selected methodology content (Markdown) for the Methodology view |
 | `GET /docs`, `/redoc`, `/openapi.json` | required | auto-generated API documentation (Swagger UI / ReDoc / OpenAPI schema) |

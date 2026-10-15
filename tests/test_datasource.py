@@ -133,3 +133,17 @@ def test_literal_na_subtype_is_kept_as_text(tmp_path):
     text = "location,period,survtype,pathogen,pathogentype,pathogensubtype,age,indicator,value,unit\nGreece,2025-W01,non-sentinel,RSV,RSV-A,NA,0-4,detections,4,count\n"
     r = _src(tmp_path, text).query()[0]
     assert r.dimensions["pathogensubtype"] == "NA"
+
+
+def test_query_filters_on_any_profile_dimension(tmp_path):
+    text = ("location,period,survtype,pathogen,pathogentype,pathogensubtype,age,indicator,value,unit\n"
+            "Greece,2025-W01,non-sentinel,Influenza,Influenza A,A(H3),total,detections,3,count\n"
+            "Greece,2025-W01,non-sentinel,Influenza,Influenza B,B/Vic,total,detections,5,count\n")
+    src = _src(tmp_path, text)
+    assert [r.value for r in src.query(pathogentype="Influenza B")] == [5.0]
+    assert [r.value for r in src.query(pathogensubtype="A(H3)", survtype="non-sentinel")] == [3.0]
+
+
+def test_query_rejects_unknown_filter(tmp_path):
+    with pytest.raises(ValueError, match="unknown filter"):
+        _src(tmp_path).query(colour="red")

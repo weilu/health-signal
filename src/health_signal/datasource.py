@@ -12,8 +12,8 @@ _READ_CSV = dict(dtype=str, keep_default_na=False, na_filter=False, encoding="ut
 
 
 class DataSource(Protocol):
-    def query(self, *, pathogen=None, indicator=None, location=None,
-              age=None, week_from=None, week_to=None) -> list[FeedRow]: ...
+    def query(self, *, location=None, indicator=None, week_from=None, week_to=None,
+              **dimensions) -> list[FeedRow]: ...
 
 
 class EmptyDataSource:
@@ -55,12 +55,14 @@ class FileDataSource:
             raise ValueError(f"{path.name} row {label + 1}: {message}")
         return df
 
-    def query(self, *, pathogen=None, indicator=None, location=None,
-              age=None, week_from=None, week_to=None) -> list[FeedRow]:
+    def query(self, *, location=None, indicator=None, week_from=None, week_to=None,
+              **dimensions) -> list[FeedRow]:
+        unknown = dimensions.keys() - set(self._profile.dimension_keys)
+        if unknown:
+            raise ValueError(f"unknown filter(s) {', '.join(sorted(unknown))} for profile {self._profile.name}")
         df = self._df
         mask = pd.Series(True, index=df.index)
-        for column, wanted in (("location", location), ("indicator", indicator),
-                               ("pathogen", pathogen), ("age", age)):
+        for column, wanted in (("location", location), ("indicator", indicator), *dimensions.items()):
             if wanted is not None:
                 mask &= df[column].eq(wanted) if column in df.columns else False
         if week_from is not None:

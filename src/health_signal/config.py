@@ -1,7 +1,10 @@
 from pathlib import Path
+from typing import Literal
 
 import yaml
 from pydantic import BaseModel, Field, field_validator, model_validator
+
+from .profile import ERVISS
 
 
 class Branding(BaseModel):
@@ -43,10 +46,52 @@ class SiteConfig(BaseModel):
         return self
 
 
+_WEEK = r"^\d{4}-W\d{2}$"
+
+
+class PanelQuery(BaseModel):
+    # Mirrors /api/data's filters. Validated against the ERVISS profile so a config typo fails at load.
+    indicator: str
+    location: str | None = None
+    survtype: str | None = None
+    pathogen: str | None = None
+    pathogentype: str | None = None
+    pathogensubtype: str | None = None
+    age: str | None = None
+    week_from: str | None = Field(default=None, pattern=_WEEK)
+    week_to: str | None = Field(default=None, pattern=_WEEK)
+
+    @model_validator(mode="after")
+    def _in_profile_vocab(self) -> "PanelQuery":
+        if self.indicator not in ERVISS.indicators:
+            raise ValueError(f"unknown indicator {self.indicator!r} for profile {ERVISS.name}")
+        for dim, allowed in ERVISS.dimension_vocab.items():
+            value = getattr(self, dim, None)
+            if value is not None and value not in allowed:
+                raise ValueError(f"{dim} {value!r} not allowed in profile {ERVISS.name}")
+        return self
+
+
+class Panel(BaseModel):
+    id: str
+    type: Literal["timeseries"]
+    label_key: str | None = None
+    query: PanelQuery
+    series_by: str | None = None  # one line per value of this dimension
+
+    @field_validator("series_by")
+    @classmethod
+    def _is_dimension(cls, v: str | None) -> str | None:
+        if v is not None and v not in ERVISS.dimension_keys:
+            raise ValueError(f"series_by {v!r} is not an {ERVISS.name} dimension")
+        return v
+
+
 class Page(BaseModel):
     id: str
     path: str
     label_key: str | None = None  # i18n key; text lives in locale files, not config
+    panels: list[Panel] = Field(default_factory=list)
 
 
 class Target(BaseModel):

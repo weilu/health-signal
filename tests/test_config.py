@@ -1,6 +1,6 @@
 import pytest
 from pydantic import ValidationError
-from health_signal.config import Branding, Config, Page, SiteConfig, Target, load_config
+from health_signal.config import Branding, Config, Page, Panel, SiteConfig, Target, load_config
 
 
 def test_load_valid_config(tmp_path):
@@ -84,3 +84,30 @@ def test_branding_projection_is_json_safe():
     # Non-JSON YAML scalars (e.g. an unquoted ISO date) must serialize cleanly downstream.
     json.dumps(cfg.bootstrap_config())
     json.dumps(cfg.client_config())
+
+
+_PANEL = {"id": "p", "type": "timeseries", "query": {"indicator": "positivity", "pathogen": "Influenza"}, "series_by": "survtype"}
+
+
+def test_panel_parses_and_reaches_client_config():
+    cfg = Config(schema_version="1", site=SiteConfig(title="T"),
+                 targets=[Target(id="flu", pages=[Page(id="o", path="/flu", panels=[Panel(**_PANEL)])])])
+    panel = cfg.client_config()["targets"][0]["pages"][0]["panels"][0]
+    assert panel["query"]["indicator"] == "positivity" and panel["series_by"] == "survtype"
+
+
+@pytest.mark.parametrize("bad", [
+    {"type": "bar"},                                                 # only timeseries exists
+    {"query": {"indicator": "bogus"}},                               # not an ERVISS indicator
+    {"query": {"indicator": "positivity", "pathogen": "Measles"}},   # not in the ERVISS vocab
+    {"query": {"indicator": "positivity", "week_from": "2025-W5"}},  # not YYYY-Www
+    {"series_by": "colour"},                                         # not an ERVISS dimension
+])
+def test_panel_config_typos_fail_at_load(bad):
+    with pytest.raises(ValidationError):
+        Panel(**{**_PANEL, **bad})
+
+
+def test_example_config_loads():
+    cfg = load_config("examples/greece.dashboard.yaml")
+    assert all(p.panels for t in cfg.targets for p in t.pages)

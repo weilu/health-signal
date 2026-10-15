@@ -73,3 +73,9 @@ def test_api_data_openapi_response_is_typed(tmp_path):
     schema = _app(tmp_path, _AllowAll()).openapi()
     resp = schema["paths"]["/api/data"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]
     assert resp["type"] == "array" and resp["items"]["$ref"].endswith("/FeedRow")
+
+
+def test_api_data_filters_on_survtype(tmp_path):
+    client = TestClient(_app(tmp_path, _AllowAll()))
+    assert client.get("/api/data", params={"survtype": "non-sentinel"}).json()
+    assert client.get("/api/data", params={"survtype": "SARI syndromic"}).json() == []

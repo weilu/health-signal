@@ -81,16 +81,20 @@ def create_app(
     @app.get("/api/data", response_model=list[FeedRow])
     def get_data(
         user: User = Depends(require_auth),
-        pathogen: str | None = None,
-        indicator: str | None = None,
         location: str | None = None,
+        indicator: str | None = None,
+        survtype: str | None = None,
+        pathogen: str | None = None,
+        pathogentype: str | None = None,
+        pathogensubtype: str | None = None,
         age: str | None = None,
         week_from: str | None = Query(default=None, pattern=_WEEK),
         week_to: str | None = Query(default=None, pattern=_WEEK),
     ) -> list[FeedRow]:
         return data_source.query(
-            pathogen=pathogen, indicator=indicator, location=location,
-            age=age, week_from=week_from, week_to=week_to,
+            location=location, indicator=indicator, week_from=week_from, week_to=week_to,
+            survtype=survtype, pathogen=pathogen, pathogentype=pathogentype,
+            pathogensubtype=pathogensubtype, age=age,
         )
 
     if (_UI_DIR / "assets").is_dir():
