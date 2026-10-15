@@ -19,6 +19,8 @@ jobs:
         run: uv run pytest -q
       - uses: actions/setup-node@v4
         with: { node-version: '22' }
+      - name: Frontend unit tests
+        run: npm --prefix frontend ci && npm --prefix frontend test
       - name: Build wheel (build hook compiles the frontend) and verify the SPA is packaged
         run: |
           uv build --wheel
