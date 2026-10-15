@@ -108,6 +108,9 @@ uv run pytest    # run the tests
 npm --prefix frontend ci && npm --prefix frontend run build
 ```
 
+`npm ci` installs exactly the versions pinned in `frontend/package-lock.json`. To add or upgrade a
+frontend dependency, use `npm --prefix frontend install <pkg>` instead and commit the updated lockfile.
+
 Then wrap `create_app` in a module and serve it. Auth needs a secret and at least one account
 (email → argon2 hash):
 
