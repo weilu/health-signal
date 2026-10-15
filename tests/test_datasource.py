@@ -50,3 +50,19 @@ def test_out_of_vocab_indicator_rejected(tmp_path):
 
 def test_empty_source_returns_empty():
     assert EmptyDataSource().query(pathogen="Influenza") == []
+
+
+def test_missing_data_dir_fails_fast(tmp_path):
+    with pytest.raises(ValueError, match="not a directory"):
+        FileDataSource(tmp_path / "nope")
+
+
+def test_bom_header_loads(tmp_path):
+    rows = _src(tmp_path, "﻿" + FIX.read_text()).query()
+    assert len(rows) == 4
+
+
+def test_missing_column_names_the_column(tmp_path):
+    bad = "location,period,pathogen,age,indicator,value\nA,2025-W01,Influenza,total,deaths,1\n"
+    with pytest.raises(ValueError, match="missing column.*unit"):
+        _src(tmp_path, bad)

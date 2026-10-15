@@ -39,3 +39,22 @@ def test_erviss_includes_numeric_status_level_but_not_categorical_trend():
 def test_feedrow_requires_numeric_value():
     with pytest.raises(Exception):
         FeedRow(location="A", period="2025-W01", dimensions={}, indicator="deaths", value="lots", unit="count")
+
+
+def test_feedrow_rejects_nan_and_inf():
+    for bad in ("nan", "inf"):
+        with pytest.raises(Exception):
+            _row(value=bad)
+
+
+def test_feedrow_rejects_blank_location_and_period():
+    with pytest.raises(Exception):
+        _row(location="")
+    with pytest.raises(Exception):
+        _row(period="")
+
+
+def test_erviss_rejects_non_iso_week_period():
+    for bad in ("2025-W5", "2025-01-15"):
+        with pytest.raises(ValueError, match="period"):
+            ERVISS.validate(_row(period=bad))

@@ -6,6 +6,8 @@ from pydantic import ValidationError
 
 from .profile import ERVISS, FeedRow, Profile
 
+_REQUIRED = ("location", "period", "indicator", "value", "unit")
+
 
 class DataSource(Protocol):
     def query(self, *, pathogen=None, indicator=None, location=None,
@@ -19,13 +21,22 @@ class EmptyDataSource:
 
 class FileDataSource:
     def __init__(self, data_dir: str | Path, profile: Profile = ERVISS) -> None:
+        data_dir = Path(data_dir)
+        if not data_dir.is_dir():
+            # A mistyped/missing dir would otherwise serve an empty feed that looks healthy.
+            raise ValueError(f"data dir {str(data_dir)!r} is not a directory")
         self._profile = profile
-        self._rows = [r for path in sorted(Path(data_dir).glob("*.csv")) for r in self._load(path)]
+        self._rows = [r for path in sorted(data_dir.glob("*.csv")) for r in self._load(path)]
 
     def _load(self, path: Path) -> list[FeedRow]:
         rows: list[FeedRow] = []
-        with path.open(newline="", encoding="utf-8") as f:
-            for i, rec in enumerate(csv.DictReader(f), start=2):  # line 1 is the header
+        # utf-8-sig: Excel's "CSV UTF-8" export prepends a BOM that would otherwise corrupt the first header.
+        with path.open(newline="", encoding="utf-8-sig") as f:
+            reader = csv.DictReader(f)
+            missing = [c for c in _REQUIRED if c not in (reader.fieldnames or [])]
+            if missing:
+                raise ValueError(f"{path.name}: missing column(s) {', '.join(missing)}")
+            for i, rec in enumerate(reader, start=2):  # line 1 is the header
                 dims = {k: v for k in self._profile.dimension_keys if (v := (rec.get(k) or "").strip())}
                 try:
                     row = FeedRow(

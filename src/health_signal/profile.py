@@ -1,12 +1,14 @@
-from pydantic import BaseModel
+import re
+
+from pydantic import BaseModel, Field
 
 
 class FeedRow(BaseModel):
-    location: str
-    period: str
+    location: str = Field(min_length=1)
+    period: str = Field(min_length=1)
     dimensions: dict[str, str]
     indicator: str
-    value: float
+    value: float = Field(allow_inf_nan=False)  # nan would serialize to JSON null and read as a gap
     unit: str
     datasource: str | None = None
 
@@ -18,8 +20,11 @@ class Profile(BaseModel):
     indicators: set[str]
     units: set[str]
     dimension_vocab: dict[str, set[str]]  # dimension name -> allowed values
+    period_pattern: str  # granularity: week_range filters compare periods as strings, so format must be fixed
 
     def validate(self, row: FeedRow) -> None:
+        if not re.fullmatch(self.period_pattern, row.period):
+            raise ValueError(f"period {row.period!r} does not match {self.period_pattern!r} for profile {self.name}")
         if row.indicator not in self.indicators:
             raise ValueError(f"unknown indicator {row.indicator!r} for profile {self.name}")
         if row.unit not in self.units:
@@ -49,4 +54,5 @@ ERVISS = Profile(
         "pathogen": {"Influenza", "RSV", "SARS-CoV-2"},
         "age": {"0-4", "5-14", "15-64", "65+", "total", "unk"},
     },
+    period_pattern=r"\d{4}-W\d{2}",
 )
