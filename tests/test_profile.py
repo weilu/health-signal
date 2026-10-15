@@ -31,9 +31,24 @@ def test_erviss_rejects_out_of_vocab_dimension_value():
         ERVISS.validate_row(_row(dimensions={"pathogen": "Measles", "age": "total"}))
 
 
-def test_erviss_includes_numeric_status_level_but_not_categorical_trend():
+def test_erviss_ingests_status_level_but_not_categorical_trend():
     assert "status_level" in ERVISS.indicators
     assert "trend" not in ERVISS.indicators  # categorical derived rows deferred to 4c
+
+
+def test_status_level_must_be_a_level_0_to_4():
+    for bad in (7, -1, 2.5):
+        with pytest.raises(ValueError, match="status_level"):
+            ERVISS.validate_row(_row(indicator="status_level", value=bad, unit="level"))
+    ERVISS.validate_row(_row(indicator="status_level", value=3, unit="level"))
+
+
+def test_erviss_requires_non_nullable_dimensions():
+    with pytest.raises(ValueError, match="survtype"):
+        ERVISS.validate_row(_row(dimensions={"pathogen": "Influenza", "age": "total"}))
+    with pytest.raises(ValueError, match="age"):
+        ERVISS.validate_row(_row(dimensions={"survtype": "non-sentinel"}))
+    ERVISS.validate_row(_row(dimensions={"survtype": "non-sentinel", "age": "total"}))  # pathogen is nullable
 
 
 def test_feedrow_requires_numeric_value():

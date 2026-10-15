@@ -2,8 +2,6 @@ import csv
 from pathlib import Path
 from typing import Protocol
 
-from pydantic import ValidationError
-
 from .profile import ERVISS, FeedRow, Profile
 
 _REQUIRED = ("location", "period", "indicator", "value", "unit")
@@ -30,27 +28,31 @@ class FileDataSource:
 
     def _load(self, path: Path) -> list[FeedRow]:
         rows: list[FeedRow] = []
-        # utf-8-sig: Excel's "CSV UTF-8" export prepends a BOM that would otherwise corrupt the first header.
-        with path.open(newline="", encoding="utf-8-sig") as f:
-            reader = csv.DictReader(f)
-            missing = [c for c in _REQUIRED if c not in (reader.fieldnames or [])]
-            if missing:
-                raise ValueError(f"{path.name}: missing column(s) {', '.join(missing)}")
-            for i, rec in enumerate(reader, start=2):  # line 1 is the header
-                cell = {k: (v or "").strip() for k, v in rec.items() if k is not None}
-                dims = {k: cell[k] for k in self._profile.dimension_keys if cell.get(k)}
-                try:
-                    row = FeedRow(
-                        location=cell["location"], period=cell["period"],
-                        indicator=cell["indicator"], value=cell["value"],
-                        unit=cell["unit"], datasource=cell.get("datasource") or None,
-                        dimensions=dims,
-                    )
-                except (ValidationError, KeyError) as e:
-                    # Name the file/line so a bad feed is debuggable, not a bare pydantic traceback.
-                    raise ValueError(f"{path.name}:{i}: bad value ({e})") from e
-                self._profile.validate_row(row)
-                rows.append(row)
+        try:
+            # utf-8-sig: Excel's "CSV UTF-8" export prepends a BOM that would otherwise corrupt the first header.
+            with path.open(newline="", encoding="utf-8-sig") as f:
+                reader = csv.DictReader(f)
+                missing = [c for c in _REQUIRED if c not in (reader.fieldnames or [])]
+                if missing:
+                    raise ValueError(f"{path.name}: missing column(s) {', '.join(missing)}")
+                for i, rec in enumerate(reader, start=2):  # line 1 is the header
+                    cell = {k: (v or "").strip() for k, v in rec.items() if k is not None}
+                    dims = {k: cell[k] for k in self._profile.dimension_keys if cell.get(k)}
+                    try:
+                        row = FeedRow(
+                            location=cell["location"], period=cell["period"],
+                            indicator=cell["indicator"], value=cell["value"],
+                            unit=cell["unit"], datasource=cell.get("datasource") or None,
+                            dimensions=dims,
+                        )
+                        self._profile.validate_row(row)
+                    except (ValueError, KeyError) as e:  # ValidationError is a ValueError
+                        # Name the file/line so a bad feed is debuggable, not a bare traceback.
+                        raise ValueError(f"{path.name}:{i}: {e}") from e
+                    rows.append(row)
+        except UnicodeDecodeError as e:
+            # The bare decode error doesn't say which file; Greek Excel's plain "CSV" is cp1253.
+            raise ValueError(f"{path.name}: not valid UTF-8 (byte {e.start}) — re-save it as 'CSV UTF-8'") from e
         return rows
 
     def query(self, *, pathogen=None, indicator=None, location=None,

@@ -69,6 +69,21 @@ def test_missing_column_names_the_column(tmp_path):
 
 
 def test_spine_cells_are_trimmed(tmp_path):
-    text = "location,period,pathogen,age,indicator,value,unit,datasource\n Attica , 2025-W01 ,Influenza,total, deaths , 3 , count , ERVISS \n"
+    text = "location,period,survtype,pathogen,age,indicator,value,unit,datasource\n Attica , 2025-W01 , non-sentinel ,Influenza,total, deaths , 3 , count , ERVISS \n"
     r = _src(tmp_path, text).query()[0]
     assert (r.location, r.period, r.indicator, r.value, r.unit, r.datasource) == ("Attica", "2025-W01", "deaths", 3.0, "count", "ERVISS")
+
+
+def test_vocab_error_names_file_and_line(tmp_path):
+    bad = "location,period,survtype,pathogen,age,indicator,value,unit\nA,2025-W01,non-sentinel,Influenza,total,bogus,1,count\n"
+    with pytest.raises(ValueError, match=r"feed\.csv:2: .*indicator"):
+        _src(tmp_path, bad)
+
+
+def test_non_utf8_file_names_the_file(tmp_path):
+    d = tmp_path / "data"
+    d.mkdir()
+    header = b"location,period,survtype,pathogen,age,indicator,value,unit\n"
+    (d / "feed.csv").write_bytes(header + "\u0391\u03c4\u03c4\u03b9\u03ba\u03ae".encode("cp1253") + b",2025-W01,non-sentinel,Influenza,total,deaths,1,count\n")
+    with pytest.raises(ValueError, match=r"feed\.csv: not valid UTF-8"):
+        FileDataSource(d)

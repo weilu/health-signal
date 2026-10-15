@@ -21,6 +21,8 @@ class Profile(BaseModel):
     units: set[str]
     dimension_vocab: dict[str, set[str]]  # dimension name -> allowed values
     period_pattern: str  # granularity: week_range filters compare periods as strings, so format must be fixed
+    required_dimensions: set[str] = set()
+    indicator_values: dict[str, set[float]] = {}  # indicator -> allowed values (e.g. a level scale)
 
     def validate_row(self, row: FeedRow) -> None:
         if not re.fullmatch(self.period_pattern, row.period):
@@ -34,6 +36,12 @@ class Profile(BaseModel):
             # Dimensions without a vocab entry (e.g. pathogensubtype) are unconstrained.
             if allowed is not None and value not in allowed:
                 raise ValueError(f"value {value!r} not allowed for dimension {key!r} in profile {self.name}")
+        missing = self.required_dimensions - row.dimensions.keys()
+        if missing:
+            raise ValueError(f"missing required dimension(s) {', '.join(sorted(missing))} for profile {self.name}")
+        levels = self.indicator_values.get(row.indicator)
+        if levels is not None and row.value not in levels:
+            raise ValueError(f"{row.indicator} value {row.value!r} not in {sorted(levels)} for profile {self.name}")
 
 
 # ECDC/WHO-Europe ERVISS respiratory clinical profile (spec §6.2). Wastewater (§6.3) and categorical
@@ -55,4 +63,6 @@ ERVISS = Profile(
         "age": {"0-4", "5-14", "15-64", "65+", "total", "unk"},
     },
     period_pattern=r"\d{4}-W\d{2}",
+    required_dimensions={"survtype", "age"},  # spec §6.2: only the pathogen fields are nullable
+    indicator_values={"status_level": {0, 1, 2, 3, 4}},
 )
