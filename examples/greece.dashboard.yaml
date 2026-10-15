@@ -1,0 +1,39 @@
+# Example dashboard.yaml — Greece / Attica pilot.
+# Pass to the app via the config path it loads at startup
+
+schema_version: "1.0.0"
+
+site:
+  title: "Greece Public Health Early Warning & Surveillance"
+  default_locale: el
+  locales: [en, el]
+  # Path prefixes that bypass auth ([] = everything behind login). e.g. ["/covid"] to open a page.
+  public_paths: []
+
+branding:
+  theme:
+    palette:
+      primary:   { main: "#B5860B" }    # --amber  (brand / active)
+      secondary: { main: "#4F7C5E" }    # --green  (signal-low)
+      background:
+        default: "#F2EEE4"              # --bg      (page)
+        paper:   "#FBFAF6"              # --surface (cards)
+      text:
+        primary:   "#1A1612"            # --ink
+        secondary: "#5C5650"            # --ink-2
+      divider: "#D9D2C5"                # --rule
+
+# Surveillance targets × pages. Labels are i18n keys resolved from the locale catalogs, not text.
+targets:
+  - id: covid
+    label_key: "targets.covid"
+    pages:
+      - { id: covid-overview, path: /covid, label_key: "pages.overview" }
+  - id: influenza
+    label_key: "targets.influenza"
+    pages:
+      - { id: flu-overview, path: /influenza, label_key: "pages.overview" }
+  - id: rsv
+    label_key: "targets.rsv"
+    pages:
+      - { id: rsv-overview, path: /rsv, label_key: "pages.overview" }
