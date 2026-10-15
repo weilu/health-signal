@@ -277,7 +277,9 @@ precedence over client-side routes.
 ## 9. Frontend — modularity & i18n
 
 - **Config-driven rendering.** The SPA fetches `/api/config` and builds pathogen tabs, panels, and
-  indicator charts from it. Adding/removing/reconfiguring a surveillance target = config + data,
+  indicator charts from it. One route per configured page; the AppBar has a tab per target (linking to
+  its first page — nest a target's page paths under that path so its tab stays active), and `/` lands
+  on the first target. Adding/removing/reconfiguring a surveillance target = config + data,
   no code. Prototype panels/logic (Status/Trend tiles, range selector, season/wave band, EuroMOMO
   strip, Methods view) port into config-driven React components.
 - **Routing (per-page URLs).** React Router gives every page its own path — e.g.
