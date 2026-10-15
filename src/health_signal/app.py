@@ -81,15 +81,16 @@ def create_app(
     @app.get("/api/data", response_model=list[FeedRow])
     def get_data(
         user: User = Depends(require_auth),
+        countryname: str | None = None,
+        region: str | None = None,
         pathogen: str | None = None,
         indicator: str | None = None,
-        location: str | None = None,
         age: str | None = None,
         week_from: str | None = Query(default=None, pattern=_WEEK),
         week_to: str | None = Query(default=None, pattern=_WEEK),
     ) -> list[FeedRow]:
         return data_source.query(
-            pathogen=pathogen, indicator=indicator, location=location,
+            countryname=countryname, region=region, pathogen=pathogen, indicator=indicator,
             age=age, week_from=week_from, week_to=week_to,
         )
 
