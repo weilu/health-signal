@@ -327,7 +327,13 @@ precedence over client-side routes.
   (config/data), independent of any repo `docs/` directory.
 - **API docs.** FastAPI serves Swagger UI at `/docs`, ReDoc at `/redoc`, and `/openapi.json`, all
   behind the auth gate; generated from the route definitions + Pydantic models, so they track the code.
-- **Charts.** Chart.js, reused.
+- **Charts.** Chart.js (`react-chartjs-2`), following the dataviz rules: one y-axis (the panel's
+  unit), 2px lines, a crosshair with one tooltip per week (value before label), a legend for ≥ 2
+  series and ink end-labels for ≤ 4, and a **table view** on every chart. Series colours come from a
+  fixed-order, CVD-validated categorical palette in the theme (`palette.chart.light`/`.dark`,
+  replaceable via branding) and are never cycled. A panel whose rows can't make an honest chart —
+  none, mixed units, several rows per series-week, or more series than colours — shows a message
+  instead of a misleading plot.
 
 ## 10. Packaging & reuse
 

@@ -1,3 +1,11 @@
-{ "app": { "loading": "Loading…", "error": "Something went wrong", "logoutError": "Sign-out failed — please try again." }, "nav": { "configuration": "Configuration", "logout": "Sign out" },
+{ "app": { "loading": "Loading…", "error": "Something went wrong", "logoutError": "Sign-out failed — please try again.", "notFound": "Page not found." }, "nav": { "configuration": "Configuration", "logout": "Sign out" },
   "login": { "email": "Email", "password": "Password", "submit": "Sign in", "error": "Invalid email or password", "failed": "Sign-in failed — please try again." },
-  "config": { "title": "Configuration", "targets": "Surveillance targets", "locales": "Languages" } }
+  "config": { "title": "Configuration", "targets": "Surveillance targets", "locales": "Languages" },
+  "page": { "noPanels": "No panels are configured for this page." },
+  "chart": { "showTable": "Show table", "showChart": "Show chart", "period": "Week", "unspecified": "Unspecified",
+    "empty": "No data for this panel yet.",
+    "mixedUnits": "These rows mix units ({{units}}), so they can't share one axis. Narrow the panel's query.",
+    "ambiguous": "More than one row per series in {{period}}. Narrow the panel's query (e.g. pathogentype) or set series_by.",
+    "tooManySeries": "{{count}} series are more than colour can tell apart. Narrow the panel's query." },
+  "unit": { "per_100k": "per 100,000 population", "per_100_consultations": "per 100 consultations",
+    "per_100k_consultations": "per 100,000 consultations", "count": "count", "percent": "%", "rate": "rate" } }
