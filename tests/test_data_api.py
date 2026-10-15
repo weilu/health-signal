@@ -67,3 +67,9 @@ def test_no_data_config_serves_empty(tmp_path):
     client = TestClient(create_app(cfg, auth_provider=_AllowAll()))
     r = client.get("/api/data")
     assert r.status_code == 200 and r.json() == []
+
+
+def test_api_data_openapi_response_is_typed(tmp_path):
+    schema = _app(tmp_path, _AllowAll()).openapi()
+    resp = schema["paths"]["/api/data"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]
+    assert resp["type"] == "array" and resp["items"]["$ref"].endswith("/FeedRow")

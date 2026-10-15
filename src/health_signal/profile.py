@@ -22,7 +22,7 @@ class Profile(BaseModel):
     dimension_vocab: dict[str, set[str]]  # dimension name -> allowed values
     period_pattern: str  # granularity: week_range filters compare periods as strings, so format must be fixed
 
-    def validate(self, row: FeedRow) -> None:
+    def validate_row(self, row: FeedRow) -> None:
         if not re.fullmatch(self.period_pattern, row.period):
             raise ValueError(f"period {row.period!r} does not match {self.period_pattern!r} for profile {self.name}")
         if row.indicator not in self.indicators:

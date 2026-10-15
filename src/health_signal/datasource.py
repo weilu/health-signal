@@ -37,18 +37,19 @@ class FileDataSource:
             if missing:
                 raise ValueError(f"{path.name}: missing column(s) {', '.join(missing)}")
             for i, rec in enumerate(reader, start=2):  # line 1 is the header
-                dims = {k: v for k in self._profile.dimension_keys if (v := (rec.get(k) or "").strip())}
+                cell = {k: (v or "").strip() for k, v in rec.items() if k is not None}
+                dims = {k: cell[k] for k in self._profile.dimension_keys if cell.get(k)}
                 try:
                     row = FeedRow(
-                        location=rec["location"], period=rec["period"],
-                        indicator=rec["indicator"], value=rec["value"],
-                        unit=rec["unit"], datasource=(rec.get("datasource") or None),
+                        location=cell["location"], period=cell["period"],
+                        indicator=cell["indicator"], value=cell["value"],
+                        unit=cell["unit"], datasource=cell.get("datasource") or None,
                         dimensions=dims,
                     )
                 except (ValidationError, KeyError) as e:
                     # Name the file/line so a bad feed is debuggable, not a bare pydantic traceback.
                     raise ValueError(f"{path.name}:{i}: bad value ({e})") from e
-                self._profile.validate(row)
+                self._profile.validate_row(row)
                 rows.append(row)
         return rows
 

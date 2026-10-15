@@ -66,3 +66,9 @@ def test_missing_column_names_the_column(tmp_path):
     bad = "location,period,pathogen,age,indicator,value\nA,2025-W01,Influenza,total,deaths,1\n"
     with pytest.raises(ValueError, match="missing column.*unit"):
         _src(tmp_path, bad)
+
+
+def test_spine_cells_are_trimmed(tmp_path):
+    text = "location,period,pathogen,age,indicator,value,unit,datasource\n Attica , 2025-W01 ,Influenza,total, deaths , 3 , count , ERVISS \n"
+    r = _src(tmp_path, text).query()[0]
+    assert (r.location, r.period, r.indicator, r.value, r.unit, r.datasource) == ("Attica", "2025-W01", "deaths", 3.0, "count", "ERVISS")

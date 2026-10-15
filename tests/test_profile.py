@@ -13,22 +13,22 @@ def _row(**over):
 
 
 def test_erviss_accepts_a_valid_clinical_row():
-    ERVISS.validate(_row())  # no raise
+    ERVISS.validate_row(_row())  # no raise
 
 
 def test_erviss_rejects_unknown_indicator():
     with pytest.raises(ValueError, match="indicator"):
-        ERVISS.validate(_row(indicator="not_an_indicator"))
+        ERVISS.validate_row(_row(indicator="not_an_indicator"))
 
 
 def test_erviss_rejects_unknown_unit():
     with pytest.raises(ValueError, match="unit"):
-        ERVISS.validate(_row(unit="furlongs"))
+        ERVISS.validate_row(_row(unit="furlongs"))
 
 
 def test_erviss_rejects_out_of_vocab_dimension_value():
     with pytest.raises(ValueError, match="pathogen"):
-        ERVISS.validate(_row(dimensions={"pathogen": "Measles", "age": "total"}))
+        ERVISS.validate_row(_row(dimensions={"pathogen": "Measles", "age": "total"}))
 
 
 def test_erviss_includes_numeric_status_level_but_not_categorical_trend():
@@ -57,4 +57,8 @@ def test_feedrow_rejects_blank_location_and_period():
 def test_erviss_rejects_non_iso_week_period():
     for bad in ("2025-W5", "2025-01-15"):
         with pytest.raises(ValueError, match="period"):
-            ERVISS.validate(_row(period=bad))
+            ERVISS.validate_row(_row(period=bad))
+
+
+def test_profile_does_not_shadow_pydantic_validate():
+    assert "validate" not in Profile.__dict__

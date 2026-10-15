@@ -9,6 +9,7 @@ from . import auth as _auth
 from .auth import AuthProvider, User
 from .config import Config
 from .datasource import DataSource, EmptyDataSource, FileDataSource
+from .profile import FeedRow
 
 _WEEK = r"^\d{4}-W\d{2}$"  # ISO year-week; a malformed value 422s instead of reaching the source
 
@@ -77,7 +78,7 @@ def create_app(
     def get_config(user: User = Depends(require_auth)) -> dict:
         return config.client_config()
 
-    @app.get("/api/data")
+    @app.get("/api/data", response_model=list[FeedRow])
     def get_data(
         user: User = Depends(require_auth),
         pathogen: str | None = None,
@@ -86,12 +87,11 @@ def create_app(
         age: str | None = None,
         week_from: str | None = Query(default=None, pattern=_WEEK),
         week_to: str | None = Query(default=None, pattern=_WEEK),
-    ) -> list[dict]:
-        rows = data_source.query(
+    ) -> list[FeedRow]:
+        return data_source.query(
             pathogen=pathogen, indicator=indicator, location=location,
             age=age, week_from=week_from, week_to=week_to,
         )
-        return [r.model_dump(mode="json") for r in rows]
 
     if (_UI_DIR / "assets").is_dir():
         app.mount("/assets", StaticFiles(directory=_UI_DIR / "assets"), name="assets")
