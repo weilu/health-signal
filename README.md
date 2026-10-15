@@ -27,7 +27,7 @@ dashboards for them.
 ### Prerequisites
 
 - Python 3.11+
-- Node.js 20+ — only to build the frontend from source. Installing the published wheel does **not**
+- Node.js 22+ — only to build the frontend from source. Installing the published wheel does **not**
   require Node (the compiled UI ships inside it).
 
 ### Installation
@@ -105,7 +105,7 @@ uv run pytest    # run the tests
 (needs Node):
 
 ```bash
-npm --prefix frontend install && npm --prefix frontend run build
+npm --prefix frontend ci && npm --prefix frontend run build
 ```
 
 Then wrap `create_app` in a module and serve it. Auth needs a secret and at least one account
