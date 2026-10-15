@@ -1,20 +1,29 @@
+import { useState } from 'react'
 import { BrowserRouter, Routes, Route, NavLink, Navigate, useLocation } from 'react-router-dom'
-import { AppBar, Toolbar, Typography, Button, Container, Box } from '@mui/material'
+import { AppBar, Toolbar, Typography, Button, Container, Box, Snackbar, Alert } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import ConfigView from './pages/ConfigView.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import { LocaleToggle } from './LocaleToggle.jsx'
 
-async function logout() {
-  // Same-origin POST (CSRF-gated server-side); the 303 clears the cookie, then reload at /login.
-  await fetch('/logout', { method: 'POST', credentials: 'same-origin', redirect: 'manual' }).catch(() => null)
-  window.location.assign('/login')
-}
-
 // Inside the Router so useLocation works; the shell chrome reacts to the current route.
 function Shell({ config }) {
   const { t } = useTranslation()
   const { pathname } = useLocation()
+  const [logoutFailed, setLogoutFailed] = useState(false)
+
+  async function handleLogout() {
+    // Same-origin POST (CSRF-gated server-side); only the server can clear the httpOnly cookie, so
+    // navigate to /login only once it confirms the 303 — otherwise the session is still valid and
+    // sending the user to the login page would falsely imply they're signed out.
+    const res = await fetch('/logout', { method: 'POST', credentials: 'same-origin', redirect: 'manual' }).catch(() => null)
+    if (res && (res.ok || res.type === 'opaqueredirect' || res.status === 303)) {
+      window.location.assign('/login')
+      return
+    }
+    setLogoutFailed(true)
+  }
+
   const routes = (
     <Routes>
       <Route path="/login" element={<LoginPage config={config} />} />
@@ -51,10 +60,13 @@ function Shell({ config }) {
           >
             {t('nav.configuration')}
           </Button>
-          <Button color="inherit" onClick={logout}>{t('nav.logout')}</Button>
+          <Button color="inherit" onClick={handleLogout}>{t('nav.logout')}</Button>
         </Toolbar>
       </AppBar>
       <Container component="main" sx={{ py: 3 }}>{routes}</Container>
+      <Snackbar open={logoutFailed} autoHideDuration={6000} onClose={() => setLogoutFailed(false)}>
+        <Alert severity="error" onClose={() => setLogoutFailed(false)}>{t('app.logoutError')}</Alert>
+      </Snackbar>
     </>
   )
 }
