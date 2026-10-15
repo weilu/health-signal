@@ -113,7 +113,7 @@ Then wrap `create_app` in a module and serve it. Auth needs a secret and at leas
 
 ```bash
 export HEALTH_SIGNAL_SECRET_KEY=$(python -c "import secrets; print(secrets.token_urlsafe(32))")
-export HEALTH_SIGNAL_ACCOUNTS=$(python -c "import json; from argon2 import PasswordHasher as P; print(json.dumps({'you@example.org': P().hash('change-me')}))")
+export HEALTH_SIGNAL_ACCOUNTS=$(uv run python -c "import json; from argon2 import PasswordHasher as P; print(json.dumps({'you@example.org': P().hash('change-me')}))")
 
 cat > app.py <<'PY'
 from health_signal import create_app, load_config
