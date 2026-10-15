@@ -1,7 +1,8 @@
+import json
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from . import auth as _auth
@@ -18,11 +19,19 @@ _PLACEHOLDER = (
 )
 
 
-def _serve_spa() -> Response:
+def render_index(html: str, config_payload: dict) -> str:
+    # Embed config as HTML-safe JSON so a config value can't break out of the <script>.
+    blob = json.dumps(config_payload).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
+    tag = f"<script>window.__HS_CONFIG__ = {blob};</script>"
+    return html.replace("</head>", tag + "</head>", 1) if "</head>" in html else tag + html
+
+
+def _serve_spa(config: Config) -> Response:
     index = _UI_DIR / "index.html"
-    if index.is_file():
-        return FileResponse(index)
-    return HTMLResponse(_PLACEHOLDER)
+    if not index.is_file():
+        return HTMLResponse(_PLACEHOLDER)
+    # Only the bootstrap slice is injected (safe for anon). The full view-model is gated behind /api/config.
+    return HTMLResponse(render_index(index.read_text(encoding="utf-8"), config.bootstrap_config()))
 
 
 def create_app(config: Config, auth_provider: AuthProvider | None = None) -> FastAPI:
@@ -57,6 +66,10 @@ def create_app(config: Config, auth_provider: AuthProvider | None = None) -> Fas
     def get_me(user: User = Depends(require_auth)) -> dict:
         return {"email": user.email}
 
+    @app.get("/api/config")
+    def get_config(user: User = Depends(require_auth)) -> dict:
+        return config.client_config()
+
     if (_UI_DIR / "assets").is_dir():
         app.mount("/assets", StaticFiles(directory=_UI_DIR / "assets"), name="assets")
 
@@ -72,9 +85,9 @@ def create_app(config: Config, auth_provider: AuthProvider | None = None) -> Fas
             raise HTTPException(status_code=404, detail="Not found")
 
         if is_public(full_path):
-            return _serve_spa()
+            return _serve_spa(config)
         if await provider.current_user(request) is not None:
-            return _serve_spa()
+            return _serve_spa(config)
         return RedirectResponse(url="/login", status_code=303)
 
     return app

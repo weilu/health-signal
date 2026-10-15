@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class Branding(BaseModel):
@@ -32,11 +32,52 @@ class SiteConfig(BaseModel):
             normalized.append("/" + p.strip("/"))
         return normalized
 
+    @model_validator(mode="after")
+    def _default_locale_is_offered(self) -> "SiteConfig":
+        # fallbackLng is default_locale; if it isn't a configured locale, fallback resolves to
+        # nothing and the UI renders raw keys.
+        if self.default_locale not in self.locales:
+            raise ValueError(
+                f"default_locale {self.default_locale!r} must be one of the configured locales {self.locales}"
+            )
+        return self
+
+
+class Page(BaseModel):
+    id: str
+    path: str
+    label_key: str | None = None  # i18n key; text lives in locale files, not config
+
+
+class Target(BaseModel):
+    # A surveillance target (e.g. a pathogen). label_key -> locale files; id can derive one by convention.
+    id: str
+    label_key: str | None = None
+    pages: list[Page] = Field(default_factory=list)
+
 
 class Config(BaseModel):
     schema_version: str
     site: SiteConfig
     branding: Branding = Field(default_factory=Branding)
+    targets: list[Target] = Field(default_factory=list)
+
+    def bootstrap_config(self) -> dict:
+        # Whitelisted slice injected pre-login: only what the shell + login page need.
+        return {
+            "title": self.site.title,
+            "branding": self.branding.model_dump(mode="json"),
+            "defaultLocale": self.site.default_locale,
+            "locales": self.site.locales,
+        }
+
+    def client_config(self) -> dict:
+        # Full client view-model (authenticated). Superset of bootstrap; still excludes server-only
+        # fields (public_paths, schema_version, future data-source config).
+        return {
+            **self.bootstrap_config(),
+            "targets": [t.model_dump(mode="json") for t in self.targets],
+        }
 
 
 def load_config(path: str | Path) -> Config:

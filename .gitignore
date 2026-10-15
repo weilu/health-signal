@@ -30,3 +30,6 @@ coverage/
 *.swp
 .idea/
 .vscode/
+
+# Implementation plans are local execution scaffolding (the spec is the tracked design record)
+docs/plans/

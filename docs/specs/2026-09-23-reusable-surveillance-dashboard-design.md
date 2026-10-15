@@ -85,7 +85,7 @@ The **generic library** ships the FastAPI app and the compiled React UI in one p
 | Layer | Choice |
 |---|---|
 | Server | FastAPI (Python), deployed to Posit Connect as a Python app |
-| Frontend | React 18 + Vite, **plain JavaScript (JSX)**, no TypeScript |
+| Frontend | React 19 + Vite, **plain JavaScript (JSX)**, no TypeScript |
 | UI components & theming | **MUI (Material UI)** — canonical components + MUI styling APIs, **minimal custom CSS** (see §9); theme built at runtime from config (design tokens → `ThemeProvider` + CSS variables) for **per-government white-label** — no rebuild |
 | Routing | **React Router** — every page has its own URL path (deep-linkable, shareable) |
 | i18n | react-i18next; `en` + `el`; default `en` |
@@ -270,10 +270,19 @@ precedence over client-side routes.
   rather than bespoke stylesheets. The prototype's hand-rolled `styles.css` is **not** carried over —
   its look is reproduced through MUI's system. Custom CSS is a last resort (a genuinely un-MUI layout
   need), kept minimal and justified. This keeps the library consistent, themeable, and low-maintenance.
-- **Theming (per-government white-label).** MUI `ThemeProvider` + CSS variables built at runtime
-  from the config branding block (palette, logo, favicon, typography, light/dark). A government
-  restyles via `dashboard.yaml` + assets — no rebuild, same UI bundle. Because styling flows through
-  the theme (not ad-hoc CSS), a theme swap restyles the whole app coherently.
+- **Theming (per-government white-label).** MUI `ThemeProvider` built at runtime from the config
+  branding block. `branding.theme` **is a MUI theme-options object** (e.g. `palette.mode`,
+  `palette.primary.main`, typography) passed straight to `createTheme` — authors use MUI's own
+  documented schema rather than a bespoke vocabulary, and MUI's validation is the validation (a
+  malformed theme fails fast with a debuggable error, not a silent fallback). `logo`/`favicon` are
+  separate branding assets. A government restyles via `dashboard.yaml` + assets — no rebuild, same UI
+  bundle. Because styling flows through the theme (not ad-hoc CSS), a theme swap restyles the whole
+  app coherently.
+- **Data fetching.** Pages fetch through a small `useResource` hook + a shared `ResourceBoundary`
+  that centralizes loading, the 401→login redirect, and error UI, so per-page boilerplate and the
+  auth-redirect policy live in one place. When the data layer lands (charts + multiple `/api/data`
+  queries), adopt **TanStack Query** as the fetching layer (caching, dedup, refetch/polling) rather
+  than growing bespoke hooks.
 - **Method display.** When a config panel has multiple analytic methods in the feed (e.g. aedseo +
   MEM), the UI can show a method toggle / side-by-side comparison; labels and level vocabulary come
   from the method metadata + locales.
