@@ -56,7 +56,10 @@ app = create_app(load_config("dashboard.yaml"))
 ```
 
 A consuming repository supplies a `dashboard.yaml` (which pathogens/indicators, layout, branding,
-locales), translation overrides, and a data feed adhering to the contract.
+locales), translation overrides, and a data feed adhering to the contract. See
+[`examples/greece.dashboard.yaml`](examples/greece.dashboard.yaml) for a worked example —
+`branding.theme` is a [MUI theme-options](https://mui.com/material-ui/customization/theming/) object
+merged over the library's neutral default, so a government restyles with no rebuild.
 
 ### Authentication & access
 
@@ -95,6 +98,33 @@ is still hatchling, so consumers install with plain `pip` as above):
 uv sync          # create the venv and install the project + dev dependencies
 uv run pytest    # run the tests
 ```
+
+### Running it locally
+
+`uv sync` installs the project editable, which does **not** build the frontend, so build it once
+(needs Node):
+
+```bash
+npm --prefix frontend install && npm --prefix frontend run build
+```
+
+Then wrap `create_app` in a module and serve it. Auth needs a secret and at least one account
+(email → argon2 hash):
+
+```bash
+export HEALTH_SIGNAL_SECRET_KEY=$(python -c "import secrets; print(secrets.token_urlsafe(32))")
+export HEALTH_SIGNAL_ACCOUNTS=$(python -c "import json; from argon2 import PasswordHasher as P; print(json.dumps({'you@example.org': P().hash('change-me')}))")
+
+cat > app.py <<'PY'
+from health_signal import create_app, load_config
+app = create_app(load_config("examples/greece.dashboard.yaml"))
+PY
+
+uv run uvicorn app:app --port 8000   # http://127.0.0.1:8000  (login: you@example.org / change-me)
+```
+
+For frontend hot-reload, skip the build and run `npm --prefix frontend run dev` alongside the server
+— Vite proxies `/api`, `/login`, and `/logout` to `:8000`.
 
 ## Contact
 
