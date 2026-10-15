@@ -1,9 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
-// Fetch once on mount, tracking the lifecycle as { status: 'loading'|'ok'|'unauth'|'error', data }.
-// A 401 becomes 'unauth' so a shared boundary can redirect to login; other failures are 'error'. The
-// fetcher is read through a ref so it runs exactly once even if the caller passes an inline function,
-// and `live` drops a response that resolves after unmount.
+// Fetch once on mount -> { status: 'loading'|'ok'|'unauth'|'error', data }; a 401 maps to 'unauth'.
+// Fetcher held in a ref so an inline function doesn't re-fire; `live` drops a post-unmount response.
 export function useResource(fetcher) {
   const [state, setState] = useState({ status: 'loading' })
   const fetcherRef = useRef(fetcher)

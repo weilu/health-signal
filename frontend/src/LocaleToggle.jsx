@@ -2,8 +2,7 @@ import { Box, Button } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { setLocale } from './i18n.js'
 
-// Language switcher shared by the AppBar (authed) and the login card. Hidden when a single locale is
-// configured — nothing to switch. `color` lets the caller match its surface (inherit on the bar).
+// Language switcher for the AppBar and login card; hidden with <2 locales. `color` matches the surface.
 export function LocaleToggle({ locales = [], color, sx }) {
   const { i18n } = useTranslation()
   if (locales.length < 2) return null

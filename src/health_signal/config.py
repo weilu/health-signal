@@ -34,8 +34,8 @@ class SiteConfig(BaseModel):
 
     @model_validator(mode="after")
     def _default_locale_is_offered(self) -> "SiteConfig":
-        # The client sets i18next fallbackLng to default_locale; if it isn't a configured (and thus
-        # bundled-and-registered) locale, fallback resolves to nothing and the UI renders raw keys.
+        # fallbackLng is default_locale; if it isn't a configured locale, fallback resolves to
+        # nothing and the UI renders raw keys.
         if self.default_locale not in self.locales:
             raise ValueError(
                 f"default_locale {self.default_locale!r} must be one of the configured locales {self.locales}"

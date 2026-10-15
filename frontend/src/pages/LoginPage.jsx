@@ -13,9 +13,8 @@ export default function LoginPage({ config }) {
     setSubmitting(true)
     setError(null)
     const body = new URLSearchParams(new FormData(e.currentTarget))
-    // POST via fetch (not a native form) so a 401 renders inline instead of replacing the SPA with
-    // raw JSON. On success the server sets the cookie + 303s; redirect:'manual' surfaces that as an
-    // opaqueredirect, and a full navigation to '/' loads the authenticated SPA (which fetches /api/config).
+    // fetch (not a native form) so a 401 shows inline, not a raw-JSON page. On success the 303 (seen
+    // as opaqueredirect) lets us full-navigate to '/', loading the authenticated SPA.
     const res = await fetch('/login', {
       method: 'POST',
       credentials: 'same-origin',

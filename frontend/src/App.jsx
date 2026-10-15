@@ -13,9 +13,8 @@ function Shell({ config }) {
   const [logoutFailed, setLogoutFailed] = useState(false)
 
   async function handleLogout() {
-    // Same-origin POST (CSRF-gated server-side); only the server can clear the httpOnly cookie, so
-    // navigate to /login only once it confirms the 303 — otherwise the session is still valid and
-    // sending the user to the login page would falsely imply they're signed out.
+    // Only the server can clear the httpOnly cookie, so redirect only on a confirmed 303 — otherwise
+    // the session is still valid and /login would falsely imply a sign-out.
     const res = await fetch('/logout', { method: 'POST', credentials: 'same-origin', redirect: 'manual' }).catch(() => null)
     if (res && (res.ok || res.type === 'opaqueredirect' || res.status === 303)) {
       window.location.assign('/login')
@@ -34,9 +33,8 @@ function Shell({ config }) {
     </Routes>
   )
 
-  // Login is a standalone, chrome-less screen — no AppBar, so the brand appears once (in the card),
-  // centered. Everything else gets the app shell. No client-readable auth flag (httpOnly session
-  // cookie), so /login is the signal for "unauthenticated".
+  // Login is chrome-less (no AppBar): brand appears once, centered. /login is the only
+  // unauthenticated route (httpOnly session has no client-readable flag).
   if (pathname === '/login') {
     return (
       <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}>

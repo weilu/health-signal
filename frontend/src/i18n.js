@@ -19,8 +19,7 @@ export function pickResources(available, locales) {
   return resources
 }
 
-// A previously chosen locale, if still one the config enables. localStorage can throw (private mode,
-// blocked storage) — treat any failure as "no stored choice".
+// A stored locale, if still one the config enables; localStorage may throw (private mode) -> none.
 function storedLocale(locales) {
   try {
     const v = localStorage.getItem(STORAGE_KEY)
@@ -30,8 +29,7 @@ function storedLocale(locales) {
   }
 }
 
-// Switch language and remember it across reloads. Persistence is a per-viewer nicety, so a storage
-// failure is swallowed rather than blocking the switch.
+// Switch language and remember it across reloads; a storage failure is swallowed (nicety, not critical).
 export function setLocale(lng) {
   i18n.changeLanguage(lng)
   try {

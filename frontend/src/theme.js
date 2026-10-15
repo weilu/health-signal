@@ -1,11 +1,8 @@
 import { createTheme } from '@mui/material/styles'
 import { deepmerge } from '@mui/utils'
 
-// Library base theme: the default identity every adopter inherits and can override via
-// branding.theme. IBM Plex Sans (self-hosted, see main.jsx) reads as considered public-sector/
-// technical rather than default Roboto; sentence-case buttons avoid MUI's dated ALL-CAPS. The
-// default palette is a muted slate — a calm, neutral starting point, not MUI's bright blue — so an
-// adopter that sets no colors still looks institutional.
+// Base theme every adopter inherits and overrides via branding.theme: IBM Plex Sans (self-hosted,
+// see main.jsx), sentence-case buttons, muted-slate default primary.
 const BASE = {
   palette: {
     primary: { main: '#44617a' },
@@ -22,11 +19,9 @@ const BASE = {
   shape: { borderRadius: 8 },
 }
 
-// branding.theme is a MUI theme-options object, deep-merged over BASE (config wins) BEFORE
-// createTheme runs, so an overridden palette color re-derives its light/dark variants from the new
-// main (merging after createTheme would leave stale default-blue hover states). MUI's own schema +
-// validation apply; a malformed theme throws by design, re-thrown with its config location + value
-// so the failure is debuggable rather than a silently unthemed app.
+// Deep-merge branding.theme over BASE BEFORE createTheme so an overridden color re-derives its
+// light/dark shades (merging after would keep stale defaults). Malformed config throws by design,
+// re-thrown with its location + value so it's debuggable.
 export function buildTheme(branding = {}) {
   const options = branding.theme || {}
   try {
