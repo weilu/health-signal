@@ -98,84 +98,77 @@ The **generic library** ships the FastAPI app and the compiled React UI in one p
 
 ## 6. Data contract (ETL ↔ app boundary)
 
-The contract is a **tidy long-format feed** validated against a **schema profile**. **ERVISS
-(respiratory) is the first profile and the MVP**, and its feed uses **ERVISS's own column names**,
-so a file published by ECDC loads as-is with no renaming. Other domains (HIV, polio, AMR, Ebola,
-yellow fever, …) register as additional profiles later (§6.4). The app consumes only this contract
-and never knows how the ETL produced it.
+The contract is a **domain-agnostic tidy long-format spine** plus a pluggable **schema profile**.
+The spine is the same for every surveillance domain; a profile defines the domain-specific
+dimensions, controlled vocabularies, indicators, and units. **ERVISS (respiratory) is the first
+profile and the MVP** — other domains (HIV, polio, AMR, Ebola, yellow fever, …) register as
+additional profiles later **without changing the core** (see §6.4). The app consumes only this
+contract and never knows how the ETL produced it.
 
-### 6.1 Feed columns (ERVISS-native)
+### 6.1 Generic spine (every profile shares)
 
-| Column | Required | Notes |
+| Field | Type | Notes |
 |---|---|---|
-| `survtype` | yes | surveillance system (vocab §6.2) |
-| `countryname` | yes | country, as ERVISS names it (e.g. `Greece`) |
-| `region` | no | **extension**: sub-national rows (e.g. `Attica`); blank/absent = national. ERVISS itself is national |
-| `yearweek` | yes | ISO week `YYYY-Www` (zero-padded; filters compare it as a string) |
-| `pathogen`, `pathogentype`, `pathogensubtype` | no | blank where not applicable (e.g. ILI/ARI rates) |
-| `indicator` | yes | from the profile's indicator vocabulary |
-| `age` | yes | age band (vocab §6.2) |
-| `value` | yes | finite number |
-| `datasource` | no | provenance (e.g. `GISAID`) |
+| `location` | string | country/region (e.g. `Greece`, `Attica`) |
+| `period` | string | ISO `YYYY-Www` (weekly) or ISO date; granularity declared by the profile |
+| `dimensions` | object | profile-defined key/values (the domain's stratifiers) |
+| `indicator` | string | from the profile's indicator vocabulary |
+| `value` | number | semantics fixed by `indicator` + `unit` |
+| `unit` | string | `per_100k` \| `count` \| `percent` \| … |
+| `datasource` | string, optional | provenance (e.g. `GISAID`) |
 
-`unit` is **not a feed column** (ERVISS has none): the profile derives it from `indicator` (and
-country, §6.2) and the API attaches it to each row. Columns outside the profile are ignored.
-
-A profile is a Pydantic declaration — required/optional columns, controlled vocabularies, indicators,
-units, week format — applied to the whole feed with pandas at load. New rows, not schema changes, add
-pathogens/strata/indicators. A generic, profile-neutral column set is **deferred** until a second
-profile exists; at that point each profile declares its own columns.
+A profile is a Pydantic-backed declaration: `dimensions` (names + controlled vocabularies),
+`indicators`, `units`, `period` granularity, and validation rules. New rows — not schema changes —
+add pathogens/strata/indicators within a profile.
 
 ### 6.2 ERVISS profile (respiratory — MVP)
 
 The ECDC/WHO-Europe *European Respiratory Virus Surveillance Summary* public data model (repo
-`EU-ECDC/Respiratory_viruses_weekly_data`, EUPL-1.2), pinned to the **2026-W40** snapshot. Vocabulary
-taken from the published files (not invented):
+`EU-ECDC/Respiratory_viruses_weekly_data`, EUPL-1.2), pinned to the **2026-W40** snapshot. Its
+`dimensions` and indicator vocabulary, taken from the published files:
 
-| Column | Allowed values |
-|---|---|
-| `survtype` | `primary care sentinel` \| `primary care syndromic` \| `non-sentinel` \| `SARI syndromic` \| `SARI virological` |
-| `pathogen` | `Influenza` \| `RSV` \| `SARS-CoV-2` |
-| `pathogentype` | `Influenza`, `Influenza A`, `Influenza B`, `Influenza untyped`, `RSV`, `RSV untyped`, `RSV-A`, `RSV-B`, `SARS-CoV-2` |
-| `pathogensubtype` | `A (unknown)`, `A(H1)pdm09`, `A(H3)`, `B (unknown)`, `B/Vic`, `B/Yam`, `Influenza untyped`, `NA` *(a literal ERVISS value)*, `RSV`, `SARS-CoV-2`, `total` |
-| `age` | `0-4` \| `5-14` \| `15-64` \| `65+` \| `total` \| `unk` |
-| `indicator` | `ILIconsultationrate`, `ARIconsultationrate`, `SARIrate`, `tests`, `detections`, `positivity`, `hospitaladmissions`, `ICUadmissions`, `ICUinpatients`, `deaths` |
+| Field | Type | Notes / allowed values |
+|---|---|---|
+| `survtype` | enum | `primary care sentinel` \| `primary care syndromic` \| `non-sentinel` \| `SARI syndromic` \| `SARI virological` |
+| `pathogen` | enum, nullable | `Influenza` \| `RSV` \| `SARS-CoV-2` (null for pure ILI/ARI syndromic) |
+| `pathogentype` | enum, nullable | `Influenza`, `Influenza A`, `Influenza B`, `Influenza untyped`, `RSV`, `RSV untyped`, `RSV-A`, `RSV-B`, `SARS-CoV-2` |
+| `pathogensubtype` | enum, nullable | `A (unknown)`, `A(H1)pdm09`, `A(H3)`, `B (unknown)`, `B/Vic`, `B/Yam`, `Influenza untyped`, `NA` *(a literal ERVISS value)*, `RSV`, `SARS-CoV-2`, `total` |
+| `age` | enum | `0-4` \| `5-14` \| `15-64` \| `65+` \| `total` \| `unk` |
+| `indicator` | enum | `ILIconsultationrate`, `ARIconsultationrate`, `SARIrate`, `tests`, `detections`, `positivity`, `hospitaladmissions`, `ICUadmissions`, `ICUinpatients`, `deaths` |
 
-Units: ILI/ARI consultation rates are per 100 000 population, except Cyprus, Luxembourg and Malta
-(per 100 consultations) and Finland (per 100 000 consultations) — per the ERVISS README;
-`positivity` is a percent and the admissions/tests/detections/deaths indicators are counts
-(confirmed from the data). `SARIrate`'s unit is not documented by ERVISS, so it is left unset.
-ERVISS's variant and sequencing files have a different shape and belong to the variant track.
+ERVISS's published files use `countryname`/`yearweek` and carry no `unit`; mapping them onto the
+spine (`location`, `period`, `unit`) is the producing ETL's job. Unit vocabulary includes ERVISS's
+reporting exceptions: ILI/ARI rates are per 100 000 population except per 100 consultations (Cyprus,
+Luxembourg, Malta) and per 100 000 consultations (Finland), per the ERVISS README. ERVISS's variant
+and sequencing files have a different shape and belong to the variant track.
 
 ### 6.3 Extensions and derived analytics
 
 - **Wastewater (WBE)** — ERVISS has no wastewater indicator, so this is an extension, but it is
   **anchored on the mature US CDC NWSS standard** re-projected into the tidy grid: wastewater viral
-  load is simply another `indicator` on the same *countryname/region × yearweek × pathogen* grain,
-  differing from a clinical row only in `indicator` and unit. Indicators: `viral_load`,
-  `viral_load_flowpop_norm`, `viral_load_mic_norm` (e.g. per-PMMoV), `wval`; units from the NWSS
-  vocab (`copies/L wastewater`, `log10 copies/L`, `copies/g dry sludge`, or `index`/`z-score` for
-  derived metrics); WW-specific fields (`location_level` sewershed/city/region, `population_served`,
-  `normalization`, `lod`, `below_lod`, `flow_rate`, `quality_flag`) plus a **separate method/QC
-  side-table** (PCR type, concentration/extraction method, recovery efficiency) so the tidy feed stays
-  one-value-per-row. `pathogen` spelling matches ERVISS so WW and clinical feeds join directly. (EU
-  note: the recast UWWTD 2024/3019 mandates WBS + AMR reporting but publishes no open field schema yet
-  — provisions apply from 2027 — so NWSS is the defensible anchor today.)
+  load is simply another `indicator` on the same *location × period × pathogen* grain, differing
+  from a clinical row only in `indicator`/`unit`. Indicators: `viral_load`, `viral_load_flowpop_norm`,
+  `viral_load_mic_norm` (e.g. per-PMMoV), `wval`; units from the NWSS vocab (`copies/L wastewater`,
+  `log10 copies/L`, `copies/g dry sludge`, or `index`/`z-score` for derived metrics); WW-specific
+  fields (`location_level` sewershed/city/region, `population_served`, `normalization`, `lod`,
+  `below_lod`, `flow_rate`, `quality_flag`) plus a **separate method/QC side-table** (PCR type,
+  concentration/extraction method, recovery efficiency) so the tidy feed stays one-value-per-row.
+  `pathogen` spelling matches ERVISS so WW and clinical feeds join on *location × yearweek ×
+  pathogen*. (EU note: the recast UWWTD 2024/3019 mandates WBS + AMR reporting but publishes no open
+  field schema yet — provisions apply from 2027 — so NWSS is the defensible anchor today.)
 - **Derived analytics (Status / Trend / season phase) — a separate, method-agnostic contract, not
   feed rows.** These are *assessments of a series* by a method (aedseo, MEM, …), not observations:
   categorical, carrying uncertainty, thresholds and method parameters that do not fit a numeric feed
   row. Computed by the **country ETL** (e.g. greece-public-health's aedseo bridge); the app only
   presents them. Three tables, each at its natural grain:
-  - **assessment** — series key (`countryname`, `region`, `survtype`, `pathogen`, `pathogentype`,
-    `pathogensubtype`, `indicator`, `age`) × `yearweek` × `method` → `level` (`very low`…`very high`,
-    null = no data), `provisional` (too little history), `trend` (`increasing`/`stable`/`decreasing`/
-    `inconclusive`, null where the method has none, e.g. MEM), `growth_rate` + `growth_lower`/
-    `growth_upper` (nullable).
+  - **assessment** — series key (`location` + the profile's `dimensions` + `indicator`) × `period` ×
+    `method` → `level` (`very low`…`very high`, null = no data), `provisional` (too little history),
+    `trend` (`increasing`/`stable`/`decreasing`/`inconclusive`, null where the method has none, e.g.
+    MEM), `growth_rate` + `growth_lower`/`growth_upper` (nullable).
   - **thresholds** — series × season × `method` → the level boundaries (and aedseo's disease
     threshold), so charts can draw the bands.
-  - **phase** — `countryname`/`region` × `pathogen` × `yearweek` × `method` → `in season` /
-    `pre-season` / `in wave` / `between waves` and the shaded band (the pathogen-level, multi-stream
-    rollup).
+  - **phase** — `location` × `pathogen` × `period` × `method` → `in season` / `pre-season` /
+    `in wave` / `between waves` and the shaded band (the pathogen-level, multi-stream rollup).
 
   **Methods coexist** as rows with different `method` values; config decides whether the UI shows one,
   the other, or a comparison — a producer choice plus a display toggle, no app logic. Whether MEM is
@@ -205,7 +198,7 @@ ERVISS is for respiratory.
 
 ```python
 class DataSource(Protocol):
-    def query(self, *, countryname=None, region=None, pathogen=None, indicator=None,
+    def query(self, *, location=None, pathogen=None, indicator=None,
               age=None, week_from=None, week_to=None) -> list[FeedRow]: ...
 ```
 

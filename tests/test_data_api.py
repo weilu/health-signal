@@ -41,12 +41,12 @@ def test_api_data_returns_filtered_rows(tmp_path):
     r = client.get("/api/data", params={"pathogen": "Influenza"})
     assert r.status_code == 200
     body = r.json()
-    assert body and all(row["pathogen"] == "Influenza" for row in body)
+    assert body and all(row["dimensions"]["pathogen"] == "Influenza" for row in body)
 
 
 def test_api_data_no_match_is_empty_list(tmp_path):
     client = TestClient(_app(tmp_path, _AllowAll()))
-    r = client.get("/api/data", params={"countryname": "Nowhere"})
+    r = client.get("/api/data", params={"location": "Nowhere"})
     assert r.status_code == 200 and r.json() == []
 
 
