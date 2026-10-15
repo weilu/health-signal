@@ -76,7 +76,7 @@ def test_spine_cells_are_trimmed(tmp_path):
 
 def test_vocab_error_names_file_and_line(tmp_path):
     bad = "location,period,survtype,pathogen,age,indicator,value,unit\nA,2025-W01,non-sentinel,Influenza,total,bogus,1,count\n"
-    with pytest.raises(ValueError, match=r"feed\.csv:2: .*indicator"):
+    with pytest.raises(ValueError, match=r"feed\.csv row 1: .*indicator"):
         _src(tmp_path, bad)
 
 
@@ -107,3 +107,23 @@ def test_files_with_different_optional_columns_combine(tmp_path):
     (d / "b.csv").write_text("location,period,survtype,age,indicator,value,unit\nB,2025-W02,non-sentinel,total,deaths,2,count\n", encoding="utf-8")
     rows = FileDataSource(d).query()
     assert [(r.location, r.datasource, "pathogen" in r.dimensions) for r in rows] == [("A", "X", True), ("B", None, False)]
+
+
+def test_empty_file_names_the_file(tmp_path):
+    for text in ("", "\n\n"):
+        with pytest.raises(ValueError, match=r"feed\.csv: empty file"):
+            FileDataSource(_write(tmp_path, text))
+
+
+def test_error_reports_data_row_not_physical_line(tmp_path):
+    # A blank line is skipped by the reader, so a physical line number would be off; the row number isn't.
+    bad = _H + _OK + "\n" + _OK.replace("count", "furlongs")
+    with pytest.raises(ValueError, match=r"feed\.csv row 2: .*furlongs"):
+        _src(tmp_path, bad)
+
+
+def _write(tmp_path, text):
+    d = tmp_path / f"data{len(list(tmp_path.iterdir()))}"
+    d.mkdir()
+    (d / "feed.csv").write_text(text, encoding="utf-8")
+    return d

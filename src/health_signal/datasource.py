@@ -42,6 +42,8 @@ class FileDataSource:
         except pd.errors.ParserError as e:
             # e.g. an unclosed quote, which would otherwise swallow the rows after it.
             raise ValueError(f"{path.name}: malformed CSV ({e})") from e
+        except pd.errors.EmptyDataError as e:
+            raise ValueError(f"{path.name}: empty file") from e
         df.columns = df.columns.str.strip()
         missing = _REQUIRED.difference(df.columns, sort=False)
         if not missing.empty:
@@ -49,7 +51,8 @@ class FileDataSource:
         df = df.apply(lambda col: col.str.strip())
         if (violation := self._profile.first_violation(df)) is not None:
             label, message = violation
-            raise ValueError(f"{path.name}:{label + 2}: {message}")  # +2: 1-based, after the header line
+            # A data-row number, not a file line: the reader skips blank lines and quoted cells can span lines.
+            raise ValueError(f"{path.name} row {label + 1}: {message}")
         return df
 
     def query(self, *, pathogen=None, indicator=None, location=None,
