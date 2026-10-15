@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { BrowserRouter, Routes, Route, NavLink, Navigate, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { AppBar, Toolbar, Typography, Button, Container, Box, Snackbar, Alert } from '@mui/material'
+import { AppBar, Toolbar, Typography, Button, Container, Box, Snackbar, Alert, Stack, Tab, Tabs } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { fetchConfig } from './api.js'
 import { ResourceBoundary } from './ResourceBoundary.jsx'
@@ -10,8 +10,9 @@ import LoginPage from './pages/LoginPage.jsx'
 import TargetPage from './pages/TargetPage.jsx'
 import { LocaleToggle } from './LocaleToggle.jsx'
 import { configLabel } from './labels.js'
+import { activePage } from './nav.js'
 
-const navSx = { borderRadius: 0, borderBottom: 2, borderColor: 'transparent', '&.active': { borderColor: 'currentColor' } }
+const rule = { borderBottom: 1, borderColor: 'divider' }
 
 function AppRoutes({ view }) {
   const { t } = useTranslation()
@@ -19,10 +20,10 @@ function AppRoutes({ view }) {
   const home = pages[0]?.page.path ?? '/config'
   return (
     <Routes>
-      {pages.map(({ target, page }) => (
+      {pages.map(({ page }) => (
         // Keyed by path: react-router reuses an unkeyed element across routes, carrying one page's
         // panel state (and fetched data) into the next.
-        <Route key={page.path} path={page.path} element={<TargetPage key={page.path} target={target} page={page} />} />
+        <Route key={page.path} path={page.path} element={<TargetPage key={page.path} page={page} />} />
       ))}
       <Route path="/config" element={<ConfigView />} />
       <Route path="/" element={<Navigate to={home} replace />} />
@@ -60,24 +61,46 @@ function Shell({ config }) {
     )
   }
 
-  // NavLink sets `.active` + aria-current="page"; without `end`, nested page paths keep their target's tab active.
+  // Layout follows greece-public-health: a plain header, a row of target tabs (with Configuration as a
+  // utility link at its end), and a second row of page tabs when a target has more than one page.
   const targets = (configQuery.data?.targets ?? []).filter((target) => target.pages.length)
+  const active = activePage(targets, pathname)
   return (
     <>
-      <AppBar position="static">
-        <Toolbar>
-          <Typography variant="h6" component="h1" sx={{ flexGrow: 1 }}>{config.title}</Typography>
-          {targets.map((target) => (
-            <Button key={target.id} color="inherit" component={NavLink} to={target.pages[0].path} sx={navSx}>
-              {configLabel(t, target.label_key, target.id)}
-            </Button>
-          ))}
-          <Button color="inherit" component={NavLink} to="/config" sx={navSx}>{t('nav.configuration')}</Button>
-          <LocaleToggle locales={config.locales} color="inherit" sx={{ ml: 1 }} />
-          <Button color="inherit" onClick={handleLogout}>{t('nav.logout')}</Button>
-        </Toolbar>
+      <AppBar position="static" color="transparent" elevation={0} sx={rule}>
+        <Container maxWidth="xl">
+          <Toolbar disableGutters>
+            <Typography variant="h5" component="h1" sx={{ flexGrow: 1 }}>{config.title}</Typography>
+            <LocaleToggle locales={config.locales} sx={{ mr: 1 }} />
+            <Button onClick={handleLogout}>{t('nav.logout')}</Button>
+          </Toolbar>
+        </Container>
       </AppBar>
-      <Container component="main" sx={{ py: 3 }}>
+      <Box component="nav" aria-label={t('config.targets')} sx={rule}>
+        <Container maxWidth="xl">
+          <Stack direction="row" alignItems="center">
+            <Tabs value={active?.target.id ?? false} variant="scrollable" allowScrollButtonsMobile sx={{ flexGrow: 1 }}>
+              {targets.map((target) => (
+                <Tab key={target.id} value={target.id} component={NavLink} to={target.pages[0].path}
+                  label={configLabel(t, target.label_key, target.id)} sx={{ typography: 'h6' }} />
+              ))}
+            </Tabs>
+            <Button size="small" component={NavLink} to="/config">{t('nav.configuration')}</Button>
+          </Stack>
+        </Container>
+      </Box>
+      {active && active.target.pages.length > 1 && (
+        <Box component="nav" aria-label={configLabel(t, active.target.label_key, active.target.id)} sx={{ ...rule, bgcolor: 'background.paper' }}>
+          <Container maxWidth="xl">
+            <Tabs value={active.page.path} variant="scrollable" allowScrollButtonsMobile>
+              {active.target.pages.map((p) => (
+                <Tab key={p.path} value={p.path} component={NavLink} to={p.path} label={configLabel(t, p.label_key, p.id)} />
+              ))}
+            </Tabs>
+          </Container>
+        </Box>
+      )}
+      <Container component="main" maxWidth="xl" sx={{ py: 3 }}>
         <ResourceBoundary query={configQuery}>{(view) => <AppRoutes view={view} />}</ResourceBoundary>
       </Container>
       <Snackbar open={logoutFailed} autoHideDuration={6000} onClose={() => setLogoutFailed(false)}>
