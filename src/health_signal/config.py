@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class Branding(BaseModel):
@@ -31,6 +31,16 @@ class SiteConfig(BaseModel):
                 raise ValueError(f'{p!r} is not a valid path prefix; use "/" (exactly) for the whole site')
             normalized.append("/" + p.strip("/"))
         return normalized
+
+    @model_validator(mode="after")
+    def _default_locale_is_offered(self) -> "SiteConfig":
+        # The client sets i18next fallbackLng to default_locale; if it isn't a configured (and thus
+        # bundled-and-registered) locale, fallback resolves to nothing and the UI renders raw keys.
+        if self.default_locale not in self.locales:
+            raise ValueError(
+                f"default_locale {self.default_locale!r} must be one of the configured locales {self.locales}"
+            )
+        return self
 
 
 class Page(BaseModel):
