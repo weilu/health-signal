@@ -1,5 +1,8 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
+import '@fontsource/ibm-plex-sans/400.css'
+import '@fontsource/ibm-plex-sans/500.css'
+import '@fontsource/ibm-plex-sans/600.css'
 import { ThemeProvider, CssBaseline } from '@mui/material'
 import { I18nextProvider } from 'react-i18next'
 import { getConfig } from './config.js'

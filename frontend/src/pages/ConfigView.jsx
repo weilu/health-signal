@@ -5,16 +5,24 @@ import { useResource } from '../useResource.js'
 import { ResourceBoundary } from '../ResourceBoundary.jsx'
 
 export default function ConfigView() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const state = useResource(fetchConfig)
   return (
     <ResourceBoundary state={state}>
       {(cfg) => (
         <>
-          <Typography variant="h4" gutterBottom>{t('config.title')}</Typography>
+          <Typography variant="h4" component="h1" gutterBottom>{t('config.title')}</Typography>
           <Typography variant="subtitle2">{t('config.locales')}</Typography>
           <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
-            {(cfg.locales || []).map((l) => <Chip key={l} label={l} size="small" />)}
+            {(cfg.locales || []).map((l) => (
+              <Chip
+                key={l}
+                label={l}
+                size="small"
+                color={i18n.resolvedLanguage === l ? 'primary' : 'default'}
+                variant={i18n.resolvedLanguage === l ? 'filled' : 'outlined'}
+              />
+            ))}
           </Stack>
           <Divider sx={{ my: 2 }} />
           <Typography variant="subtitle2">{t('config.targets')}</Typography>
@@ -23,7 +31,7 @@ export default function ConfigView() {
               <ListItem key={target.id} alignItems="flex-start">
                 <ListItemText
                   primary={target.label_key || target.id}
-                  secondary={(target.pages || []).map((p) => p.path).join('  ·  ') || '—'}
+                  secondary={(target.pages || []).map((p) => p.path).join(', ') || '—'}
                 />
               </ListItem>
             ))}

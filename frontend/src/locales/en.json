@@ -1,3 +1,3 @@
-{ "app": { "loading": "Loading…", "error": "Something went wrong" }, "nav": { "configuration": "Settings" },
-  "login": { "title": "Sign in", "email": "Email", "password": "Password", "submit": "Sign in", "error": "Invalid email or password", "failed": "Sign-in failed — please try again." },
-  "config": { "title": "Settings", "targets": "Surveillance targets", "locales": "Languages" } }
+{ "app": { "loading": "Loading…", "error": "Something went wrong" }, "nav": { "configuration": "Configuration", "logout": "Sign out" },
+  "login": { "email": "Email", "password": "Password", "submit": "Sign in", "error": "Invalid email or password", "failed": "Sign-in failed — please try again." },
+  "config": { "title": "Configuration", "targets": "Surveillance targets", "locales": "Languages" } }

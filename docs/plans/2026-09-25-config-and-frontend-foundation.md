@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ship the config layer end-to-end — the server projects the loaded `dashboard.yaml` into two whitelisted views (a **bootstrap** slice injected into the HTML for pre-login rendering, and a **full view-model** served by a gated `GET /api/config`), and a React/Vite/MUI SPA foundation renders the shell, a login page, and a read-only Settings view that fetches `/api/config`.
+**Goal:** Ship the config layer end-to-end — the server projects the loaded `dashboard.yaml` into two whitelisted views (a **bootstrap** slice injected into the HTML for pre-login rendering, and a **full view-model** served by a gated `GET /api/config`), and a React/Vite/MUI SPA foundation renders the shell, a login page, and a read-only Configuration view that fetches `/api/config`.
 
 **Architecture:** Config has one source of truth — `dashboard.yaml` (loaded into `Config`). The server exposes it to the client two ways, split on auth: (1) a small **bootstrap** slice (title, branding, locales) injected into `index.html` as `window.__HS_CONFIG__`, so the shell + login render pre-login with no fetch; (2) the **full client view-model** (targets, pages, i18n keys) via the gated `GET /api/config`, which the authenticated SPA fetches. Server-only fields (`public_paths`, data-source, secrets) are in neither. Data (`/api/data`) is deferred to the next stage.
 
@@ -320,6 +320,7 @@ git commit -m "feat(app): inject bootstrap config into SPA HTML; gated GET /api/
   "dependencies": {
     "react": "^19.3.0", "react-dom": "^19.3.0", "react-router-dom": "^7.18.0",
     "@mui/material": "^9.4.0", "@emotion/react": "^11.14.0", "@emotion/styled": "^11.14.0",
+    "@fontsource/ibm-plex-sans": "^5.3.0",
     "i18next": "^26.4.0", "react-i18next": "^17.0.0"
   },
   "devDependencies": { "vite": "^8.3.0", "@vitejs/plugin-react": "^6.1.0" }
@@ -428,7 +429,7 @@ git commit -m "build(frontend): Vite/React/MUI scaffold + base locales + CI buil
 
 **Interfaces:**
 - Consumes: `window.__HS_CONFIG__` (Task 2 injects it).
-- Produces: `getConfig()` (config.js), `buildTheme(branding)` (theme.js), an initialized i18n instance (i18n.js), and an `<App/>` that renders an MUI shell with a static nav (a Settings link); target-driven navigation is deferred to a later stage that consumes the gated `fetchConfig()` result, not the bootstrap.
+- Produces: `getConfig()` (config.js), `buildTheme(branding)` (theme.js), an initialized i18n instance (i18n.js), and an `<App/>` that renders an MUI shell with a static nav (a Configuration link); target-driven navigation is deferred to a later stage that consumes the gated `fetchConfig()` result, not the bootstrap.
 
 - [ ] **Step 1: config reader**
 
