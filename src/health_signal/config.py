@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 from typing import Literal
 
@@ -79,6 +80,9 @@ class Panel(BaseModel):
         return v
 
 
+# ASCII slug segments only: dots, "%", "\\", "//", "?", "#" and router patterns could resolve elsewhere, and
+# ASCII never needs decoding, so the nav matcher sees the same pathname as <Routes>.
+_PAGE_PATH = re.compile(r"(/[A-Za-z0-9_-]+)+")
 # Paths a page must not shadow (a reload would hit the server route).
 _RESERVED_PATHS = ("/login", "/logout", "/config", "/api", "/docs", "/redoc", "/openapi.json", "/healthz", "/assets")
 
@@ -93,10 +97,9 @@ class Page(BaseModel):
     @field_validator("path")
     @classmethod
     def _routable(cls, path: str) -> str:
-        # ":"/"*" are react-router patterns, "?"/"#" URL delimiters; "/" redirects to the first page. Routes
-        # match case-insensitively and ignore a trailing slash, so neither may tell two paths apart.
-        if not path.startswith("/") or path.endswith("/") or any(c in path for c in ":*?#"):
-            raise ValueError(f"page path {path!r} must be a literal path starting with '/', with no trailing '/'")
+        # "/" redirects to the first page. Routes ignore a trailing slash, so it may not tell two paths apart.
+        if not _PAGE_PATH.fullmatch(path):
+            raise ValueError(f"page path {path!r} must be '/'-separated segments of letters, digits, '-' or '_'")
         if any(path.lower() == r or path.lower().startswith(r + "/") for r in _RESERVED_PATHS):
             raise ValueError(f"page path {path!r} collides with an app route")
         return path
@@ -159,7 +162,10 @@ class Config(BaseModel):
 
     @model_validator(mode="after")
     def _unique_pages(self) -> "Config":
-        # Duplicate paths shadow each other as routes; ids key nav and React lists.
+        # Duplicate paths shadow each other as routes (matched case-insensitively); ids key tabs and React lists.
+        target_ids = [t.id for t in self.targets]
+        if len(target_ids) != len(set(target_ids)):
+            raise ValueError("duplicate target ids")
         pages = [page for target in self.targets for page in target.pages]
         for key, label in ((lambda p: p.path.lower(), "path"), (lambda p: p.id, "page id")):
             values = [key(page) for page in pages]

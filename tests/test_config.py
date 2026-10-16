@@ -128,7 +128,8 @@ def test_page_unknown_key_fails_at_load():
         Page(id="o", path="/flu", panel=[_PANEL])  # misspelt `panels`
 
 
-@pytest.mark.parametrize("path", ["/", "/login", "/config", "/CONFIG", "/api/x", "/docs", "/assets/a", "flu", "/flu/", "/flu/:id", "/flu/*", "/flu?x", "/flu#x"])
+@pytest.mark.parametrize("path", ["/", "/login", "/config", "/CONFIG", "/api/x", "/docs", "/assets/a", "flu", "/flu/", "/flu/:id", "/flu/*", "/flu?x", "/flu#x",
+                                  "/flu/../config", "/flu/%2e%2e/config", "//other.example/flu", "/flu\\x", "/flu.x"])
 def test_page_path_must_not_collide_or_be_a_pattern(path):
     with pytest.raises(ValidationError):
         Page(id="o", path=path)
@@ -146,6 +147,12 @@ def test_duplicate_page_paths_and_ids_fail_at_load():
         Config(**_cfg_pages(Page(id="a", path="/flu"), Page(id="b", path="/FLU")))
     with pytest.raises(ValidationError, match="page id"):
         Config(**_cfg_pages(Page(id="a", path="/flu"), Page(id="a", path="/rsv")))
+
+
+def test_duplicate_target_ids_fail_at_load():
+    with pytest.raises(ValidationError, match="target ids"):
+        Config(schema_version="1", site=SiteConfig(title="T"),
+               targets=[Target(id="flu", pages=[Page(id="a", path="/a")]), Target(id="flu", pages=[Page(id="b", path="/b")])])
 
 
 def test_duplicate_panel_ids_on_a_page_fail_at_load():
