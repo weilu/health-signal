@@ -9,11 +9,12 @@ import { configLabel } from '../labels.js'
 import { SeriesTable } from './SeriesTable.jsx'
 import { TimeSeriesChart, useChartPalette } from './TimeSeriesChart.jsx'
 
-export function TimeSeriesPanel({ panel }) {
+export function TimeSeriesPanel({ panel, location }) {
   const { t } = useTranslation()
   const palette = useChartPalette()
   const [asTable, setAsTable] = useState(false)
-  const query = useQuery({ queryKey: ['data', panel.query], queryFn: () => fetchData(panel.query) })
+  const params = { ...panel.query, location: location?.value }  // the header filter applies to every panel
+  const query = useQuery({ queryKey: ['data', params], queryFn: () => fetchData(params) })
   const title = configLabel(t, panel.label_key, panel.id)
   return (
     <Paper component="section" variant="outlined" aria-label={title} sx={{ p: 2 }}>
@@ -25,7 +26,10 @@ export function TimeSeriesPanel({ panel }) {
         {(rows) => {
           const model = toChartModel(rows, panel.series_by, palette.length)
           if (model.status !== 'ok') {
-            return <Alert severity={model.status === 'empty' ? 'info' : 'warning'}>{t(`chart.${model.status}`, model)}</Alert>
+            const message = model.status === 'empty' && location
+              ? t('chart.emptyAt', { location: location.label })
+              : t(`chart.${model.status}`, model)
+            return <Alert severity={model.status === 'empty' ? 'info' : 'warning'}>{message}</Alert>
           }
           const series = model.series.map((s) => ({ ...s, label: panel.series_by ? s.key || t('chart.unspecified') : title }))
           const unit = t(`unit.${model.unit}`, { defaultValue: model.unit })

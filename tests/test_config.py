@@ -1,6 +1,6 @@
 import pytest
 from pydantic import ValidationError
-from health_signal.config import Branding, Config, Page, Panel, SiteConfig, Target, load_config
+from health_signal.config import Branding, Config, Filters, Page, Panel, SiteConfig, Target, load_config
 
 
 def test_load_valid_config(tmp_path):
@@ -100,7 +100,6 @@ def test_panel_parses_and_reaches_client_config():
     {"type": "bar"},                                                 # only timeseries exists
     {"query": {"indicator": "bogus"}},                               # not an ERVISS indicator
     {"query": {"indicator": "positivity", "pathogen": "Measles"}},   # not in the ERVISS vocab
-    {"query": {"indicator": "positivity", "week_from": "2025-W5"}},  # not YYYY-Www
     {"series_by": "colour"},                                         # not an ERVISS dimension
 ])
 def test_panel_config_typos_fail_at_load(bad):
@@ -148,3 +147,33 @@ def test_duplicate_page_paths_and_ids_fail_at_load():
 def test_duplicate_panel_ids_on_a_page_fail_at_load():
     with pytest.raises(ValidationError):
         Page(id="o", path="/flu", panels=[Panel(**_PANEL), Panel(**_PANEL)])
+
+
+@pytest.mark.parametrize("key", ["location", "week_from", "week_to"])
+def test_panel_query_leaves_location_and_dates_to_dashboard_filters(key):
+    with pytest.raises(ValidationError):
+        Panel(**{**_PANEL, "query": {"indicator": "positivity", key: "x"}})
+
+
+_LOC = {"location": {"default": "Greece", "options": [{"value": "Greece", "label_key": "locations.national"}, {"value": "Attica"}]}}
+
+
+def test_location_filter_reaches_client_config():
+    cfg = Config(schema_version="1", site=SiteConfig(title="T"), filters=Filters(**_LOC))
+    loc = cfg.client_config()["filters"]["location"]
+    assert loc["default"] == "Greece" and [o["value"] for o in loc["options"]] == ["Greece", "Attica"]
+
+
+@pytest.mark.parametrize("bad", [
+    {"default": "Crete", "options": [{"value": "Greece"}]},                  # default not offered
+    {"default": "Greece", "options": [{"value": "Greece"}, {"value": "Greece"}]},  # duplicate option
+    {"default": "Greece", "options": []},                                    # nothing to choose
+])
+def test_location_filter_typos_fail_at_load(bad):
+    with pytest.raises(ValidationError):
+        Filters(location=bad)
+
+
+def test_no_location_filter_is_allowed():
+    cfg = Config(schema_version="1", site=SiteConfig(title="T"))
+    assert cfg.client_config()["filters"] == {"location": None}

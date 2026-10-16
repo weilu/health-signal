@@ -124,6 +124,10 @@ add pathogens/strata/indicators within a profile.
 Pages declare **panels** in config — `type: timeseries`, a `query` (a set of `/api/data` filters that
 should match one row per series per week) and an optional `series_by` dimension that splits it into
 lines. Panel config is validated against the profile at load, so a typo fails before the app serves.
+**Location (and, next, the date range) are dashboard-wide filters, not panel settings:**
+`filters.location` lists the selectable locations and a default, and every panel is queried for the
+selected one; a panel with no rows for it shows a "no data for {location}" message rather than being
+hidden or falling back to another level.
 
 ### 6.2 ERVISS profile (respiratory — MVP)
 
@@ -280,7 +284,8 @@ precedence over client-side routes.
   indicator charts from it. One route per configured page. Layout (after greece-public-health): a plain
   header, a row of target tabs with Configuration as a utility link at its end, and a second row of
   page tabs when a target has more than one page — MUI `Tabs`, active state from the URL. `/` lands on
-  the first target. Adding/removing/reconfiguring a surveillance target = config + data,
+  the first target. The header's right slot holds the dashboard filters (a Region `Select` today); the
+  selection lives in the URL (`?location=`) so a regional view is deep-linkable, and tab links carry it. Adding/removing/reconfiguring a surveillance target = config + data,
   no code. Prototype panels/logic (Status/Trend tiles, range selector, season/wave band, EuroMOMO
   strip, Methods view) port into config-driven React components.
 - **Routing (per-page URLs).** React Router gives every page its own path — e.g.

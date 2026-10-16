@@ -23,9 +23,19 @@ branding:
         secondary: "#5C5650"            # --ink-2
       divider: "#D9D2C5"                # --rule
 
+# Dashboard-wide filters, shown in the header. Every panel is queried for the selected location; a
+# panel with no data for it says so. ERVISS itself is national, so Attica rows come from Greece's ETL.
+filters:
+  location:
+    default: Greece
+    options:
+      - { value: Greece, label_key: "locations.national" }
+      - { value: Attica, label_key: "locations.attica" }
+
 # Surveillance targets × pages × panels. Labels are i18n keys resolved from the locale catalogs, not
-# text. A panel's `query` is a set of /api/data filters; it should match one row per series per week
-# (these were checked against the public ERVISS snapshot), and `series_by` splits it into lines.
+# text. A panel's `query` is a set of /api/data filters, applied with the dashboard filters above; it
+# should match one row per series per week (checked against the public ERVISS snapshot), and
+# `series_by` splits it into lines.
 targets:
   - id: covid
     label_key: "targets.covid"
@@ -37,7 +47,7 @@ targets:
           - id: covid-positivity
             type: timeseries
             label_key: "panels.positivity"
-            query: { indicator: positivity, location: Greece, pathogen: SARS-CoV-2, age: total }
+            query: { indicator: positivity, pathogen: SARS-CoV-2, age: total }
             series_by: survtype
   - id: influenza
     label_key: "targets.influenza"
@@ -49,12 +59,12 @@ targets:
           - id: flu-positivity
             type: timeseries
             label_key: "panels.positivity"
-            query: { indicator: positivity, location: Greece, pathogen: Influenza, pathogentype: Influenza, pathogensubtype: total, age: total }
+            query: { indicator: positivity, pathogen: Influenza, pathogentype: Influenza, pathogensubtype: total, age: total }
             series_by: survtype
           - id: ili-rate
             type: timeseries
             label_key: "panels.ili"
-            query: { indicator: ILIconsultationrate, location: Greece, age: total }
+            query: { indicator: ILIconsultationrate, age: total }
   - id: rsv
     label_key: "targets.rsv"
     pages:
@@ -65,5 +75,5 @@ targets:
           - id: rsv-positivity
             type: timeseries
             label_key: "panels.positivity"
-            query: { indicator: positivity, location: Greece, pathogen: RSV, pathogentype: RSV, age: total }
+            query: { indicator: positivity, pathogen: RSV, pathogentype: RSV, age: total }
             series_by: survtype

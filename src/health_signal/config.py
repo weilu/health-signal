@@ -46,21 +46,16 @@ class SiteConfig(BaseModel):
         return self
 
 
-_WEEK = r"^\d{4}-W\d{2}$"
-
-
 class PanelQuery(BaseModel):
     # Mirrors /api/data's filters. Validated against the ERVISS profile so a config typo fails at load.
+    # Location and date range are dashboard-wide filters (`filters`), applied on top — not per panel.
     model_config = ConfigDict(extra="forbid")  # a misspelt filter would otherwise be silently dropped
     indicator: str
-    location: str | None = None
     survtype: str | None = None
     pathogen: str | None = None
     pathogentype: str | None = None
     pathogensubtype: str | None = None
     age: str | None = None
-    week_from: str | None = Field(default=None, pattern=_WEEK)
-    week_to: str | None = Field(default=None, pattern=_WEEK)
 
     @model_validator(mode="after")
     def _in_profile_vocab(self) -> "PanelQuery":
@@ -126,6 +121,33 @@ class Target(BaseModel):
     pages: list[Page] = Field(default_factory=list)
 
 
+class LocationOption(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    value: str  # a feed `location`, e.g. "Greece" or "Attica"
+    label_key: str | None = None
+
+
+class LocationFilter(BaseModel):
+    # The header's Region selector: every panel is queried for the selected location.
+    model_config = ConfigDict(extra="forbid")
+    default: str
+    options: list[LocationOption] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _default_offered_and_unique(self) -> "LocationFilter":
+        values = [o.value for o in self.options]
+        if len(values) != len(set(values)):
+            raise ValueError("location options must be unique")
+        if self.default not in values:
+            raise ValueError(f"location default {self.default!r} is not one of the options {values}")
+        return self
+
+
+class Filters(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    location: LocationFilter | None = None
+
+
 class DataConfig(BaseModel):
     dir: str
 
@@ -135,6 +157,7 @@ class Config(BaseModel):
     site: SiteConfig
     branding: Branding = Field(default_factory=Branding)
     targets: list[Target] = Field(default_factory=list)
+    filters: Filters = Field(default_factory=Filters)
     # Server-only: neither projection below references it, so it never reaches the client.
     data: DataConfig | None = None
 
@@ -164,6 +187,7 @@ class Config(BaseModel):
         return {
             **self.bootstrap_config(),
             "targets": [t.model_dump(mode="json") for t in self.targets],
+            "filters": self.filters.model_dump(mode="json"),
         }
 
 

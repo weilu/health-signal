@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { BrowserRouter, Routes, Route, NavLink, Navigate, useLocation } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, NavLink, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { AppBar, Toolbar, Typography, Button, Container, Box, Snackbar, Alert, Stack, Tab, Tabs } from '@mui/material'
+import { AppBar, Toolbar, Typography, Button, Container, Box, Snackbar, Alert, MenuItem, Stack, Tab, Tabs, TextField } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { fetchConfig } from './api.js'
 import { ResourceBoundary } from './ResourceBoundary.jsx'
@@ -11,10 +11,11 @@ import TargetPage from './pages/TargetPage.jsx'
 import { LocaleToggle } from './LocaleToggle.jsx'
 import { configLabel } from './labels.js'
 import { activePage } from './nav.js'
+import { selectedLocation, withLocation } from './filters.js'
 
 const rule = { borderBottom: 1, borderColor: 'divider' }
 
-function AppRoutes({ view }) {
+function AppRoutes({ view, location }) {
   const { t } = useTranslation()
   const pages = view.targets.flatMap((target) => target.pages.map((page) => ({ target, page })))
   const home = pages[0]?.page.path ?? '/config'
@@ -23,10 +24,10 @@ function AppRoutes({ view }) {
       {pages.map(({ page }) => (
         // Keyed by path: react-router reuses an unkeyed element across routes, carrying one page's
         // panel state (and fetched data) into the next.
-        <Route key={page.path} path={page.path} element={<TargetPage key={page.path} page={page} />} />
+        <Route key={page.path} path={page.path} element={<TargetPage key={page.path} page={page} location={location} />} />
       ))}
       <Route path="/config" element={<ConfigView />} />
-      <Route path="/" element={<Navigate to={home} replace />} />
+      <Route path="/" element={<Navigate to={withLocation(home, location?.value)} replace />} />
       <Route path="*" element={<Alert severity="info">{t('app.notFound')}</Alert>} />
     </Routes>
   )
@@ -35,7 +36,8 @@ function AppRoutes({ view }) {
 // Inside the Router so useLocation works; the shell chrome reacts to the current route.
 function Shell({ config }) {
   const { t } = useTranslation()
-  const { pathname } = useLocation()
+  const { pathname, search } = useLocation()
+  const navigate = useNavigate()
   const [logoutFailed, setLogoutFailed] = useState(false)
   const onLogin = pathname === '/login'
   const configQuery = useQuery({ queryKey: ['config'], queryFn: fetchConfig, enabled: !onLogin })
@@ -65,12 +67,21 @@ function Shell({ config }) {
   // utility link at its end), and a second row of page tabs when a target has more than one page.
   const targets = (configQuery.data?.targets ?? []).filter((target) => target.pages.length)
   const active = activePage(targets, pathname)
+  const locationFilter = configQuery.data?.filters?.location ?? null
+  const location = selectedLocation(locationFilter, search)
+  const locationLabel = (value) => configLabel(t, locationFilter?.options.find((o) => o.value === value)?.label_key, value)
   return (
     <>
       <AppBar position="static" color="transparent" elevation={0} sx={rule}>
         <Container maxWidth="xl">
           <Toolbar disableGutters>
             <Typography variant="h5" component="h1" sx={{ flexGrow: 1 }}>{config.title}</Typography>
+            {locationFilter && (
+              <TextField select size="small" label={t('filters.location')} value={location} sx={{ mr: 2 }}
+                onChange={(e) => navigate(withLocation(pathname, e.target.value))}>
+                {locationFilter.options.map((o) => <MenuItem key={o.value} value={o.value}>{locationLabel(o.value)}</MenuItem>)}
+              </TextField>
+            )}
             <LocaleToggle locales={config.locales} sx={{ mr: 1 }} />
             <Button onClick={handleLogout}>{t('nav.logout')}</Button>
           </Toolbar>
@@ -81,11 +92,11 @@ function Shell({ config }) {
           <Stack direction="row" alignItems="center">
             <Tabs value={active?.target.id ?? false} variant="scrollable" allowScrollButtonsMobile sx={{ flexGrow: 1 }}>
               {targets.map((target) => (
-                <Tab key={target.id} value={target.id} component={NavLink} to={target.pages[0].path}
+                <Tab key={target.id} value={target.id} component={NavLink} to={withLocation(target.pages[0].path, location)}
                   label={configLabel(t, target.label_key, target.id)} sx={{ typography: 'h6' }} />
               ))}
             </Tabs>
-            <Button size="small" component={NavLink} to="/config">{t('nav.configuration')}</Button>
+            <Button size="small" component={NavLink} to={withLocation('/config', location)}>{t('nav.configuration')}</Button>
           </Stack>
         </Container>
       </Box>
@@ -94,14 +105,16 @@ function Shell({ config }) {
           <Container maxWidth="xl">
             <Tabs value={active.page.path} variant="scrollable" allowScrollButtonsMobile>
               {active.target.pages.map((p) => (
-                <Tab key={p.path} value={p.path} component={NavLink} to={p.path} label={configLabel(t, p.label_key, p.id)} />
+                <Tab key={p.path} value={p.path} component={NavLink} to={withLocation(p.path, location)} label={configLabel(t, p.label_key, p.id)} />
               ))}
             </Tabs>
           </Container>
         </Box>
       )}
       <Container component="main" maxWidth="xl" sx={{ py: 3 }}>
-        <ResourceBoundary query={configQuery}>{(view) => <AppRoutes view={view} />}</ResourceBoundary>
+        <ResourceBoundary query={configQuery}>
+          {(view) => <AppRoutes view={view} location={location && { value: location, label: locationLabel(location) }} />}
+        </ResourceBoundary>
       </Container>
       <Snackbar open={logoutFailed} autoHideDuration={6000} onClose={() => setLogoutFailed(false)}>
         <Alert severity="error" onClose={() => setLogoutFailed(false)}>{t('app.logoutError')}</Alert>
