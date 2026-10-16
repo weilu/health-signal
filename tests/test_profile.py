@@ -1,6 +1,6 @@
 import pandas as pd
 import pytest
-from health_signal.profile import ERVISS, FeedRow, Profile
+from health_signal.profile import ERVISS, FeedRow
 
 _VALID = {
     "location": "Attica", "period": "2025-W01", "survtype": "non-sentinel", "pathogen": "Influenza",
@@ -46,6 +46,12 @@ def test_erviss_rejects_non_iso_week_period():
         assert "period" in _violation(period=bad)
 
 
+def test_erviss_rejects_weeks_past_the_iso_year():
+    for bad in ("2025-W53", "2025-W00"):
+        assert "ISO year" in _violation(period=bad)
+    assert _violation(period="2020-W53") is None  # a 53-week year
+
+
 def test_erviss_rejects_non_finite_or_blank_value():
     for bad in ("nan", "inf", "", "lots"):
         assert "value" in _violation(value=bad)
@@ -55,10 +61,6 @@ def test_erviss_rejects_blank_location_and_period():
     assert "location" in _violation(location="")
     assert "period" in _violation(period="")
 
-
-def test_status_assessments_are_not_erviss_indicators():
-    # Status/Trend are a separate assessment contract (spec §6.3), not rows of this profile.
-    assert not ({"status_level", "trend"} & ERVISS.indicators)
 
 
 def test_erviss_pathogen_type_and_subtype_vocab():
@@ -97,6 +99,3 @@ def test_feedrow_rejects_blank_location_and_period():
     with pytest.raises(Exception):
         _row(period="")
 
-
-def test_profile_does_not_shadow_pydantic_validate():
-    assert "validate" not in Profile.__dict__

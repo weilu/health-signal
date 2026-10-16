@@ -1,14 +1,14 @@
 import { Typography, List, ListItem, ListItemText, Divider, Chip, Stack } from '@mui/material'
 import { useTranslation } from 'react-i18next'
-import { fetchConfig } from '../config.js'
-import { useResource } from '../useResource.js'
+import { useQuery } from '@tanstack/react-query'
+import { fetchConfig } from '../api.js'
 import { ResourceBoundary } from '../ResourceBoundary.jsx'
 
 export default function ConfigView() {
   const { t, i18n } = useTranslation()
-  const state = useResource(fetchConfig)
+  const query = useQuery({ queryKey: ['config'], queryFn: fetchConfig })
   return (
-    <ResourceBoundary state={state}>
+    <ResourceBoundary query={query}>
       {(cfg) => (
         <>
           <Typography variant="h4" component="h1" gutterBottom>{t('config.title')}</Typography>

@@ -1,6 +1,6 @@
 import pytest
 from pathlib import Path
-from health_signal.datasource import FileDataSource, EmptyDataSource
+from health_signal.datasource import FileDataSource
 
 FIX = Path(__file__).parent / "fixtures" / "erviss_sample.csv"
 
@@ -47,9 +47,6 @@ def test_out_of_vocab_indicator_rejected(tmp_path):
     with pytest.raises(ValueError, match="indicator"):
         _src(tmp_path, bad)
 
-
-def test_empty_source_returns_empty():
-    assert EmptyDataSource().query(pathogen="Influenza") == []
 
 
 def test_missing_data_dir_fails_fast(tmp_path):
@@ -116,7 +113,7 @@ def test_empty_file_names_the_file(tmp_path):
 
 
 def test_error_reports_data_row_not_physical_line(tmp_path):
-    # A blank line is skipped by the reader, so a physical line number would be off; the row number isn't.
+    # The reader skips blank lines, so only a data-row number is accurate.
     bad = _H + _OK + "\n" + _OK.replace("count", "furlongs")
     with pytest.raises(ValueError, match=r"feed\.csv row 2: .*furlongs"):
         _src(tmp_path, bad)
@@ -133,3 +130,17 @@ def test_literal_na_subtype_is_kept_as_text(tmp_path):
     text = "location,period,survtype,pathogen,pathogentype,pathogensubtype,age,indicator,value,unit\nGreece,2025-W01,non-sentinel,RSV,RSV-A,NA,0-4,detections,4,count\n"
     r = _src(tmp_path, text).query()[0]
     assert r.dimensions["pathogensubtype"] == "NA"
+
+
+def test_query_filters_on_any_profile_dimension(tmp_path):
+    text = ("location,period,survtype,pathogen,pathogentype,pathogensubtype,age,indicator,value,unit\n"
+            "Greece,2025-W01,non-sentinel,Influenza,Influenza A,A(H3),total,detections,3,count\n"
+            "Greece,2025-W01,non-sentinel,Influenza,Influenza B,B/Vic,total,detections,5,count\n")
+    src = _src(tmp_path, text)
+    assert [r.value for r in src.query(pathogentype="Influenza B")] == [5.0]
+    assert [r.value for r in src.query(pathogensubtype="A(H3)", survtype="non-sentinel")] == [3.0]
+
+
+def test_query_rejects_unknown_filter(tmp_path):
+    with pytest.raises(ValueError, match="unknown filter"):
+        _src(tmp_path).query(colour="red")

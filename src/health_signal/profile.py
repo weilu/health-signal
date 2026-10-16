@@ -32,6 +32,10 @@ class Profile(BaseModel):
             (~np.isfinite(value), lambda r: f"value {r['value']!r} is not a finite number"),
             (~df["period"].str.fullmatch(self.period_pattern),
              lambda r: f"period {r['period']!r} does not match {self.period_pattern!r} for profile {self.name}"),
+            # The pattern only fixes the shape; 2025-W53 fits it but doesn't exist and would fall off the axis.
+            (df["period"].str.fullmatch(r"\d{4}-W\d{2}")
+             & pd.to_datetime(df["period"] + "-1", format="%G-W%V-%u", errors="coerce").isna(),
+             lambda r: f"period {r['period']!r} is not a week of its ISO year"),
             (~df["indicator"].isin(self.indicators),
              lambda r: f"unknown indicator {r['indicator']!r} for profile {self.name}"),
             (~df["unit"].isin(self.units), lambda r: f"unknown unit {r['unit']!r} for profile {self.name}"),
