@@ -1,5 +1,4 @@
-// Same-origin JSON GET. A non-OK response throws with .status so ResourceBoundary can tell an
-// expired session (401 -> login) from other failures.
+// Non-OK throws with .status so callers can tell an expired session (401) from other failures.
 export async function apiGet(path, params = {}) {
   const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v != null && v !== ''))
   const res = await fetch(qs.size ? `${path}?${qs}` : path, { credentials: 'same-origin' })

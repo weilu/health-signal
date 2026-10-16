@@ -22,8 +22,7 @@ function AppRoutes({ view, location }) {
   return (
     <Routes>
       {pages.map(({ page }) => (
-        // Keyed by path: react-router reuses an unkeyed element across routes, carrying one page's
-        // panel state (and fetched data) into the next.
+        // Keyed by path: react-router reuses unkeyed elements, carrying panel state across pages.
         <Route key={page.path} path={page.path} element={<TargetPage key={page.path} page={page} location={location} />} />
       ))}
       <Route path="/config" element={<ConfigView />} />
@@ -33,7 +32,7 @@ function AppRoutes({ view, location }) {
   )
 }
 
-// Inside the Router so useLocation works; the shell chrome reacts to the current route.
+// Inside the Router so useLocation works.
 function Shell({ config }) {
   const { t } = useTranslation()
   const { pathname, search } = useLocation()
@@ -43,8 +42,7 @@ function Shell({ config }) {
   const configQuery = useQuery({ queryKey: ['config'], queryFn: fetchConfig, enabled: !onLogin })
 
   async function handleLogout() {
-    // Only the server can clear the httpOnly cookie, so redirect only on a confirmed 303 — otherwise
-    // the session is still valid and /login would falsely imply a sign-out.
+    // Only the server can clear the httpOnly cookie, so redirect only on a confirmed 303.
     const res = await fetch('/logout', { method: 'POST', credentials: 'same-origin', redirect: 'manual' }).catch(() => null)
     if (res && (res.ok || res.type === 'opaqueredirect' || res.status === 303)) {
       window.location.assign('/login')
@@ -53,8 +51,7 @@ function Shell({ config }) {
     setLogoutFailed(true)
   }
 
-  // Login is chrome-less (no AppBar): brand appears once, centered. /login is the only
-  // unauthenticated route (httpOnly session has no client-readable flag).
+  // /login is chrome-less and the only unauthenticated route (no client-readable session flag).
   if (onLogin) {
     return (
       <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}>
@@ -63,8 +60,7 @@ function Shell({ config }) {
     )
   }
 
-  // Layout follows greece-public-health: a plain header, a row of target tabs (with Configuration as a
-  // utility link at its end), and a second row of page tabs when a target has more than one page.
+  // Layout after greece-public-health: header, target tabs, then page tabs for multi-page targets.
   const targets = (configQuery.data?.targets ?? []).filter((target) => target.pages.length)
   const active = activePage(targets, pathname)
   const locationFilter = configQuery.data?.filters?.location ?? null

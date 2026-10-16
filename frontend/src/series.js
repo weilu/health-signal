@@ -1,5 +1,4 @@
-// Rows -> the model one panel plots: one series per value of `seriesBy`, values aligned to the sorted
-// week axis. Returns a status instead when the rows can't make an honest chart.
+// Returns a status instead of a model when the rows can't make an honest chart.
 export function toChartModel(rows, seriesBy, maxSeries) {
   if (!rows.length) return { status: 'empty' }
   const units = [...new Set(rows.map((r) => r.unit))].sort()
@@ -10,7 +9,7 @@ export function toChartModel(rows, seriesBy, maxSeries) {
     const key = seriesBy ? (r.dimensions?.[seriesBy] ?? '') : ''
     if (!byKey.has(key)) byKey.set(key, new Map())
     const points = byKey.get(key)
-    // Two rows for one series-week means the query is too broad (e.g. subtypes alongside totals).
+    // Two rows per series-week: the query is too broad (e.g. subtypes alongside totals).
     if (points.has(r.period)) return { status: 'ambiguous', key, period: r.period }
     points.set(r.period, r.value)
   }
@@ -22,8 +21,7 @@ export function toChartModel(rows, seriesBy, maxSeries) {
   }
 }
 
-// Whether direct end-labels (pixel y positions) can be drawn without overlapping. When they can't,
-// draw none and let the legend + tooltip carry identity — nudging labels detaches them from their lines.
+// Overlapping labels: draw none and let legend + tooltip carry identity (nudging detaches them).
 export function endLabelsFit(ys, minGap) {
   const sorted = [...ys].sort((a, b) => a - b)
   return sorted.every((y, i) => i === 0 || y - sorted[i - 1] >= minGap)

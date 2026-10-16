@@ -1,5 +1,4 @@
-# Example dashboard.yaml — Greece / Attica pilot.
-# Pass to the app via the config path it loads at startup
+# Example dashboard.yaml for the Greece / Attica pilot.
 
 schema_version: "1.0.0"
 
@@ -7,7 +6,7 @@ site:
   title: "Greece Public Health Early Warning & Surveillance"
   default_locale: el
   locales: [en, el]
-  # Path prefixes that bypass auth ([] = everything behind login). e.g. ["/covid"] to open a page.
+  # Path prefixes that bypass auth; [] = everything behind login.
   public_paths: []
 
 branding:
@@ -23,8 +22,8 @@ branding:
         secondary: "#5C5650"            # --ink-2
       divider: "#D9D2C5"                # --rule
 
-# Dashboard-wide filters, shown in the header. Every panel is queried for the selected location; a
-# panel with no data for it says so. ERVISS itself is national, so Attica rows come from Greece's ETL.
+# Header filters: every panel is queried for the selected location. ERVISS is national; Attica rows
+# would come from Greece's ETL.
 filters:
   location:
     default: Greece
@@ -32,11 +31,8 @@ filters:
       - { value: Greece, label_key: "locations.national" }
       - { value: Attica, label_key: "locations.attica" }
 
-# Surveillance targets × pages × panels, mirroring greece-public-health's Clinical view as far as the
-# public ERVISS data allows (it has no private-hospital positivity, RSV admissions, A/B-split ICU or
-# EuroMOMO). Labels are i18n keys resolved from the locale catalogs, not text. A panel's `query` is a
-# set of /api/data filters, applied with the dashboard filters above; it should match one row per series
-# per week (checked against the public ERVISS snapshot), and `series_by` splits it into lines.
+# Mirrors greece-public-health's Clinical view where ERVISS has the data. Labels are i18n keys. Each
+# query should match one row per series per week (checked against ERVISS); series_by splits it.
 targets:
   - id: covid
     label_key: "targets.covid"

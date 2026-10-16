@@ -8,7 +8,7 @@ import { endLabelsFit } from '../series.js'
 
 ChartJS.register(CategoryScale, LinearScale, LineElement, PointElement, Tooltip, Legend)
 
-// Vertical hairline at the hovered week: readers aim at a date, not at a 2px line.
+// Hairline at the hovered week: readers aim at a date, not a 2px line.
 const crosshair = {
   id: 'crosshair',
   afterDraw(chart, _args, opts) {
@@ -28,8 +28,7 @@ const crosshair = {
 
 const LABEL_GAP = 14  // px between end-label baselines at 12px type
 
-// End-of-line labels (≤4 series) in ink, never the series colour: they back up the legend. Only series
-// that reach the last week get one (else it lands mid-plot), and none are drawn if any two would collide.
+// Ink, never the series colour; only series reaching the last week; none if any would collide.
 const endLabels = {
   id: 'endLabels',
   afterDatasetsDraw(chart, _args, opts) {
@@ -64,7 +63,7 @@ export function TimeSeriesChart({ periods, series, unit }) {
   const font = { family: theme.typography.fontFamily, size: 12 }
   const labelled = series.length >= 2 && series.length <= 4
   const labelFont = `12px ${theme.typography.fontFamily}`
-  // Reserve exactly the room the longest end-label needs, so it isn't clipped at the canvas edge.
+  // Room for the longest end-label so it isn't clipped.
   const labelRoom = useMemo(() => {
     if (!labelled) return 8
     const ctx = document.createElement('canvas').getContext('2d')

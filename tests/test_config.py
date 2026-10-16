@@ -62,8 +62,7 @@ def test_empty_targets_projects_cleanly():
 
 
 def test_default_locale_must_be_in_locales():
-    # default_locale defaults alone are consistent ("en" in ["en"]); a default_locale outside the
-    # configured locales is rejected so the client's fallbackLng always has a registered catalog.
+    # default_locale must be a configured locale (fallbackLng needs a catalog).
     with pytest.raises(ValidationError):
         SiteConfig(title="D", default_locale="el")  # locales defaults to ["en"]
     SiteConfig(title="D", default_locale="el", locales=["en", "el"])  # offered -> ok

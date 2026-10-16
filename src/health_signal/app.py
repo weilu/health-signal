@@ -34,7 +34,7 @@ def _serve_spa(config: Config) -> Response:
     index = _UI_DIR / "index.html"
     if not index.is_file():
         return HTMLResponse(_PLACEHOLDER)
-    # Only the bootstrap slice is injected (safe for anon). The full view-model is gated behind /api/config.
+    # Only the bootstrap slice (safe pre-login); the full view-model is gated behind /api/config.
     return HTMLResponse(render_index(index.read_text(encoding="utf-8"), config.bootstrap_config()))
 
 
@@ -50,9 +50,8 @@ def create_app(
     _ALWAYS_PUBLIC = ("/healthz", "/login", "/logout")
 
     def is_public(path: str) -> bool:
-        # Operational endpoints are always public, but only as exact matches -- a subpath such as
-        # /login/private must stay gated. Configured public_paths (already validated + normalized by
-        # SiteConfig) match by prefix: "/" opts the whole site public; others match at a path boundary.
+        # Operational endpoints are public by exact match only (/login/private stays gated);
+        # public_paths match by prefix at a path boundary ("/" = whole site).
         if path in _ALWAYS_PUBLIC:
             return True
         return any(
@@ -100,10 +99,8 @@ def create_app(
     if (_UI_DIR / "assets").is_dir():
         app.mount("/assets", StaticFiles(directory=_UI_DIR / "assets"), name="assets")
 
-    # Registered last so more specific routes (/api/*, /login, ...) take precedence. Unmatched
-    # /api/* is resolved before any page policy, so a public_paths of "/" or "/api" can't turn it
-    # into SPA HTML. Then public paths get the SPA; authenticated non-API paths get the SPA; else
-    # redirect to /login.
+    # Registered last so specific routes win. Unmatched /api/* 404s before the page policy, so
+    # public_paths can't turn it into SPA HTML.
     @app.get("/{path:path}")
     async def spa(path: str, request: Request) -> Response:
         full_path = "/" + path

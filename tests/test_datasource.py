@@ -116,7 +116,7 @@ def test_empty_file_names_the_file(tmp_path):
 
 
 def test_error_reports_data_row_not_physical_line(tmp_path):
-    # A blank line is skipped by the reader, so a physical line number would be off; the row number isn't.
+    # The reader skips blank lines, so only a data-row number is accurate.
     bad = _H + _OK + "\n" + _OK.replace("count", "furlongs")
     with pytest.raises(ValueError, match=r"feed\.csv row 2: .*furlongs"):
         _src(tmp_path, bad)

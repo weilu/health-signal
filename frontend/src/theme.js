@@ -1,13 +1,11 @@
 import { createTheme } from '@mui/material/styles'
 import { deepmerge } from '@mui/utils'
 
-// Base theme every adopter inherits and overrides via branding.theme: IBM Plex Sans (self-hosted,
-// see main.jsx), sentence-case buttons, muted-slate default primary.
+// Defaults every adopter inherits; branding.theme overrides them.
 const BASE = {
   palette: {
     primary: { main: '#44617a' },
-    // Categorical series colours in fixed order (dataviz reference palette; CVD/contrast-validated on
-    // #fff, #FBFAF6 and dark #121212). Branding can replace either list via palette.chart.
+    // Fixed-order categorical palette (dataviz reference; CVD/contrast-checked on #fff, #FBFAF6, #121212).
     chart: {
       light: ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#4a3aa7', '#e34948'],
       dark: ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#008300', '#9085e9', '#e66767'],
@@ -25,9 +23,8 @@ const BASE = {
   shape: { borderRadius: 8 },
 }
 
-// Deep-merge branding.theme over BASE BEFORE createTheme so an overridden color re-derives its
-// light/dark shades (merging after would keep stale defaults). Malformed config throws by design,
-// re-thrown with its location + value so it's debuggable.
+// Merge before createTheme so overridden colours re-derive their shades. Malformed config throws,
+// re-raised with its value so it's debuggable.
 export function buildTheme(branding = {}) {
   const options = branding.theme || {}
   try {

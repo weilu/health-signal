@@ -6,8 +6,8 @@ import pandas as pd
 from .profile import ERVISS, FeedRow, Profile
 
 _REQUIRED = pd.Index(["location", "period", "indicator", "value", "unit"])
-# Read every cell as text and keep blanks as "": pandas' default NaN/type inference would silently
-# turn a blank value into nan and reshape codes like "0-4". utf-8-sig drops Excel's BOM.
+# All cells as text, blanks kept as "": default NaN/type inference would turn a blank value into nan
+# and mangle codes like "0-4". utf-8-sig drops Excel's BOM.
 _READ_CSV = dict(dtype=str, keep_default_na=False, na_filter=False, encoding="utf-8-sig")
 
 
@@ -29,7 +29,7 @@ class FileDataSource:
             raise ValueError(f"data dir {str(data_dir)!r} is not a directory")
         self._profile = profile
         frames = [self._load(path) for path in sorted(data_dir.glob("*.csv"))]
-        # Files may carry different optional columns; concat leaves those cells NaN, so restore "".
+        # concat leaves NaN where a file lacks an optional column.
         df = pd.concat(frames, ignore_index=True).fillna("") if frames else pd.DataFrame(columns=_REQUIRED)
         self._df = df.astype({"value": float})
 
@@ -51,7 +51,7 @@ class FileDataSource:
         df = df.apply(lambda col: col.str.strip())
         if (violation := self._profile.first_violation(df)) is not None:
             label, message = violation
-            # A data-row number, not a file line: the reader skips blank lines and quoted cells can span lines.
+            # A data-row number: the reader skips blank lines, so a file line would be off.
             raise ValueError(f"{path.name} row {label + 1}: {message}")
         return df
 

@@ -14,7 +14,7 @@ export function TimeSeriesPanel({ panel, location }) {
   const { t } = useTranslation()
   const palette = useChartPalette()
   const [asTable, setAsTable] = useState(false)
-  const params = panelParams(panel.query, location?.value)  // the header filter applies to every panel
+  const params = panelParams(panel.query, location?.value)
   const query = useQuery({ queryKey: ['data', params], queryFn: () => fetchData(params) })
   const title = configLabel(t, panel.label_key, panel.id)
   return (

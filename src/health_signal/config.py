@@ -14,8 +14,7 @@ class Branding(BaseModel):
 
 
 class SiteConfig(BaseModel):
-    # App/OpenAPI name only. User-facing display text (including a localized title) lives in the
-    # locale files and is resolved by i18n key -- config carries structure + keys, not translations.
+    # App/OpenAPI name only; user-facing text comes from the locale files via i18n keys.
     title: str
     default_locale: str = "en"
     locales: list[str] = Field(default_factory=lambda: ["en"])
@@ -25,9 +24,8 @@ class SiteConfig(BaseModel):
     @field_validator("public_paths")
     @classmethod
     def _normalize_public_paths(cls, paths: list[str]) -> list[str]:
-        # Normalize to a leading-slash, no-trailing-slash prefix so create_app consumes a clean list.
-        # Only a literal "/" may be match-all: reject "", "//", whitespace, etc. that also normalize
-        # to "/" and would silently make the whole site public ([] = all locked, ["/"] = all public).
+        # Only a literal "/" may match all: "", "//" or whitespace would also normalize to "/" and
+        # silently make the whole site public.
         normalized = []
         for p in paths:
             if p != "/" and not p.strip("/").strip():
@@ -37,8 +35,7 @@ class SiteConfig(BaseModel):
 
     @model_validator(mode="after")
     def _default_locale_is_offered(self) -> "SiteConfig":
-        # fallbackLng is default_locale; if it isn't a configured locale, fallback resolves to
-        # nothing and the UI renders raw keys.
+        # fallbackLng is default_locale; one outside the configured locales renders raw keys.
         if self.default_locale not in self.locales:
             raise ValueError(
                 f"default_locale {self.default_locale!r} must be one of the configured locales {self.locales}"
@@ -47,9 +44,8 @@ class SiteConfig(BaseModel):
 
 
 class PanelQuery(BaseModel):
-    # What a panel plots: an indicator plus profile-dimension filters. `dimensions` is a map rather than
-    # fixed fields so another profile (e.g. wastewater's location_level) needs no new config shape.
-    # Location and date range are dashboard-wide filters (`filters`), applied on top — not per panel.
+    # `dimensions` is a map so other profiles (e.g. wastewater) need no new fields. Location and dates
+    # are dashboard filters, not panel settings.
     model_config = ConfigDict(extra="forbid")  # a misspelt key would otherwise be silently dropped
     indicator: str
     dimensions: dict[str, str] = Field(default_factory=dict)
@@ -83,7 +79,7 @@ class Panel(BaseModel):
         return v
 
 
-# Server routes and SPA routes a page path must not shadow (a reload would hit the server route).
+# Paths a page must not shadow (a reload would hit the server route).
 _RESERVED_PATHS = ("/login", "/logout", "/config", "/api", "/docs", "/redoc", "/openapi.json", "/healthz", "/assets")
 
 
@@ -91,13 +87,13 @@ class Page(BaseModel):
     model_config = ConfigDict(extra="forbid")
     id: str
     path: str
-    label_key: str | None = None  # i18n key; text lives in locale files, not config
+    label_key: str | None = None  # i18n key, not text
     panels: list[Panel] = Field(default_factory=list)
 
     @field_validator("path")
     @classmethod
     def _routable(cls, path: str) -> str:
-        # Literal paths only: ":" and "*" are react-router patterns; "/" is the redirect to the first page.
+        # ":"/"*" are react-router patterns; "/" redirects to the first page.
         if not path.startswith("/") or path == "/" or any(c in path for c in ":*"):
             raise ValueError(f"page path {path!r} must be a literal path starting with '/' (not '/' itself)")
         if any(path == r or path.startswith(r + "/") for r in _RESERVED_PATHS):
@@ -113,7 +109,7 @@ class Page(BaseModel):
 
 
 class Target(BaseModel):
-    # A surveillance target (e.g. a pathogen). label_key -> locale files; id can derive one by convention.
+    # A surveillance target, e.g. a pathogen.
     model_config = ConfigDict(extra="forbid")
     id: str
     label_key: str | None = None
@@ -127,7 +123,7 @@ class LocationOption(BaseModel):
 
 
 class LocationFilter(BaseModel):
-    # The header's Region selector: every panel is queried for the selected location.
+    # The header's Region selector.
     model_config = ConfigDict(extra="forbid")
     default: str
     options: list[LocationOption] = Field(min_length=1)
@@ -162,7 +158,7 @@ class Config(BaseModel):
 
     @model_validator(mode="after")
     def _unique_pages(self) -> "Config":
-        # Two pages on one path would shadow each other as routes; ids key nav and React lists.
+        # Duplicate paths shadow each other as routes; ids key nav and React lists.
         pages = [page for target in self.targets for page in target.pages]
         for attr, label in (("path", "path"), ("id", "page id")):
             values = [getattr(page, attr) for page in pages]
@@ -181,8 +177,7 @@ class Config(BaseModel):
         }
 
     def client_config(self) -> dict:
-        # Full client view-model (authenticated). Superset of bootstrap; still excludes server-only
-        # fields (public_paths, schema_version, future data-source config).
+        # Full view-model (authenticated); still excludes server-only fields.
         return {
             **self.bootstrap_config(),
             "targets": [t.model_dump(mode="json") for t in self.targets],
