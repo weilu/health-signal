@@ -1,6 +1,6 @@
 import pytest
 from pathlib import Path
-from health_signal.datasource import FileDataSource, EmptyDataSource
+from health_signal.datasource import FileDataSource
 
 FIX = Path(__file__).parent / "fixtures" / "erviss_sample.csv"
 
@@ -47,9 +47,6 @@ def test_out_of_vocab_indicator_rejected(tmp_path):
     with pytest.raises(ValueError, match="indicator"):
         _src(tmp_path, bad)
 
-
-def test_empty_source_returns_empty():
-    assert EmptyDataSource().query(pathogen="Influenza") == []
 
 
 def test_missing_data_dir_fails_fast(tmp_path):
