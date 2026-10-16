@@ -14,6 +14,9 @@ describe('activePage', () => {
     expect(activePage(targets, '/influenza/hospital')?.target.id).toBe('flu')
     expect(activePage(targets, '/influenza/hospital')?.page.id).toBe('f2')
   })
+  it('matches as the router does: any case, optional trailing slash', () => {
+    expect(activePage(targets, '/Influenza/Hospital/')?.page.id).toBe('f2')
+  })
   it('is null off the configured pages', () => {
     expect(activePage(targets, '/config')).toBeNull()
     expect(activePage(targets, '/nowhere')).toBeNull()
