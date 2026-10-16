@@ -122,7 +122,7 @@ class Target(BaseModel):
 
 class LocationOption(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    value: str  # a feed `location`, e.g. "Greece" or "Attica"
+    value: str = Field(min_length=1)  # a feed `location`, e.g. "Greece"; "" would mean no filter (all regions)
     label_key: str | None = None
 
 

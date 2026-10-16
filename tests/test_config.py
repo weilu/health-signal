@@ -181,6 +181,7 @@ def test_location_filter_reaches_client_config():
     {"default": "Crete", "options": [{"value": "Greece"}]},                  # default not offered
     {"default": "Greece", "options": [{"value": "Greece"}, {"value": "Greece"}]},  # duplicate option
     {"default": "Greece", "options": []},                                    # nothing to choose
+    {"default": "Greece", "options": [{"value": "Greece"}, {"value": ""}]},  # "" would query every region
 ])
 def test_location_filter_typos_fail_at_load(bad):
     with pytest.raises(ValidationError):
