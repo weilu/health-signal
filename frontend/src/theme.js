@@ -5,7 +5,8 @@ import { deepmerge } from '@mui/utils'
 const BASE = {
   palette: {
     primary: { main: '#44617a' },
-    // Fixed-order categorical palette (dataviz reference; CVD/contrast-checked on #fff, #FBFAF6, #121212).
+    // Fixed-order categorical palette (dataviz reference; CVD-checked on #fff, #FBFAF6, #121212). Three light
+    // slots are under 3:1 against the surface, which is why every chart has a table view.
     chart: {
       light: ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#4a3aa7', '#e34948'],
       dark: ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#008300', '#9085e9', '#e66767'],
