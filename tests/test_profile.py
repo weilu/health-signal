@@ -46,6 +46,12 @@ def test_erviss_rejects_non_iso_week_period():
         assert "period" in _violation(period=bad)
 
 
+def test_erviss_rejects_weeks_past_the_iso_year():
+    for bad in ("2025-W53", "2025-W00"):
+        assert "ISO year" in _violation(period=bad)
+    assert _violation(period="2020-W53") is None  # a 53-week year
+
+
 def test_erviss_rejects_non_finite_or_blank_value():
     for bad in ("nan", "inf", "", "lots"):
         assert "value" in _violation(value=bad)
