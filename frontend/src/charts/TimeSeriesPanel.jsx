@@ -6,6 +6,7 @@ import { fetchData } from '../api.js'
 import { ResourceBoundary } from '../ResourceBoundary.jsx'
 import { toChartModel } from '../series.js'
 import { configLabel } from '../labels.js'
+import { panelParams } from '../filters.js'
 import { SeriesTable } from './SeriesTable.jsx'
 import { TimeSeriesChart, useChartPalette } from './TimeSeriesChart.jsx'
 
@@ -13,7 +14,7 @@ export function TimeSeriesPanel({ panel, location }) {
   const { t } = useTranslation()
   const palette = useChartPalette()
   const [asTable, setAsTable] = useState(false)
-  const params = { ...panel.query, location: location?.value }  // the header filter applies to every panel
+  const params = panelParams(panel.query, location?.value)  // the header filter applies to every panel
   const query = useQuery({ queryKey: ['data', params], queryFn: () => fetchData(params) })
   const title = configLabel(t, panel.label_key, panel.id)
   return (

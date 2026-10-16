@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { selectedLocation, withLocation } from './filters.js'
+import { panelParams, selectedLocation, withLocation } from './filters.js'
 
 const filter = { default: 'Greece', options: [{ value: 'Greece' }, { value: 'Attica' }] }
 
@@ -16,4 +16,12 @@ describe('withLocation', () => {
   it('carries the selection on a link', () => expect(withLocation('/covid', 'Attica')).toBe('/covid?location=Attica'))
   it('encodes it', () => expect(withLocation('/covid', 'Central Macedonia')).toBe('/covid?location=Central+Macedonia'))
   it('leaves the path alone without one', () => expect(withLocation('/covid', null)).toBe('/covid'))
+})
+
+describe('panelParams', () => {
+  const query = { indicator: 'positivity', dimensions: { survtype: 'SARI virological', pathogen: 'RSV' } }
+  it('flattens the indicator, dimensions and selected location into /api/data params', () =>
+    expect(panelParams(query, 'Attica')).toEqual({ indicator: 'positivity', survtype: 'SARI virological', pathogen: 'RSV', location: 'Attica' }))
+  it('omits location when none is selected', () => expect(panelParams(query, null)).not.toHaveProperty('location'))
+  it('handles a panel with no dimensions', () => expect(panelParams({ indicator: 'deaths' }, null)).toEqual({ indicator: 'deaths' }))
 })

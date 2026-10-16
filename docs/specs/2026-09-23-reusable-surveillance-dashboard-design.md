@@ -121,9 +121,10 @@ A profile is a Pydantic-backed declaration: `dimensions` (names + controlled voc
 `indicators`, `units`, `period` granularity, and validation rules. New rows — not schema changes —
 add pathogens/strata/indicators within a profile.
 
-Pages declare **panels** in config — `type: timeseries`, a `query` (a set of `/api/data` filters that
-should match one row per series per week) and an optional `series_by` dimension that splits it into
-lines. Panel config is validated against the profile at load, so a typo fails before the app serves.
+Pages declare **panels** in config — `type: timeseries`, a `query` (an `indicator` plus a
+`dimensions: {name: value}` map of profile-dimension filters, which should match one row per series per
+week) and an optional `series_by` dimension that splits it into lines. The map keeps the config shape
+profile-agnostic: a wastewater profile's dimensions need no new fields. Panel config is validated against the profile at load, so a typo fails before the app serves.
 **Location (and, next, the date range) are dashboard-wide filters, not panel settings:**
 `filters.location` lists the selectable locations and a default, and every panel is queried for the
 selected one; a panel with no rows for it shows a "no data for {location}" message rather than being

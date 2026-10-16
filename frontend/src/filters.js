@@ -10,3 +10,8 @@ export function selectedLocation(filter, search) {
 export function withLocation(path, location) {
   return location ? `${path}?${new URLSearchParams({ location })}` : path
 }
+
+// A panel's /api/data params: its indicator and dimension filters, plus the dashboard's location.
+export function panelParams(query, location) {
+  return { indicator: query.indicator, ...query.dimensions, ...(location ? { location } : {}) }
+}

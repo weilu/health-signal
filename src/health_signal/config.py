@@ -47,23 +47,22 @@ class SiteConfig(BaseModel):
 
 
 class PanelQuery(BaseModel):
-    # Mirrors /api/data's filters. Validated against the ERVISS profile so a config typo fails at load.
+    # What a panel plots: an indicator plus profile-dimension filters. `dimensions` is a map rather than
+    # fixed fields so another profile (e.g. wastewater's location_level) needs no new config shape.
     # Location and date range are dashboard-wide filters (`filters`), applied on top — not per panel.
-    model_config = ConfigDict(extra="forbid")  # a misspelt filter would otherwise be silently dropped
+    model_config = ConfigDict(extra="forbid")  # a misspelt key would otherwise be silently dropped
     indicator: str
-    survtype: str | None = None
-    pathogen: str | None = None
-    pathogentype: str | None = None
-    pathogensubtype: str | None = None
-    age: str | None = None
+    dimensions: dict[str, str] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def _in_profile_vocab(self) -> "PanelQuery":
         if self.indicator not in ERVISS.indicators:
             raise ValueError(f"unknown indicator {self.indicator!r} for profile {ERVISS.name}")
-        for dim, allowed in ERVISS.dimension_vocab.items():
-            value = getattr(self, dim, None)
-            if value is not None and value not in allowed:
+        for dim, value in self.dimensions.items():
+            if dim not in ERVISS.dimension_keys:
+                raise ValueError(f"{dim!r} is not an {ERVISS.name} dimension")
+            allowed = ERVISS.dimension_vocab.get(dim)
+            if allowed is not None and value not in allowed:
                 raise ValueError(f"{dim} {value!r} not allowed in profile {ERVISS.name}")
         return self
 
