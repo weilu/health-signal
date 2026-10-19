@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { endLabelsFit, toChartModel, weekRange } from './series.js'
 
-const row = (period, value, dims = {}, unit = 'percent') => ({ period, value, unit, dimensions: dims })
+const row = (period, value, dims = {}, unit = 'percent', location = 'Greece') => ({ location, period, value, unit, dimensions: dims })
 
 describe('toChartModel', () => {
   it('reports no rows as empty', () => {
@@ -14,6 +14,15 @@ describe('toChartModel', () => {
   it('refuses a query with two rows for one series-week', () => {
     const rows = [row('2025-W01', 1, { pathogensubtype: 'A(H3)' }), row('2025-W01', 9, { pathogensubtype: 'A(H3)' })]
     expect(toChartModel(rows, 'pathogensubtype', 8)).toEqual({ status: 'ambiguous', key: 'A(H3)', period: '2025-W01' })
+  })
+  it('refuses to join different populations into one line, even in disjoint weeks', () => {
+    expect(toChartModel([row('2025-W01', 1, { age: '0-4' }), row('2025-W02', 2, { age: '65+' })], null, 8))
+      .toEqual({ status: 'mixedSeries', key: '', field: 'age' })
+    expect(toChartModel([row('2025-W01', 1, {}, 'percent', 'Greece'), row('2025-W02', 2, {}, 'percent', 'Attica')], null, 8))
+      .toEqual({ status: 'mixedSeries', key: '', field: 'location' })
+  })
+  it('treats a blank dimension as a missing one', () => {
+    expect(toChartModel([row('2025-W01', 1, { age: '' }), row('2025-W02', 2)], null, 8).status).toBe('ok')
   })
   it('refuses more series than colour slots', () => {
     const rows = ['a', 'b', 'c'].map((k) => row('2025-W01', 1, { survtype: k }))

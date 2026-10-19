@@ -1,3 +1,14 @@
+// Location plus every dimension except the series split; one line must hold one population.
+// Blank and missing dimensions are the same.
+function population(row, seriesBy) {
+  const dims = Object.entries(row.dimensions ?? {}).filter(([d, v]) => d !== seriesBy && v !== '')
+  return { location: row.location, ...Object.fromEntries(dims) }
+}
+
+function firstDifference(a, b) {
+  return [...new Set([...Object.keys(a), ...Object.keys(b)])].sort().find((f) => a[f] !== b[f])
+}
+
 // Returns a status instead of a model when the rows can't make an honest chart.
 export function toChartModel(rows, seriesBy, maxSeries) {
   if (!rows.length) return { status: 'empty' }
@@ -6,9 +17,13 @@ export function toChartModel(rows, seriesBy, maxSeries) {
   const reported = [...new Set(rows.map((r) => r.period))].sort()  // ISO weeks sort as strings
   const periods = weekRange(reported[0], reported.at(-1))
   const byKey = new Map()
+  const populations = new Map()
   for (const r of rows) {
     const key = seriesBy ? (r.dimensions?.[seriesBy] ?? '') : ''
-    if (!byKey.has(key)) byKey.set(key, new Map())
+    if (!byKey.has(key)) { byKey.set(key, new Map()); populations.set(key, population(r, seriesBy)) }
+    // In disjoint weeks two populations never collide on a week, so compare them directly.
+    const field = firstDifference(populations.get(key), population(r, seriesBy))
+    if (field) return { status: 'mixedSeries', key, field }
     const points = byKey.get(key)
     // Two rows per series-week: the query is too broad (e.g. subtypes alongside totals).
     if (points.has(r.period)) return { status: 'ambiguous', key, period: r.period }

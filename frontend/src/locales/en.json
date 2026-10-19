@@ -8,6 +8,7 @@
     "emptyAt": "No data for {{location}} in this panel.",
     "mixedUnits": "These rows mix units ({{units}}), so they can't share one axis. Narrow the panel's query.",
     "ambiguous": "More than one row per series in {{period}}. Narrow the panel's query (e.g. pathogentype) or set series_by.",
+    "mixedSeries": "Rows with different {{field}} would share one line. Narrow the panel's query or set series_by.",
     "tooManySeries": "{{count}} series are more than colour can tell apart. Narrow the panel's query." },
   "unit": { "per_100k": "per 100,000 population", "per_100_consultations": "per 100 consultations",
     "per_100k_consultations": "per 100,000 consultations", "count": "count", "percent": "%", "rate": "rate" } }
