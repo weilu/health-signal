@@ -10,7 +10,7 @@ const catalogs = Object.fromEntries(
 const STORAGE_KEY = 'hs.locale'
 
 // Register only the config-enabled locales, not every bundled file (an ['en'] deployment ships no 'el').
-export function pickResources(available, locales) {
+function pickResources(available, locales) {
   const resources = {}
   for (const lng of locales) {
     if (available[lng]) resources[lng] = { translation: available[lng] }
