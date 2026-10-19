@@ -91,7 +91,8 @@ export function TimeSeriesChart({ periods, series, unit }) {
       },
     },
     plugins: {
-      legend: { display: series.length >= 2, align: 'start', labels: { color: ink, font, usePointStyle: true, pointStyle: 'line' } },
+      // Identifies series only: click-to-hide isn't keyboard-operable on a canvas.
+      legend: { display: series.length >= 2, onClick: null, align: 'start', labels: { color: ink, font, usePointStyle: true, pointStyle: 'line' } },
       tooltip: {
         usePointStyle: true, backgroundColor: theme.palette.background.paper, titleColor: ink, bodyColor: ink,
         borderColor: rule, borderWidth: 1, titleFont: font, bodyFont: font,

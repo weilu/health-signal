@@ -91,7 +91,7 @@ function Shell({ config }) {
         <Container maxWidth="xl">
           <Tabs value={active?.target.id ?? false} variant="scrollable" allowScrollButtonsMobile>
             {targets.map((target) => (
-              <Tab key={target.id} value={target.id} component={NavLink} to={withLocation(target.pages[0].path, location)}
+              <Tab key={target.id} value={target.id} component={NavLink} end to={withLocation(target.pages[0].path, location)}
                 label={configLabel(t, target.label_key, target.id)} sx={{ typography: 'h6' }} />
             ))}
           </Tabs>
@@ -102,7 +102,7 @@ function Shell({ config }) {
           <Container maxWidth="xl">
             <Tabs value={active.page.path} variant="scrollable" allowScrollButtonsMobile>
               {active.target.pages.map((p) => (
-                <Tab key={p.path} value={p.path} component={NavLink} to={withLocation(p.path, location)} label={configLabel(t, p.label_key, p.id)} />
+                <Tab key={p.path} value={p.path} component={NavLink} end to={withLocation(p.path, location)} label={configLabel(t, p.label_key, p.id)} />
               ))}
             </Tabs>
           </Container>
