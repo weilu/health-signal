@@ -121,6 +121,15 @@ A profile is a Pydantic-backed declaration: `dimensions` (names + controlled voc
 `indicators`, `units`, `period` granularity, and validation rules. New rows — not schema changes —
 add pathogens/strata/indicators within a profile.
 
+Pages declare **panels** in config — `type: timeseries`, a `query` (an `indicator` plus a
+`dimensions: {name: value}` map of profile-dimension filters, which should match one row per series per
+week) and an optional `series_by` dimension that splits it into lines. The map keeps the config shape
+profile-agnostic: a wastewater profile's dimensions need no new fields. Panel config is validated against the profile at load, so a typo fails before the app serves.
+**Location (and, next, the date range) are dashboard-wide filters, not panel settings:**
+`filters.location` lists the selectable locations and a default, and every panel is queried for the
+selected one; a panel with no rows for it shows a "no data for {location}" message rather than being
+hidden or falling back to another level.
+
 ### 6.2 ERVISS profile (respiratory — MVP)
 
 The ECDC/WHO-Europe *European Respiratory Virus Surveillance Summary* public data model (repo
@@ -198,8 +207,8 @@ ERVISS is for respiratory.
 
 ```python
 class DataSource(Protocol):
-    def query(self, *, location=None, pathogen=None, indicator=None,
-              age=None, week_from=None, week_to=None) -> list[FeedRow]: ...
+    def query(self, *, location=None, indicator=None, week_from=None, week_to=None,
+              **dimensions) -> list[FeedRow]: ...   # any profile dimension; unknown names raise
 ```
 
 - `FileDataSource(data_dir)` — reads profile-format CSV with pandas and validates every row against the
@@ -260,7 +269,7 @@ provider's login routes are always public. Default-locked matches "keep content 
 | `GET /login`, `POST /login`, `POST /logout` | public / session | account login, session cookie |
 | `GET /api/me` | required | current user (name/role for the UI) |
 | `GET /api/config` | required | which pathogens/indicators/layout/branding/locales |
-| `GET /api/data?…` | required | filtered feed rows (active schema profile) |
+| `GET /api/data?…` | required | filtered feed rows (active schema profile); filters: `location`, `indicator`, `week_from`/`week_to`, and any profile dimension |
 | `GET /api/locales/{lang}` | required | translation bundle (library base + country overrides, merged) |
 | `GET /api/methodology/{lang}` | required | config-selected methodology content (Markdown) for the Methodology view |
 | `GET /docs`, `/redoc`, `/openapi.json` | required | auto-generated API documentation (Swagger UI / ReDoc / OpenAPI schema) |
@@ -273,7 +282,11 @@ precedence over client-side routes.
 ## 9. Frontend — modularity & i18n
 
 - **Config-driven rendering.** The SPA fetches `/api/config` and builds pathogen tabs, panels, and
-  indicator charts from it. Adding/removing/reconfiguring a surveillance target = config + data,
+  indicator charts from it. One route per configured page. Layout (after greece-public-health): a plain
+  header, a row of target tabs with Configuration as a utility link at its end, and a second row of
+  page tabs when a target has more than one page — MUI `Tabs`, active state from the URL. `/` lands on
+  the first target. The header's right slot holds the dashboard filters (a Region `Select` today); the
+  selection lives in the URL (`?location=`) so a regional view is deep-linkable, and tab links carry it. Adding/removing/reconfiguring a surveillance target = config + data,
   no code. Prototype panels/logic (Status/Trend tiles, range selector, season/wave band, EuroMOMO
   strip, Methods view) port into config-driven React components.
 - **Routing (per-page URLs).** React Router gives every page its own path — e.g.
@@ -323,7 +336,13 @@ precedence over client-side routes.
   (config/data), independent of any repo `docs/` directory.
 - **API docs.** FastAPI serves Swagger UI at `/docs`, ReDoc at `/redoc`, and `/openapi.json`, all
   behind the auth gate; generated from the route definitions + Pydantic models, so they track the code.
-- **Charts.** Chart.js, reused.
+- **Charts.** Chart.js (`react-chartjs-2`), following the dataviz rules: one y-axis (the panel's
+  unit), 2px lines, a crosshair with one tooltip per week (value before label), a legend for ≥ 2
+  series and ink end-labels for ≤ 4, and a **table view** on every chart. Series colours come from a
+  fixed-order, CVD-validated categorical palette in the theme (`palette.chart.light`/`.dark`,
+  replaceable via branding) and are never cycled. A panel whose rows can't make an honest chart —
+  none, mixed units, several rows per series-week, or more series than colours — shows a message
+  instead of a misleading plot.
 
 ## 10. Packaging & reuse
 
