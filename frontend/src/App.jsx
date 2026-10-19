@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { BrowserRouter, Routes, Route, NavLink, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { AppBar, Toolbar, Typography, Button, Container, Box, Snackbar, Alert, MenuItem, Stack, Tab, Tabs, TextField } from '@mui/material'
+import { AppBar, Toolbar, Typography, Button, Container, Box, Snackbar, Alert, MenuItem, Tab, Tabs, TextField } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { fetchConfig } from './api.js'
 import { ResourceBoundary } from './ResourceBoundary.jsx'
@@ -79,21 +79,22 @@ function Shell({ config }) {
               </TextField>
             )}
             <LocaleToggle locales={config.locales} sx={{ mr: 1 }} />
+            {/* Outside the tab rows, so the selected state is styled off NavLink's aria-current. */}
+            <Button component={NavLink} to={withLocation('/config', location)} sx={{ mr: 1, '&[aria-current="page"]': { bgcolor: 'action.selected' } }}>
+              {t('nav.configuration')}
+            </Button>
             <Button onClick={handleLogout}>{t('nav.logout')}</Button>
           </Toolbar>
         </Container>
       </AppBar>
       <Box component="nav" aria-label={t('config.targets')} sx={rule}>
         <Container maxWidth="xl">
-          <Stack direction="row" alignItems="center">
-            <Tabs value={active?.target.id ?? false} variant="scrollable" allowScrollButtonsMobile sx={{ flexGrow: 1 }}>
-              {targets.map((target) => (
-                <Tab key={target.id} value={target.id} component={NavLink} to={withLocation(target.pages[0].path, location)}
-                  label={configLabel(t, target.label_key, target.id)} sx={{ typography: 'h6' }} />
-              ))}
-            </Tabs>
-            <Button size="small" component={NavLink} to={withLocation('/config', location)}>{t('nav.configuration')}</Button>
-          </Stack>
+          <Tabs value={active?.target.id ?? false} variant="scrollable" allowScrollButtonsMobile>
+            {targets.map((target) => (
+              <Tab key={target.id} value={target.id} component={NavLink} to={withLocation(target.pages[0].path, location)}
+                label={configLabel(t, target.label_key, target.id)} sx={{ typography: 'h6' }} />
+            ))}
+          </Tabs>
         </Container>
       </Box>
       {active && active.target.pages.length > 1 && (
