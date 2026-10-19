@@ -1,8 +1,7 @@
-// Location plus every dimension except the series split; one line must hold one population.
-// Blank and missing dimensions are the same.
+// Every dimension except the series split; one line must hold one population. Blank and missing
+// dimensions are the same.
 function population(row, seriesBy) {
-  const dims = Object.entries(row.dimensions ?? {}).filter(([d, v]) => d !== seriesBy && v !== '')
-  return { location: row.location, ...Object.fromEntries(dims) }
+  return Object.fromEntries(Object.entries(row.dimensions ?? {}).filter(([d, v]) => d !== seriesBy && v !== ''))
 }
 
 function firstDifference(a, b) {
@@ -14,6 +13,8 @@ export function toChartModel(rows, seriesBy, maxSeries) {
   if (!rows.length) return { status: 'empty' }
   const units = [...new Set(rows.map((r) => r.unit))].sort()
   if (units.length > 1) return { status: 'mixedUnits', units }  // one axis only
+  // Panel-wide, unlike dimensions (subtypes differ in pathogentype): series labels never name the location.
+  if (new Set(rows.map((r) => r.location)).size > 1) return { status: 'mixedSeries', field: 'location' }
   const reported = [...new Set(rows.map((r) => r.period))].sort()  // ISO weeks sort as strings
   const periods = weekRange(reported[0], reported.at(-1))
   const byKey = new Map()

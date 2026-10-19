@@ -18,8 +18,16 @@ describe('toChartModel', () => {
   it('refuses to join different populations into one line, even in disjoint weeks', () => {
     expect(toChartModel([row('2025-W01', 1, { age: '0-4' }), row('2025-W02', 2, { age: '65+' })], null, 8))
       .toEqual({ status: 'mixedSeries', key: '', field: 'age' })
-    expect(toChartModel([row('2025-W01', 1, {}, 'percent', 'Greece'), row('2025-W02', 2, {}, 'percent', 'Attica')], null, 8))
-      .toEqual({ status: 'mixedSeries', key: '', field: 'location' })
+  })
+  it('refuses more than one location per panel, even split across series', () => {
+    const rows = [row('2025-W01', 1, { age: '0-4' }, 'percent', 'Greece'), row('2025-W02', 2, { age: '65+' }, 'percent', 'Attica')]
+    expect(toChartModel(rows, null, 8)).toEqual({ status: 'mixedSeries', field: 'location' })
+    expect(toChartModel(rows, 'age', 8)).toEqual({ status: 'mixedSeries', field: 'location' })
+  })
+  it('lets other dimensions differ between series', () => {
+    const rows = [row('2025-W01', 1, { pathogensubtype: 'A(H3)', pathogentype: 'Influenza A' }),
+      row('2025-W01', 2, { pathogensubtype: 'B/Victoria', pathogentype: 'Influenza B' })]
+    expect(toChartModel(rows, 'pathogensubtype', 8).status).toBe('ok')
   })
   it('treats a blank dimension as a missing one', () => {
     expect(toChartModel([row('2025-W01', 1, { age: '' }), row('2025-W02', 2)], null, 8).status).toBe('ok')
