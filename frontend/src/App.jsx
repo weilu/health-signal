@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { BrowserRouter, Routes, Route, NavLink, Navigate, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { AppBar, Typography, Button, Container, Box, Snackbar, Alert, Stack, Tab, Tabs } from '@mui/material'
+import { AppBar, Toolbar, Typography, Button, Container, Box, Snackbar, Alert, Stack, Tab, Tabs } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { fetchConfig, fetchPeriods } from './api.js'
 import { ResourceBoundary } from './ResourceBoundary.jsx'
@@ -10,7 +10,7 @@ import LoginPage from './pages/LoginPage.jsx'
 import TargetPage from './pages/TargetPage.jsx'
 import { HeaderFilters } from './HeaderFilters.jsx'
 import { LocaleToggle } from './LocaleToggle.jsx'
-import { configLabel } from './labels.js'
+import { configLabel, weekStamp } from './labels.js'
 import { activePage } from './nav.js'
 import { selectedLocation, selectedRange, withFilters } from './filters.js'
 
@@ -88,13 +88,19 @@ function Shell({ config }) {
       </Box>
       <AppBar position="static" color="transparent" elevation={0} sx={rule}>
         <Container maxWidth="xl">
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ justifyContent: 'space-between', alignItems: { md: 'flex-start' }, py: 2 }}>
-            <Typography variant="h5" component="h1">{config.title}</Typography>
+          {/* Filters wrap under the title when the row runs out of room. */}
+          <Toolbar disableGutters sx={{ flexWrap: 'wrap', columnGap: 4, rowGap: 2, py: 2 }}>
+            <Box sx={{ flexGrow: 1 }}>
+              <Typography variant="h5" component="h1">{config.title}</Typography>
+              {periods && (
+                <Typography variant="body2" color="text.secondary">{t('filters.reportingWeek', { week: weekStamp(t, periods.last) })}</Typography>
+              )}
+            </Box>
             {filters && periodsQuery.isSuccess && (
               <HeaderFilters locationFilter={locationFilter} location={location} locationLabel={locationLabel}
                 rangeFilter={filters.date_range} periods={periods} range={range} />
             )}
-          </Stack>
+          </Toolbar>
         </Container>
       </AppBar>
       <Box component="nav" aria-label={t('config.targets')} sx={rule}>
