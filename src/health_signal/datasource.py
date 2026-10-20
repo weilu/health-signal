@@ -21,14 +21,6 @@ class DataSource(Protocol):
     def periods(self) -> tuple[str, str] | None: ...
 
 
-class EmptyDataSource:
-    def query(self, **_kwargs) -> list[FeedRow]:
-        return []
-
-    def periods(self) -> None:
-        return None
-
-
 class FileDataSource:
     def __init__(self, data_dir: str | Path, profile: Profile) -> None:
         data_dir = Path(data_dir)

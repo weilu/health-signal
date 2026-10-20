@@ -8,10 +8,11 @@ from fastapi.staticfiles import StaticFiles
 from . import auth as _auth
 from .auth import AuthProvider, User
 from .config import Config
-from .datasource import DataSource, EmptyDataSource, FileDataSource
-from .profile import ERVISS, FeedRow
+from .datasource import DataSource, FileDataSource
+from .profile import PROFILES, FeedRow
 
 _WEEK = r"^\d{4}-W\d{2}$"  # ISO year-week; a malformed value 422s instead of reaching the source
+_FIXED_PARAMS = {"feed", "location", "indicator", "week_from", "week_to"}
 
 _UI_DIR = Path(__file__).resolve().parent / "_ui"
 _PLACEHOLDER = (
@@ -39,13 +40,15 @@ def _serve_spa(config: Config) -> Response:
 
 
 def create_app(
-    config: Config, auth_provider: AuthProvider | None = None, data_source: DataSource | None = None
+    config: Config, auth_provider: AuthProvider | None = None,
+    data_sources: dict[str, DataSource] | None = None,
 ) -> FastAPI:
     app = FastAPI(title=config.site.title)
     provider = auth_provider if auth_provider is not None else _auth.from_env()
     provider.install(app)
-    if data_source is None:
-        data_source = FileDataSource(config.data.dir, ERVISS) if config.data else EmptyDataSource()
+    if data_sources is None:
+        feeds = config.data.feeds if config.data else []
+        data_sources = {f.id: FileDataSource(f.dir, PROFILES[f.profile]) for f in feeds}
 
     _ALWAYS_PUBLIC = ("/healthz", "/login", "/logout")
 
@@ -79,28 +82,32 @@ def create_app(
 
     @app.get("/api/data", response_model=list[FeedRow])
     def get_data(
+        request: Request,
+        feed: str,
         user: User = Depends(require_auth),
         location: str | None = None,
         indicator: str | None = None,
-        survtype: str | None = None,
-        pathogen: str | None = None,
-        pathogentype: str | None = None,
-        pathogensubtype: str | None = None,
-        age: str | None = None,
         week_from: str | None = Query(default=None, pattern=_WEEK),
         week_to: str | None = Query(default=None, pattern=_WEEK),
     ) -> list[FeedRow]:
-        return data_source.query(
-            location=location, indicator=indicator, week_from=week_from, week_to=week_to,
-            survtype=survtype, pathogen=pathogen, pathogentype=pathogentype,
-            pathogensubtype=pathogensubtype, age=age,
-        )
+        # Dimension filters come from the feed's profile, so a new profile needs no route change.
+        source = data_sources.get(feed)
+        if source is None:
+            raise HTTPException(status_code=422, detail=f"unknown feed {feed!r}")
+        dimensions = {k: v for k, v in request.query_params.items() if k not in _FIXED_PARAMS}
+        unknown = dimensions.keys() - set(source.profile.dimension_keys)
+        if unknown:
+            # An ignored filter would silently widen the result.
+            raise HTTPException(status_code=422, detail=f"unknown filter(s) {', '.join(sorted(unknown))} for feed {feed!r}")
+        return source.query(location=location, indicator=indicator, week_from=week_from, week_to=week_to, **dimensions)
 
     @app.get("/api/periods")
     def get_periods(user: User = Depends(require_auth)) -> dict | None:
-        # The date-range control's bounds; null when there's no data to range over.
-        span = data_source.periods()
-        return {"first": span[0], "last": span[1]} if span else None
+        # The date-range control's bounds across every feed; null when there's no data to range over.
+        spans = [s for s in (source.periods() for source in data_sources.values()) if s]
+        if not spans:
+            return None
+        return {"first": min(first for first, _ in spans), "last": max(last for _, last in spans)}
 
     if (_UI_DIR / "assets").is_dir():
         app.mount("/assets", StaticFiles(directory=_UI_DIR / "assets"), name="assets")

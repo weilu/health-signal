@@ -1,0 +1,5 @@
+location,period,pathogen,aggregation,indicator,value,unit,quality
+Testville,2025-W02,Influenza,floMean,fluA,1200.5,gcDay100k,
+Testville,2025-W03,Influenza,floMean,fluA,0,gcDay100k,beLOD
+Testville,2025-W04,Influenza,floMean,fluA,950,gcDay100k,
+Testville,2025-W04,,me,ppmv,30000,gcL,
