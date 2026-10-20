@@ -69,6 +69,21 @@ def test_no_data_config_serves_empty(tmp_path):
     assert r.status_code == 200 and r.json() == []
 
 
+def test_api_periods_spans_the_feed(tmp_path):
+    client = TestClient(_app(tmp_path, _AllowAll()))
+    assert client.get("/api/periods").json() == {"first": "2025-W01", "last": "2025-W03"}
+
+
+def test_api_periods_requires_auth(tmp_path):
+    assert TestClient(_app(tmp_path, _DenyAll())).get("/api/periods").status_code == 401
+
+
+def test_api_periods_is_null_without_data(tmp_path):
+    cfg = Config(schema_version="1.0.0", site=SiteConfig(title="T"))
+    r = TestClient(create_app(cfg, auth_provider=_AllowAll())).get("/api/periods")
+    assert r.status_code == 200 and r.json() is None
+
+
 def test_api_data_openapi_response_is_typed(tmp_path):
     schema = _app(tmp_path, _AllowAll()).openapi()
     resp = schema["paths"]["/api/data"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]

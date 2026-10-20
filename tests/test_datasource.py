@@ -144,3 +144,14 @@ def test_query_filters_on_any_profile_dimension(tmp_path):
 def test_query_rejects_unknown_filter(tmp_path):
     with pytest.raises(ValueError, match="unknown filter"):
         _src(tmp_path).query(colour="red")
+
+
+def test_periods_span_the_whole_feed(tmp_path):
+    feed = _H + "A,2025-W03,non-sentinel,Influenza,total,deaths,1,count,\nA,2024-W50,non-sentinel,Influenza,total,deaths,1,count,\n"
+    assert _src(tmp_path, feed).periods() == ("2024-W50", "2025-W03")
+
+
+def test_periods_of_an_empty_feed_are_none(tmp_path):
+    d = tmp_path / "data"
+    d.mkdir()
+    assert FileDataSource(d).periods() is None
