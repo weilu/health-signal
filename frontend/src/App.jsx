@@ -10,7 +10,7 @@ import LoginPage from './pages/LoginPage.jsx'
 import TargetPage from './pages/TargetPage.jsx'
 import { HeaderFilters } from './HeaderFilters.jsx'
 import { LocaleToggle } from './LocaleToggle.jsx'
-import { configLabel, weekStamp } from './labels.js'
+import { configLabel, reportingWeek } from './labels.js'
 import { activePage } from './nav.js'
 import { selectedLocation, selectedRange, withFilters } from './filters.js'
 
@@ -93,7 +93,7 @@ function Shell({ config }) {
             <Box sx={{ flexGrow: 1 }}>
               <Typography variant="h5" component="h1">{config.title}</Typography>
               {periods && (
-                <Typography variant="body2" color="text.secondary">{t('filters.reportingWeek', { week: weekStamp(t, periods.last) })}</Typography>
+                <Typography variant="body2" color="text.secondary">{t('filters.reportingWeek', reportingWeek(t, periods.last))}</Typography>
               )}
             </Box>
             {filters && periodsQuery.isSuccess && (
