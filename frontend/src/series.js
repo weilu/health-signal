@@ -41,6 +41,11 @@ export function toChartModel(rows, seriesBy, maxSeries, span) {
   }
 }
 
+// A value with no reported neighbour draws no line segment, so it needs a marker to be seen at all.
+export function isolated(values, i) {
+  return values[i] != null && values[i - 1] == null && values[i + 1] == null
+}
+
 // Overlapping labels: draw none and let legend + tooltip carry identity (nudging detaches them).
 export function endLabelsFit(ys, minGap) {
   const sorted = [...ys].sort((a, b) => a - b)

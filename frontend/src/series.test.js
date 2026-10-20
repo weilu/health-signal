@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { endLabelsFit, toChartModel } from './series.js'
+import { endLabelsFit, isolated, toChartModel } from './series.js'
 
 const row = (period, value, dims = {}, unit = 'percent', location = 'Greece') => ({ location, period, value, unit, dimensions: dims })
 
@@ -63,6 +63,16 @@ describe('toChartModel', () => {
   })
 })
 
+
+describe('isolated', () => {
+  it('marks a value with no neighbour to join, including a single-week range', () => {
+    expect([0, 1, 2].map((i) => isolated([1, null, 3], i))).toEqual([true, false, true])
+    expect(isolated([5], 0)).toBe(true)
+  })
+  it('leaves values on a line unmarked', () => {
+    expect([0, 1, 2].map((i) => isolated([1, 2, null], i))).toEqual([false, false, false])
+  })
+})
 
 describe('endLabelsFit', () => {
   it('fits labels that are far enough apart', () => expect(endLabelsFit([10, 40, 90], 14)).toBe(true))
