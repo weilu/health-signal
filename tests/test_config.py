@@ -153,7 +153,7 @@ def test_example_config_loads():
     assert all(p.panels for t in cfg.targets for p in t.pages)
     assert {f.id for f in cfg.data.feeds} == {"clinical", "wastewater"}
     # Every target pairs clinical and wastewater pages, the way greece-public-health's source tabs do.
-    assert all({p.id.split("-", 1)[1] for p in t.pages} == {"clinical", "wastewater"} for t in cfg.targets)
+    assert all({p.id for p in t.pages} == {"clinical", "wastewater"} for t in cfg.targets)
 
 
 @pytest.mark.parametrize("bad", [
@@ -182,14 +182,18 @@ def _cfg_pages(*pages):
                 targets=[Target(id=f"t{i}", pages=[p]) for i, p in enumerate(pages)])
 
 
-def test_duplicate_page_paths_and_ids_fail_at_load():
+def test_duplicate_page_paths_fail_at_load():
     with pytest.raises(ValidationError, match="path"):
         Config(**_cfg_pages(Page(id="a", path="/flu"), Page(id="b", path="/flu")))
     with pytest.raises(ValidationError, match="path"):
         Config(**_cfg_pages(Page(id="a", path="/flu"), Page(id="b", path="/FLU")))
-    with pytest.raises(ValidationError, match="page id"):
-        Config(**_cfg_pages(Page(id="a", path="/flu"), Page(id="a", path="/rsv")))
 
+
+def test_page_ids_repeat_across_targets_but_not_within_one():
+    # Tabs and routes key on paths; an id only names a page inside its target's tab row.
+    Config(**_cfg_pages(Page(id="clinical", path="/flu/clinical"), Page(id="clinical", path="/rsv/clinical")))
+    with pytest.raises(ValidationError, match="page id"):
+        Target(id="flu", pages=[Page(id="clinical", path="/flu/a"), Page(id="clinical", path="/flu/b")])
 
 def test_duplicate_target_ids_fail_at_load():
     with pytest.raises(ValidationError, match="target ids"):

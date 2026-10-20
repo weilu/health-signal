@@ -101,6 +101,14 @@ class Target(BaseModel):
     label_key: str | None = None
     pages: list[Page] = Field(default_factory=list)
 
+    @model_validator(mode="after")
+    def _unique_page_ids(self) -> "Target":
+        # An id names a page within its target's tab row, so it may repeat across targets.
+        ids = [page.id for page in self.pages]
+        if len(ids) != len(set(ids)):
+            raise ValueError(f"target {self.id!r} has duplicate page ids")
+        return self
+
 
 class LocationOption(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -194,16 +202,14 @@ class Config(BaseModel):
 
     @model_validator(mode="after")
     def _unique_pages(self) -> "Config":
-        # Duplicate paths shadow each other as routes (matched case-insensitively); ids key tabs and React lists.
+        # Duplicate paths shadow each other as routes (matched case-insensitively), and key tabs and React lists.
         target_ids = [t.id for t in self.targets]
         if len(target_ids) != len(set(target_ids)):
             raise ValueError("duplicate target ids")
-        pages = [page for target in self.targets for page in target.pages]
-        for key, label in ((lambda p: p.path.lower(), "path"), (lambda p: p.id, "page id")):
-            values = [key(page) for page in pages]
-            dupes = sorted({v for v in values if values.count(v) > 1})
-            if dupes:
-                raise ValueError(f"duplicate {label}(s) {', '.join(dupes)} across targets")
+        paths = [page.path.lower() for target in self.targets for page in target.pages]
+        dupes = sorted({p for p in paths if paths.count(p) > 1})
+        if dupes:
+            raise ValueError(f"duplicate path(s) {', '.join(dupes)} across targets")
         return self
 
     @model_validator(mode="after")

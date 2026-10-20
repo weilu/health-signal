@@ -51,7 +51,7 @@ targets:
   - id: covid
     label_key: "targets.covid"
     pages:
-      - id: covid-clinical
+      - id: clinical
         path: /covid/clinical
         label_key: "pages.clinical"
         panels:
@@ -88,7 +88,7 @@ targets:
             type: timeseries
             label_key: "panels.ili_rate"
             query: { feed: clinical, indicator: ILIconsultationrate, dimensions: { survtype: primary care syndromic, age: total } }
-      - id: covid-wastewater
+      - id: wastewater
         path: /covid/wastewater
         label_key: "pages.wastewater"
         panels:
@@ -103,7 +103,7 @@ targets:
   - id: influenza
     label_key: "targets.influenza"
     pages:
-      - id: influenza-clinical
+      - id: clinical
         path: /influenza/clinical
         label_key: "pages.clinical"
         panels:
@@ -150,7 +150,7 @@ targets:
             type: timeseries
             label_key: "panels.ili_rate"
             query: { feed: clinical, indicator: ILIconsultationrate, dimensions: { survtype: primary care syndromic, age: total } }
-      - id: influenza-wastewater
+      - id: wastewater
         path: /influenza/wastewater
         label_key: "pages.wastewater"
         panels:
@@ -165,7 +165,7 @@ targets:
   - id: rsv
     label_key: "targets.rsv"
     pages:
-      - id: rsv-clinical
+      - id: clinical
         path: /rsv/clinical
         label_key: "pages.clinical"
         panels:
@@ -190,7 +190,7 @@ targets:
             type: timeseries
             label_key: "panels.ili_rate"
             query: { feed: clinical, indicator: ILIconsultationrate, dimensions: { survtype: primary care syndromic, age: total } }
-      - id: rsv-wastewater
+      - id: wastewater
         path: /rsv/wastewater
         label_key: "pages.wastewater"
         panels:
