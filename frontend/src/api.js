@@ -12,3 +12,4 @@ export async function apiGet(path, params = {}) {
 
 export const fetchConfig = () => apiGet('/api/config')
 export const fetchData = (query) => apiGet('/api/data', query)
+export const fetchPeriods = () => apiGet('/api/periods')
