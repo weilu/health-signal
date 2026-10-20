@@ -21,7 +21,7 @@ HTML to Posit Connect. We now want an **MVP** that is:
 - **Deployable on Posit Connect.**
 
 **Scope — not respiratory-specific.** The pilot and the MVP's first schema profile are respiratory
-(ERVISS clinical + NWSS wastewater), but the dashboard is a **general integrated public-health
+(ERVISS clinical + PHES-ODM wastewater), but the dashboard is a **general integrated public-health
 surveillance** platform. The data contract, auth, i18n, theming, and config-driven UI are
 **domain-agnostic**; other surveillance domains (AMR, vaccine-preventable diseases, HIV, polio, …)
 plug in as configuration plus a schema profile, without a fork (see §6.4). Nothing in the design is
@@ -101,7 +101,7 @@ The **generic library** ships the FastAPI app and the compiled React UI in one p
 The contract is a **domain-agnostic tidy long-format spine** plus a pluggable **schema profile**.
 The spine is the same for every surveillance domain; a profile defines the domain-specific
 dimensions, controlled vocabularies, indicators, and units. **ERVISS (respiratory) is the first
-profile and the MVP** — other domains (HIV, polio, AMR, Ebola, yellow fever, …) register as
+profile and the MVP; PHES-ODM wastewater (§6.3) the second** — other domains (HIV, polio, AMR, Ebola, yellow fever, …) register as
 additional profiles later **without changing the core** (see §6.4). The app consumes only this
 contract and never knows how the ETL produced it.
 
@@ -116,23 +116,29 @@ contract and never knows how the ETL produced it.
 | `value` | number | semantics fixed by `indicator` + `unit` |
 | `unit` | string | `per_100k` \| `count` \| `percent` \| … |
 | `datasource` | string, optional | provenance (e.g. `GISAID`) |
+| `quality` | string, optional | a quality indicator from the profile's vocabulary (e.g. PHES-ODM `beLOD`, below the limit of detection); annotates a value, so it never splits a series |
 
 A profile is a Pydantic-backed declaration: `dimensions` (names + controlled vocabularies),
 `indicators`, `units`, `period` granularity, and validation rules. New rows — not schema changes —
 add pathogens/strata/indicators within a profile.
 
-Pages declare **panels** in config — `type: timeseries`, a `query` (an `indicator` plus a
-`dimensions: {name: value}` map of profile-dimension filters, which should match one row per series per
-week) and an optional `series_by` dimension that splits it into lines. The map keeps the config shape
-profile-agnostic: a wastewater profile's dimensions need no new fields. Panel config is validated against the profile at load, so a typo fails before the app serves.
+**Feeds.** A dashboard serves one or more feeds, each a directory of one profile's rows:
+`data.feeds: [{id, profile, dir}]` (required; ids unique; e.g. `clinical`/`erviss` and
+`wastewater`/`phes_odm`). There is no default feed: every panel names the one it reads.
+
+Pages declare **panels** in config — `type: timeseries`, a `query` (a required `feed`, an `indicator`
+plus a `dimensions: {name: value}` map of profile-dimension filters, which should match one row per
+series per week) and an optional `series_by` dimension that splits it into lines. The map keeps the
+config shape profile-agnostic: a wastewater profile's dimensions need no new fields. Each panel is
+validated at load against its feed's profile, so a typo fails before the app serves.
 **Location and the date range are dashboard-wide filters, not panel settings:**
 `filters.location` lists the selectable locations and a default, and every panel is queried for the
 selected one; a panel with no rows for it shows a "no data for {location}" message rather than being
 hidden or falling back to another level. `filters.date_range` (optional) sets `default_weeks` (a count
 or `"all"`, default 52) and `year_start_week` (1–52, default 1), which only shapes the yearly presets
 (e.g. 21 for a W21→W20 respiratory year). The range control offers "Last N weeks", "All history", one
-preset per year and custom from/to weeks, all bounded by `GET /api/periods` (the feed's first and
-latest week). Defaults count back from the latest week in the data, not from today, so a lagging feed
+preset per year and custom from/to weeks, all bounded by `GET /api/periods` (the first and latest
+week across all feeds). Defaults count back from the latest week in the data, not from today, so a lagging feed
 doesn't draw empty weeks; the header's Reporting week shows the lag. Every chart's axis spans the
 selected range, so panels on a page line up.
 
@@ -159,18 +165,39 @@ and sequencing files have a different shape and belong to the variant track.
 
 ### 6.3 Extensions and derived analytics
 
-- **Wastewater (WBE)** — ERVISS has no wastewater indicator, so this is an extension, but it is
-  **anchored on the mature US CDC NWSS standard** re-projected into the tidy grid: wastewater viral
-  load is simply another `indicator` on the same *location × period × pathogen* grain, differing
-  from a clinical row only in `indicator`/`unit`. Indicators: `viral_load`, `viral_load_flowpop_norm`,
-  `viral_load_mic_norm` (e.g. per-PMMoV), `wval`; units from the NWSS vocab (`copies/L wastewater`,
-  `log10 copies/L`, `copies/g dry sludge`, or `index`/`z-score` for derived metrics); WW-specific
-  fields (`location_level` sewershed/city/region, `population_served`, `normalization`, `lod`,
-  `below_lod`, `flow_rate`, `quality_flag`) plus a **separate method/QC side-table** (PCR type,
-  concentration/extraction method, recovery efficiency) so the tidy feed stays one-value-per-row.
-  `pathogen` spelling matches ERVISS so WW and clinical feeds join on *location × yearweek ×
-  pathogen*. (EU note: the recast UWWTD 2024/3019 mandates WBS + AMR reporting but publishes no open
-  field schema yet — provisions apply from 2027 — so NWSS is the defensible anchor today.)
+- **Wastewater (WBE) — the `phes_odm` profile.** ERVISS has no wastewater indicator, so this is its
+  own profile, **anchored on PHES-ODM v3** (Public Health Environmental Surveillance Open Data Model,
+  CC-BY-4.0): the EU's de facto standard, adopted and adapted by the JRC's EU Sewage Sentinel System
+  (EU Wastewater Observatory) and used by PHAC Canada. EU-WISH publishes no data model of its own, and
+  the recast UWWTD 2024/3019 has no open field schema yet (provisions apply from 2027). ODM is long,
+  one measurement per row, so it maps onto the spine almost directly:
+
+  | Spine | `phes_odm` | Example |
+  |---|---|---|
+  | `location` | the area the ETL reports for (WWTP catchment or region) | `Attica` |
+  | `period` | ISO week, derived by the ETL from ODM `aDateEnd` / `epiWeek` | `2026-W41` |
+  | `indicator` | ODM `measure` (the gene target) | `fluA`, `covN1`, `rsvMe` |
+  | `dimensions.pathogen` | ERVISS spelling, required, consistent with the measure (`fluA` → `Influenza`) so wastewater and clinical feeds join on *location × period × pathogen* | `Influenza` |
+  | `dimensions.aggregation` | ODM aggregation code, which carries normalisation | `me`, `floMean`, `pmmovNorm` |
+  | `dimensions.specimen` / `fraction` | ODM codes, optional | `rawWW`, `liq` |
+  | `value` / `unit` | the value and ODM unit code | `gcL`, `gcDay100k`, `gcPpmov`, `log10cpL` |
+  | `quality` | ODM quality indicator; `beLOD` rows carry value 0 | `beLOD` |
+
+  The vocabulary is pinned to the respiratory subset of **ODM v3.0.1** (SARS-CoV-2, influenza A/B, RSV
+  measures, PMMoV, and the units and aggregations above), as ERVISS is pinned to a snapshot. Sample,
+  site and method metadata (LOD values, protocols) stay in ODM's other tables, outside the feed; the
+  ETL drops measures ODM marks as not reportable. **Non-detections are measurements, not gaps:** a
+  week whose samples were all below the limit of detection is a row with value 0 and `quality: beLOD`,
+  so the line drops to the floor instead of breaking, and the table marks the week "below detection
+  limit". (0 stands for "below what the assay sees", not the true concentration; the flag records it.)
+
+  **CDC NWSS crosswalk.** NWSS is semantically compatible but flat and wide (one row per sample ×
+  target), so it is a documented mapping rather than the anchor; ODM v3 ships NWSS→ODM conversion
+  tools. Concept-level: NWSS PCR target → `indicator` (ODM measure); concentration in copies/L, log10
+  copies/L or copies/g dry sludge → `gcL` / `log10cpL` / `gCGS`; flow-population and PMMoV-normalised
+  concentrations → `aggregation` `floMean` / `pmmovNorm` with their units; NWSS's below-LOD flag →
+  `quality: beLOD`. NWSS's derived WVAL has no ODM code. (Exact NWSS field names are pinned from the
+  current NWSS data dictionary when a US adopter needs the crosswalk.)
 - **Derived analytics (Status / Trend / season phase) — a separate, method-agnostic contract, not
   feed rows.** These are *assessments of a series* by a method (aedseo, MEM, …), not observations:
   categorical, carrying uncertainty, thresholds and method parameters that do not fit a numeric feed
@@ -188,7 +215,7 @@ and sequencing files have a different shape and belong to the variant track.
   **Methods coexist** as rows with different `method` values; config decides whether the UI shows one,
   the other, or a comparison — a producer choice plus a display toggle, no app logic. Whether MEM is
   viable for a series is a data-depth question (its thresholds need several seasons of history), not a
-  schema one. Implemented with the Status/Trend UI (Stage 4c). *(A shared `StatusTrendEstimator` with
+  schema one. Loaded in Stage 4c-2, shown by the Status/Trend UI in 4c-3. *(A shared `StatusTrendEstimator` with
   pluggable aedseo/MEM estimators remains a post-MVP producer-side idea — §14.)*
 
 ### 6.4 Future profiles (post-MVP)
@@ -215,15 +242,18 @@ ERVISS is for respiratory.
 class DataSource(Protocol):
     def query(self, *, location=None, indicator=None, week_from=None, week_to=None,
               **dimensions) -> list[FeedRow]: ...   # any profile dimension; unknown names raise
+    def periods(self) -> tuple[str, str] | None: ...  # first and latest period; None when empty
 ```
 
-- `FileDataSource(data_dir)` — reads profile-format CSV with pandas and validates every row against the
-  active profile (fails at load naming the file and data row). **MVP.** Parquet/JSON can be added behind it later.
+- One `DataSource` per configured feed, keyed by feed id; each validates against its own profile.
+- `FileDataSource(data_dir, profile)` — reads profile-format CSV with pandas and validates every row
+  against the profile (fails at load naming the file and data row). Exact duplicate rows across a
+  feed's files fail at load too: a duplicated row would make a series look ambiguous. **MVP.** Parquet/JSON can be added behind it later.
 - `PostgresDataSource(dsn)` — same schema as a table/view. **Deferred.**
 - `DHIS2DataSource(base_url, token)` — pulls aggregate/analytics data via the DHIS2 Web API and maps
-  it into the active schema profile, for countries that run DHIS2 as their HMIS. **Deferred.**
+  it into a feed's schema profile, for countries that run DHIS2 as their HMIS. **Deferred.**
 - Selected by config; the API and UI are agnostic to which is behind it. Every source returns rows
-  validated against the active schema profile (§6).
+  validated against their feed's schema profile (§6).
 
 ### 7.2 `AuthProvider`
 
@@ -275,8 +305,8 @@ provider's login routes are always public. Default-locked matches "keep content 
 | `GET /login`, `POST /login`, `POST /logout` | public / session | account login, session cookie |
 | `GET /api/me` | required | current user (name/role for the UI) |
 | `GET /api/config` | required | which pathogens/indicators/layout/branding/locales |
-| `GET /api/periods` | required | `{first, last}` ISO weeks the feed spans (null without data); bounds the date-range control |
-| `GET /api/data?…` | required | filtered feed rows (active schema profile); filters: `location`, `indicator`, `week_from`/`week_to`, and any profile dimension |
+| `GET /api/periods` | required | `{first, last}` ISO weeks spanned across all feeds (null without data); bounds the date-range control |
+| `GET /api/data?feed=…&…` | required | rows from one feed (required `feed`); filters: `location`, `indicator`, `week_from`/`week_to`, and that feed's profile dimensions. Parameters come from the feed's profile, so a new profile needs no route change; an unknown feed or dimension is a 422 |
 | `GET /api/locales/{lang}` | required | translation bundle (library base + country overrides, merged) |
 | `GET /api/methodology/{lang}` | required | config-selected methodology content (Markdown) for the Methodology view |
 | `GET /docs`, `/redoc`, `/openapi.json` | required | auto-generated API documentation (Swagger UI / ReDoc / OpenAPI schema) |
@@ -403,16 +433,18 @@ implementation plan; this section sets the shape.
 test fixtures, sample feeds, example configs, and docs use **synthetic dummy data only**. **No
 confidential or pre-publication Greece pilot data** (EODY clinical figures, Psyttalia wastewater,
 unpublished analyses, real facility rosters) may appear in this repo — that data lives only in the
-private consumer repo. Fixtures are hand-crafted synthetic ERVISS/NWSS-shaped rows with obviously
+private consumer repo. Fixtures are hand-crafted synthetic ERVISS/PHES-ODM-shaped rows with obviously
 fake locations/values; any realistic sample is drawn only from the **openly-licensed** ERVISS/NWSS
-public datasets, never from the pilot's private feed.
+public datasets, never from the pilot's private feed. Local verification may run the app against the
+pilot's real Attica wastewater tables transformed into a `phes_odm` feed, from a scratch directory
+outside the repo; that output is never committed, and screenshots of it stay out of PRs.
 
 - **E2E (highest priority):** drive the running FastAPI app end-to-end — unauthenticated request is
   blocked → login → `/api/config` + `/api/data` → a page renders the expected panels; per-page URLs
   are deep-linkable behind auth; language switch swaps strings. Tooling: Playwright (or FastAPI
   `TestClient` + a headless frontend harness) against the assembled app.
 - **Integration:** API routes with a real `DataSource` (`FileDataSource` over a sample feed) and a
-  real `AuthProvider`; **contract validation** of a sample feed against the active schema profile;
+  real `AuthProvider`; **contract validation** of a sample feed against its schema profile;
   the locale deep-merge (library base + country overrides). Prefer these over mocking the seams.
 - **Unit (focused logic only):** Pydantic profile validation, config parsing, locale merge, small
   frontend helpers.
@@ -437,6 +469,12 @@ should be independently reviewable and, where practical, leave the app in a work
 
 The implementation plan (writing-plans) decomposes the build into stages that each satisfy this
 cap and lifecycle.
+
+Stage 4c (Status/Trend, z-score severity, wastewater) exceeds the cap, so it ships as four PRs:
+**4c-1** wastewater feed (multiple feeds, the `phes_odm` profile, profile-derived `/api/data`
+parameters, duplicate-row rejection, wastewater pages); **4c-2** the assessment / thresholds / phase
+contract and its endpoint (§6.3), no UI; **4c-3** Status/Trend tiles, threshold bands and season-phase
+shading; **4c-4** the EuroMOMO-style mortality z-score strip.
 
 **Repo:** `weilu/health-signal` on GitHub — **public**, **MIT** licensed. The staged-PR flow runs here.
 
