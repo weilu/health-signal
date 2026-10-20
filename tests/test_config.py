@@ -151,6 +151,9 @@ def test_data_config_errors_fail_at_load(bad):
 def test_example_config_loads():
     cfg = load_config("examples/greece.dashboard.yaml")
     assert all(p.panels for t in cfg.targets for p in t.pages)
+    assert {f.id for f in cfg.data.feeds} == {"clinical", "wastewater"}
+    # Every target pairs clinical and wastewater pages, the way greece-public-health's source tabs do.
+    assert all({p.id.split("-", 1)[1] for p in t.pages} == {"clinical", "wastewater"} for t in cfg.targets)
 
 
 @pytest.mark.parametrize("bad", [
