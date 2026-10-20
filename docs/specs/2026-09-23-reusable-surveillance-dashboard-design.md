@@ -125,10 +125,16 @@ Pages declare **panels** in config — `type: timeseries`, a `query` (an `indica
 `dimensions: {name: value}` map of profile-dimension filters, which should match one row per series per
 week) and an optional `series_by` dimension that splits it into lines. The map keeps the config shape
 profile-agnostic: a wastewater profile's dimensions need no new fields. Panel config is validated against the profile at load, so a typo fails before the app serves.
-**Location (and, next, the date range) are dashboard-wide filters, not panel settings:**
+**Location and the date range are dashboard-wide filters, not panel settings:**
 `filters.location` lists the selectable locations and a default, and every panel is queried for the
 selected one; a panel with no rows for it shows a "no data for {location}" message rather than being
-hidden or falling back to another level.
+hidden or falling back to another level. `filters.date_range` (optional) sets `default_weeks` (a count
+or `"all"`, default 52) and `year_start_week` (1–52, default 1), which only shapes the yearly presets
+(e.g. 21 for a W21→W20 respiratory year). The range control offers "Last N weeks", "All history", one
+preset per year and custom from/to weeks, all bounded by `GET /api/periods` (the feed's first and
+latest week). Defaults count back from the latest week in the data, not from today, so a lagging feed
+doesn't draw empty weeks; the header's Reporting week shows the lag. Every chart's axis spans the
+selected range, so panels on a page line up.
 
 ### 6.2 ERVISS profile (respiratory — MVP)
 
@@ -269,6 +275,7 @@ provider's login routes are always public. Default-locked matches "keep content 
 | `GET /login`, `POST /login`, `POST /logout` | public / session | account login, session cookie |
 | `GET /api/me` | required | current user (name/role for the UI) |
 | `GET /api/config` | required | which pathogens/indicators/layout/branding/locales |
+| `GET /api/periods` | required | `{first, last}` ISO weeks the feed spans (null without data); bounds the date-range control |
 | `GET /api/data?…` | required | filtered feed rows (active schema profile); filters: `location`, `indicator`, `week_from`/`week_to`, and any profile dimension |
 | `GET /api/locales/{lang}` | required | translation bundle (library base + country overrides, merged) |
 | `GET /api/methodology/{lang}` | required | config-selected methodology content (Markdown) for the Methodology view |
@@ -283,10 +290,13 @@ precedence over client-side routes.
 
 - **Config-driven rendering.** The SPA fetches `/api/config` and builds pathogen tabs, panels, and
   indicator charts from it. One route per configured page. Layout (after greece-public-health): a plain
-  header, a row of target tabs with Configuration as a utility link at its end, and a second row of
-  page tabs when a target has more than one page — MUI `Tabs`, active state from the URL. `/` lands on
-  the first target. The header's right slot holds the dashboard filters (a Region `Select` today); the
-  selection lives in the URL (`?location=`) so a regional view is deep-linkable, and tab links carry it. Adding/removing/reconfiguring a surveillance target = config + data,
+  utility strip for session controls (language, Configuration, Sign out), a header with the title on the
+  left and the dashboard filters on the right as label/value rows (Region, Date range, Reporting week;
+  stacked under the title on phones), a row of target tabs whose right end is reserved for a Methods
+  link, and a second row of page tabs when a target has more than one page — MUI `Tabs`, active state
+  from the URL. `/` lands on the first target. Filters live in the URL (`?location=`, and `?range=` for
+  a preset or `?from=&to=` for custom weeks) so a view is deep-linkable, and tab links carry them;
+  presets stay relative, so a shared "last 52 weeks" link rolls forward with new data. Adding/removing/reconfiguring a surveillance target = config + data,
   no code. Prototype panels/logic (Status/Trend tiles, range selector, season/wave band, EuroMOMO
   strip, Methods view) port into config-driven React components.
 - **Routing (per-page URLs).** React Router gives every page its own path — e.g.
