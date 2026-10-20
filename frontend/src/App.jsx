@@ -96,7 +96,8 @@ function Shell({ config }) {
                 <Typography variant="body2" color="text.secondary">{t('filters.reportingWeek', reportingWeek(t, periods.last))}</Typography>
               )}
             </Box>
-            {filters && periodsQuery.isSuccess && (
+            {/* Defined, not isSuccess: a failed background refresh keeps the cached span (null included). */}
+            {filters && periodsQuery.data !== undefined && (
               <HeaderFilters locationFilter={locationFilter} location={location} locationLabel={locationLabel}
                 rangeFilter={filters.date_range} periods={periods} range={range} />
             )}
