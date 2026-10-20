@@ -179,13 +179,14 @@ and sequencing files have a different shape and belong to the variant track.
   | `indicator` | ODM `measure` (the gene target) | `fluA`, `covN1`, `rsvMe` |
   | `dimensions.pathogen` | ERVISS spelling, required, consistent with the measure (`fluA` → `Influenza`) so wastewater and clinical feeds join on *location × period × pathogen* | `Influenza` |
   | `dimensions.aggregation` | ODM aggregation code, which carries normalisation | `me`, `floMean`, `pmmovNorm` |
-  | `dimensions.specimen` / `fraction` | ODM codes, optional | `rawWW`, `liq` |
+  | `dimensions.fraction` | ODM fraction analysed, optional | `liq`, `sol`, `mix` |
   | `value` / `unit` | the value and ODM unit code | `gcL`, `gcDay100k`, `gcPpmov`, `log10cpL` |
   | `quality` | ODM quality indicator; `beLOD` rows carry value 0 | `beLOD` |
 
   The vocabulary is pinned to the respiratory subset of **ODM v3.0.1** (SARS-CoV-2, influenza A/B, RSV
-  measures, PMMoV, and the units and aggregations above), as ERVISS is pinned to a snapshot. Sample,
-  site and method metadata (LOD values, protocols) stay in ODM's other tables, outside the feed; the
+  measures, PMMoV `ppmv`, and the units, aggregations and fractions above), as ERVISS is pinned to a
+  snapshot. ODM's `specimen` and `compartment` are left out: for wastewater they are always a sample
+  (`sa`) of water (`wat`). Sample, site and method metadata (LOD values, protocols) stay in ODM's other tables, outside the feed; the
   ETL drops measures ODM marks as not reportable. **Non-detections are measurements, not gaps:** a
   week whose samples were all below the limit of detection is a row with value 0 and `quality: beLOD`,
   so the line drops to the floor instead of breaking, and the table marks the week "below detection
