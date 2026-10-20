@@ -9,7 +9,7 @@ from . import auth as _auth
 from .auth import AuthProvider, User
 from .config import Config
 from .datasource import DataSource, EmptyDataSource, FileDataSource
-from .profile import FeedRow
+from .profile import ERVISS, FeedRow
 
 _WEEK = r"^\d{4}-W\d{2}$"  # ISO year-week; a malformed value 422s instead of reaching the source
 
@@ -45,7 +45,7 @@ def create_app(
     provider = auth_provider if auth_provider is not None else _auth.from_env()
     provider.install(app)
     if data_source is None:
-        data_source = FileDataSource(config.data.dir) if config.data else EmptyDataSource()
+        data_source = FileDataSource(config.data.dir, ERVISS) if config.data else EmptyDataSource()
 
     _ALWAYS_PUBLIC = ("/healthz", "/login", "/logout")
 
