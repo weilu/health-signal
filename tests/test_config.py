@@ -1,6 +1,6 @@
 import pytest
 from pydantic import ValidationError
-from health_signal.config import Branding, Config, Filters, Page, Panel, SiteConfig, Target, load_config
+from health_signal.config import Branding, Config, DataConfig, Filters, Page, Panel, SiteConfig, Target, load_config
 
 
 def test_load_valid_config(tmp_path):
@@ -85,28 +85,67 @@ def test_branding_projection_is_json_safe():
     json.dumps(cfg.client_config())
 
 
-_PANEL = {"id": "p", "type": "timeseries", "query": {"indicator": "positivity", "dimensions": {"pathogen": "Influenza"}}, "series_by": "survtype"}
+_PANEL = {"id": "p", "type": "timeseries", "series_by": "survtype",
+          "query": {"feed": "clinical", "indicator": "positivity", "dimensions": {"pathogen": "Influenza"}}}
+_FEEDS = DataConfig(feeds=[{"id": "clinical", "profile": "erviss", "dir": "d/c"},
+                           {"id": "wastewater", "profile": "phes_odm", "dir": "d/w"}])
+
+
+def _with_panel(panel, data=_FEEDS):
+    return Config(schema_version="1", site=SiteConfig(title="T"), data=data,
+                  targets=[Target(id="flu", pages=[Page(id="o", path="/flu", panels=[Panel(**panel)])])])
 
 
 def test_panel_parses_and_reaches_client_config():
-    cfg = Config(schema_version="1", site=SiteConfig(title="T"),
-                 targets=[Target(id="flu", pages=[Page(id="o", path="/flu", panels=[Panel(**_PANEL)])])])
-    panel = cfg.client_config()["targets"][0]["pages"][0]["panels"][0]
-    assert panel["query"] == {"indicator": "positivity", "dimensions": {"pathogen": "Influenza"}}
+    panel = _with_panel(_PANEL).client_config()["targets"][0]["pages"][0]["panels"][0]
+    assert panel["query"] == {"feed": "clinical", "indicator": "positivity", "dimensions": {"pathogen": "Influenza"}}
     assert panel["series_by"] == "survtype"
 
 
+def test_a_wastewater_panel_validates_against_its_feed():
+    ww = {"id": "w", "type": "timeseries",
+          "query": {"feed": "wastewater", "indicator": "fluA", "dimensions": {"aggregation": "floMean"}}}
+    _with_panel(ww)
+
+
 @pytest.mark.parametrize("bad", [
-    {"type": "bar"},                                                 # only timeseries exists
-    {"query": {"indicator": "bogus"}},                               # not an ERVISS indicator
-    {"query": {"indicator": "positivity", "dimensions": {"pathogen": "Measles"}}},  # not in the ERVISS vocab
-    {"query": {"indicator": "positivity", "dimensions": {"agee": "65+"}}},         # not an ERVISS dimension
-    {"query": {"indicator": "positivity", "pathogen": "Influenza"}},               # dimensions belong under `dimensions`
-    {"series_by": "colour"},                                         # not an ERVISS dimension
+    {"query": {"feed": "clinical", "indicator": "bogus"}},                                       # not an ERVISS indicator
+    {"query": {"feed": "clinical", "indicator": "positivity", "dimensions": {"pathogen": "Measles"}}},
+    {"query": {"feed": "clinical", "indicator": "positivity", "dimensions": {"agee": "65+"}}},  # not an ERVISS dimension
+    {"series_by": "colour"},                                                                     # not an ERVISS dimension
+    {"query": {"feed": "sewage", "indicator": "positivity"}},                                    # no such feed
+    {"query": {"feed": "wastewater", "indicator": "fluA", "dimensions": {"survtype": "non-sentinel"}}},  # ERVISS dim on the ODM feed
+    {"query": {"feed": "wastewater", "indicator": "positivity"}},                                # ERVISS indicator on the ODM feed
 ])
 def test_panel_config_typos_fail_at_load(bad):
+    with pytest.raises(ValidationError, match="panel 'p'"):
+        _with_panel({**_PANEL, **bad})
+
+
+@pytest.mark.parametrize("bad", [
+    {"type": "bar"},                                                                       # only timeseries exists
+    {"query": {"indicator": "positivity"}},                                                # feed is required
+    {"query": {"feed": "clinical", "indicator": "positivity", "pathogen": "Influenza"}},  # dimensions belong under `dimensions`
+])
+def test_panel_shape_errors_fail_at_load(bad):
     with pytest.raises(ValidationError):
         Panel(**{**_PANEL, **bad})
+
+
+def test_panels_need_a_data_block():
+    with pytest.raises(ValidationError, match="feed 'clinical'"):
+        _with_panel(_PANEL, data=None)
+
+
+@pytest.mark.parametrize("bad", [
+    {"feeds": []},
+    {"feeds": [{"id": "c", "profile": "erviss", "dir": "a"}, {"id": "c", "profile": "erviss", "dir": "b"}]},  # duplicate id
+    {"feeds": [{"id": "c", "profile": "nwss", "dir": "a"}]},                                                  # unknown profile
+    {"dir": "a"},                                                                                             # the old single-feed form
+])
+def test_data_config_errors_fail_at_load(bad):
+    with pytest.raises(ValidationError):
+        DataConfig(**bad)
 
 
 def test_example_config_loads():
@@ -115,7 +154,7 @@ def test_example_config_loads():
 
 
 @pytest.mark.parametrize("bad", [
-    {"query": {"indicator": "positivity", "dimensiosn": {"age": "65+"}}},  # misspelt key
+    {"query": {"feed": "clinical", "indicator": "positivity", "dimensiosn": {"age": "65+"}}},  # misspelt key
     {"seriesby": "survtype"},                               # misspelt panel key
 ])
 def test_panel_unknown_keys_fail_at_load(bad):
@@ -163,9 +202,9 @@ def test_duplicate_panel_ids_on_a_page_fail_at_load():
 @pytest.mark.parametrize("key", ["location", "week_from", "week_to"])
 def test_panel_query_leaves_location_and_dates_to_dashboard_filters(key):
     with pytest.raises(ValidationError):
-        Panel(**{**_PANEL, "query": {"indicator": "positivity", key: "x"}})
+        Panel(**{**_PANEL, "query": {"feed": "clinical", "indicator": "positivity", key: "x"}})
     with pytest.raises(ValidationError):  # nor can they hide among the dimensions
-        Panel(**{**_PANEL, "query": {"indicator": "positivity", "dimensions": {key: "x"}}})
+        _with_panel({**_PANEL, "query": {"feed": "clinical", "indicator": "positivity", "dimensions": {key: "x"}}})
 
 
 _LOC = {"location": {"default": "Greece", "options": [{"value": "Greece", "label_key": "locations.national"}, {"value": "Attica"}]}}
