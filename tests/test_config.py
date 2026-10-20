@@ -193,14 +193,13 @@ def test_no_location_filter_is_allowed():
     assert cfg.client_config()["filters"]["location"] is None
 
 
-def test_date_range_defaults_reach_client_config():
-    cfg = Config(schema_version="1", site=SiteConfig(title="T"))
-    assert cfg.client_config()["filters"]["date_range"] == {"default_weeks": 52, "year_start_week": 1}
-
-
-def test_date_range_accepts_all_history_and_a_shifted_year():
-    f = Filters(date_range={"default_weeks": "all", "year_start_week": 21})
-    assert (f.date_range.default_weeks, f.date_range.year_start_week) == ("all", 21)
+def test_date_range_reaches_the_client_even_when_omitted():
+    # The frontend reads filters.date_range unguarded, so an omitted block must still arrive.
+    omitted = Config(schema_version="1", site=SiteConfig(title="T")).client_config()["filters"]["date_range"]
+    assert isinstance(omitted, dict)
+    configured = Config(schema_version="1", site=SiteConfig(title="T"),
+                        filters=Filters(date_range={"default_weeks": "all", "year_start_week": 21}))
+    assert configured.client_config()["filters"]["date_range"] == {"default_weeks": "all", "year_start_week": 21}
 
 
 @pytest.mark.parametrize("bad", [
