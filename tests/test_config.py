@@ -190,4 +190,25 @@ def test_location_filter_typos_fail_at_load(bad):
 
 def test_no_location_filter_is_allowed():
     cfg = Config(schema_version="1", site=SiteConfig(title="T"))
-    assert cfg.client_config()["filters"] == {"location": None}
+    assert cfg.client_config()["filters"]["location"] is None
+
+
+def test_date_range_reaches_the_client_even_when_omitted():
+    # The frontend reads filters.date_range unguarded, so an omitted block must still arrive.
+    omitted = Config(schema_version="1", site=SiteConfig(title="T")).client_config()["filters"]["date_range"]
+    assert isinstance(omitted, dict)
+    configured = Config(schema_version="1", site=SiteConfig(title="T"),
+                        filters=Filters(date_range={"default_weeks": "all", "year_start_week": 21}))
+    assert configured.client_config()["filters"]["date_range"] == {"default_weeks": "all", "year_start_week": 21}
+
+
+@pytest.mark.parametrize("bad", [
+    {"default_weeks": 0},          # no weeks to show
+    {"default_weeks": "forever"},  # only a count or "all"
+    {"year_start_week": 0},
+    {"year_start_week": 53},       # most years have no W53 to start on
+    {"year_start": 21},            # misspelt key
+])
+def test_date_range_typos_fail_at_load(bad):
+    with pytest.raises(ValidationError):
+        Filters(date_range=bad)

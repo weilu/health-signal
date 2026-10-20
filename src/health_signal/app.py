@@ -96,6 +96,12 @@ def create_app(
             pathogensubtype=pathogensubtype, age=age,
         )
 
+    @app.get("/api/periods")
+    def get_periods(user: User = Depends(require_auth)) -> dict | None:
+        # The date-range control's bounds; null when there's no data to range over.
+        span = data_source.periods()
+        return {"first": span[0], "last": span[1]} if span else None
+
     if (_UI_DIR / "assets").is_dir():
         app.mount("/assets", StaticFiles(directory=_UI_DIR / "assets"), name="assets")
 

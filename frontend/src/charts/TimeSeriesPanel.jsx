@@ -5,31 +5,31 @@ import { useTranslation } from 'react-i18next'
 import { fetchData } from '../api.js'
 import { ResourceBoundary } from '../ResourceBoundary.jsx'
 import { toChartModel } from '../series.js'
-import { configLabel } from '../labels.js'
+import { configLabel, weekStamp } from '../labels.js'
 import { panelParams } from '../filters.js'
 import { SeriesTable } from './SeriesTable.jsx'
 import { TimeSeriesChart, useChartPalette } from './TimeSeriesChart.jsx'
 
-export function TimeSeriesPanel({ panel, location }) {
+export function TimeSeriesPanel({ panel, location, range }) {
   const { t } = useTranslation()
   const palette = useChartPalette()
   const [asTable, setAsTable] = useState(false)
-  const params = panelParams(panel.query, location?.value)
+  const params = panelParams(panel.query, location?.value, range)
   const query = useQuery({ queryKey: ['data', params], queryFn: () => fetchData(params) })
   const title = configLabel(t, panel.label_key, panel.id)
   return (
     <Paper component="section" variant="outlined" aria-label={title} sx={{ p: 2 }}>
-      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+      <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
         <Typography variant="h6" component="h2">{title}</Typography>
         <Button size="small" onClick={() => setAsTable((v) => !v)}>{t(asTable ? 'chart.showChart' : 'chart.showTable')}</Button>
       </Stack>
       <ResourceBoundary query={query}>
         {(rows) => {
-          const model = toChartModel(rows, panel.series_by, palette.length)
+          const model = toChartModel(rows, panel.series_by, palette.length, range)
           if (model.status !== 'ok') {
-            const message = model.status === 'empty' && location
-              ? t('chart.emptyAt', { location: location.label })
-              : t(`chart.${model.status}`, model)
+            const span = range && { from: weekStamp(t, range.from), to: weekStamp(t, range.to) }
+            const message = model.status !== 'empty' || !span ? t(`chart.${model.status}`, model)
+              : location ? t('chart.emptyAt', { location: location.label, ...span }) : t('chart.emptyIn', span)
             return <Alert severity={model.status === 'empty' ? 'info' : 'warning'}>{message}</Alert>
           }
           const series = model.series.map((s) => ({ ...s, label: panel.series_by ? s.key || t('chart.unspecified') : title }))

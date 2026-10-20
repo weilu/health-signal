@@ -15,10 +15,15 @@ class DataSource(Protocol):
     def query(self, *, location=None, indicator=None, week_from=None, week_to=None,
               **dimensions) -> list[FeedRow]: ...
 
+    def periods(self) -> tuple[str, str] | None: ...
+
 
 class EmptyDataSource:
     def query(self, **_kwargs) -> list[FeedRow]:
         return []
+
+    def periods(self) -> None:
+        return None
 
 
 class FileDataSource:
@@ -70,6 +75,10 @@ class FileDataSource:
         if week_to is not None:
             mask &= df["period"].le(week_to)
         return self._to_rows(df[mask])
+
+    def periods(self) -> tuple[str, str] | None:
+        # ISO weeks are zero-padded, so string min/max are chronological.
+        return None if self._df.empty else (self._df["period"].min(), self._df["period"].max())
 
     def _to_rows(self, df: pd.DataFrame) -> list[FeedRow]:
         dims = [k for k in self._profile.dimension_keys if k in df.columns]

@@ -1,3 +1,5 @@
+import { weekRange } from './weeks.js'
+
 // Every dimension except the series split; one line must hold one population. Blank and missing
 // dimensions are the same.
 function population(row, seriesBy) {
@@ -9,14 +11,15 @@ function firstDifference(a, b) {
 }
 
 // Returns a status instead of a model when the rows can't make an honest chart.
-export function toChartModel(rows, seriesBy, maxSeries) {
+// `span` is the selected range: panels on a page share one axis, and late-starting data shows as a gap.
+export function toChartModel(rows, seriesBy, maxSeries, span) {
   if (!rows.length) return { status: 'empty' }
   const units = [...new Set(rows.map((r) => r.unit))].sort()
   if (units.length > 1) return { status: 'mixedUnits', units }  // one axis only
   // Panel-wide, unlike dimensions (subtypes differ in pathogentype): series labels never name the location.
   if (new Set(rows.map((r) => r.location)).size > 1) return { status: 'mixedSeries', field: 'location' }
   const reported = [...new Set(rows.map((r) => r.period))].sort()  // ISO weeks sort as strings
-  const periods = weekRange(reported[0], reported.at(-1))
+  const periods = span ? weekRange(span.from, span.to) : weekRange(reported[0], reported.at(-1))
   const byKey = new Map()
   const populations = new Map()
   for (const r of rows) {
@@ -38,28 +41,9 @@ export function toChartModel(rows, seriesBy, maxSeries) {
   }
 }
 
-const DAY = 86400000
-const WEEK = 7 * DAY
-
-// Monday (UTC ms) of an ISO week "YYYY-Www".
-function weekStart(week) {
-  const [year, n] = week.split('-W').map(Number)
-  const jan4 = Date.UTC(year, 0, 4)  // always in ISO week 1
-  return jan4 - ((new Date(jan4).getUTCDay() + 6) % 7) * DAY + (n - 1) * WEEK
-}
-
-function isoWeek(monday) {
-  const thursday = new Date(monday + 3 * DAY)  // its year is the ISO year
-  const year = thursday.getUTCFullYear()
-  const n = Math.floor((thursday - Date.UTC(year, 0, 1)) / WEEK) + 1
-  return `${year}-W${String(n).padStart(2, '0')}`
-}
-
-// Every week from first to last, so unreported weeks stay on the axis as gaps instead of closing up.
-export function weekRange(first, last) {
-  const weeks = []
-  for (let t = weekStart(first); t <= weekStart(last); t += WEEK) weeks.push(isoWeek(t))
-  return weeks
+// A value with no reported neighbour draws no line segment, so it needs a marker to be seen at all.
+export function isolated(values, i) {
+  return values[i] != null && values[i - 1] == null && values[i + 1] == null
 }
 
 // Overlapping labels: draw none and let legend + tooltip carry identity (nudging detaches them).

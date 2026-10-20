@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, PositiveInt, field_validator, model_validator
 
 from .profile import ERVISS
 
@@ -142,9 +142,19 @@ class LocationFilter(BaseModel):
         return self
 
 
+class DateRangeFilter(BaseModel):
+    # The header's Date range control; always on, since every feed is weekly.
+    model_config = ConfigDict(extra="forbid")
+    default_weeks: PositiveInt | Literal["all"] = 52  # counted back from the feed's latest week
+    # Where each yearly preset begins, e.g. 21 for a W21-W20 respiratory year. W53 is excluded because
+    # most years don't have one.
+    year_start_week: int = Field(default=1, ge=1, le=52)
+
+
 class Filters(BaseModel):
     model_config = ConfigDict(extra="forbid")
     location: LocationFilter | None = None
+    date_range: DateRangeFilter = Field(default_factory=DateRangeFilter)
 
 
 class DataConfig(BaseModel):

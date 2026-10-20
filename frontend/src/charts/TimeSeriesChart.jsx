@@ -4,7 +4,7 @@ import { useTheme } from '@mui/material/styles'
 import { useTranslation } from 'react-i18next'
 import { CategoryScale, Chart as ChartJS, Legend, LinearScale, LineElement, PointElement, Tooltip } from 'chart.js'
 import { Line } from 'react-chartjs-2'
-import { endLabelsFit } from '../series.js'
+import { endLabelsFit, isolated } from '../series.js'
 
 ChartJS.register(CategoryScale, LinearScale, LineElement, PointElement, Tooltip, Legend)
 
@@ -74,7 +74,8 @@ export function TimeSeriesChart({ periods, series, unit }) {
     labels: periods,
     datasets: series.map((s, i) => ({
       label: s.label, data: s.values, borderColor: palette[i], backgroundColor: palette[i],
-      borderWidth: 2, borderCapStyle: 'round', borderJoinStyle: 'round', pointRadius: 0,
+      borderWidth: 2, borderCapStyle: 'round', borderJoinStyle: 'round',
+      pointRadius: (c) => (isolated(c.dataset.data, c.dataIndex) ? 3 : 0),
       pointHoverRadius: 4, pointHoverBorderWidth: 2, pointHoverBorderColor: theme.palette.background.paper,
     })),
   }
