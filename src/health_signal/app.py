@@ -1,4 +1,6 @@
+import html
 import json
+import re
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
@@ -24,19 +26,24 @@ _PLACEHOLDER = (
 )
 
 
-def render_index(html: str, config_payload: dict) -> str:
+def render_index(page: str, config_payload: dict, base_href: str = "/") -> str:
     # Embed config as HTML-safe JSON so a config value can't break out of the <script>.
     blob = json.dumps(config_payload).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
     tag = f"<script>window.__HS_CONFIG__ = {blob};</script>"
-    return html.replace("</head>", tag + "</head>", 1) if "</head>" in html else tag + html
+    page = page.replace("</head>", tag + "</head>", 1) if "</head>" in page else tag + page
+    # The bundle's asset URLs are relative (so a mount prefix works); the base anchors them at the app
+    # root, or /covid/clinical would load ./assets from /covid/assets. It must precede every URL.
+    base = f'<base href="{html.escape(base_href)}">'
+    return re.sub(r"<head[^>]*>", lambda m: m.group(0) + base, page, count=1) if "<head" in page else base + page
 
 
-def _serve_spa(config: Config) -> Response:
+def _serve_spa(config: Config, request: Request) -> Response:
     index = _UI_DIR / "index.html"
     if not index.is_file():
         return HTMLResponse(_PLACEHOLDER)
     # Only the bootstrap slice (safe pre-login); the full view-model is gated behind /api/config.
-    return HTMLResponse(render_index(index.read_text(encoding="utf-8"), config.bootstrap_config()))
+    base_href = request.scope.get("root_path", "").rstrip("/") + "/"
+    return HTMLResponse(render_index(index.read_text(encoding="utf-8"), config.bootstrap_config(), base_href))
 
 
 def create_app(
@@ -122,9 +129,9 @@ def create_app(
             raise HTTPException(status_code=404, detail="Not found")
 
         if is_public(full_path):
-            return _serve_spa(config)
+            return _serve_spa(config, request)
         if await provider.current_user(request) is not None:
-            return _serve_spa(config)
+            return _serve_spa(config, request)
         return RedirectResponse(url="/login", status_code=303)
 
     return app
