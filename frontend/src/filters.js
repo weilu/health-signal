@@ -75,7 +75,7 @@ export function selectedRange(filter, periods, search) {
 
 export function panelParams(query, location, range) {
   return {
-    indicator: query.indicator, ...query.dimensions,
+    feed: query.feed, indicator: query.indicator, ...query.dimensions,
     ...(location ? { location } : {}),
     ...(range ? { week_from: range.from, week_to: range.to } : {}),
   }

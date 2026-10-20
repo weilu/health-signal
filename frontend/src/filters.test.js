@@ -68,10 +68,10 @@ describe('yearLabel', () => {
 })
 
 describe('panelParams', () => {
-  const query = { indicator: 'positivity', dimensions: { survtype: 'SARI virological', pathogen: 'RSV' } }
-  it('flattens the indicator, dimensions, location and range into /api/data params', () =>
+  const query = { feed: 'clinical', indicator: 'positivity', dimensions: { survtype: 'SARI virological', pathogen: 'RSV' } }
+  it('flattens the feed, indicator, dimensions, location and range into /api/data params', () =>
     expect(panelParams(query, 'Attica', { from: '2024-W43', to: '2025-W42' })).toEqual({
-      indicator: 'positivity', survtype: 'SARI virological', pathogen: 'RSV', location: 'Attica', week_from: '2024-W43', week_to: '2025-W42',
+      feed: 'clinical', indicator: 'positivity', survtype: 'SARI virological', pathogen: 'RSV', location: 'Attica', week_from: '2024-W43', week_to: '2025-W42',
     }))
-  it('omits filters that are not set', () => expect(panelParams({ indicator: 'deaths' }, null, null)).toEqual({ indicator: 'deaths' }))
+  it('omits filters that are not set', () => expect(panelParams({ feed: 'clinical', indicator: 'deaths' }, null, null)).toEqual({ feed: 'clinical', indicator: 'deaths' }))
 })

@@ -55,7 +55,7 @@ export function useChartPalette() {
 
 export function TimeSeriesChart({ periods, series, unit }) {
   const theme = useTheme()
-  const { i18n } = useTranslation()
+  const { t, i18n } = useTranslation()
   const palette = useChartPalette()
   const fmt = new Intl.NumberFormat(i18n.resolvedLanguage, { maximumFractionDigits: 2 })
   const { primary: ink, secondary: ink2 } = theme.palette.text
@@ -73,7 +73,7 @@ export function TimeSeriesChart({ periods, series, unit }) {
   const data = {
     labels: periods,
     datasets: series.map((s, i) => ({
-      label: s.label, data: s.values, borderColor: palette[i], backgroundColor: palette[i],
+      label: s.label, data: s.values, qualities: s.qualities, borderColor: palette[i], backgroundColor: palette[i],
       borderWidth: 2, borderCapStyle: 'round', borderJoinStyle: 'round',
       pointRadius: (c) => (isolated(c.dataset.data, c.dataIndex) ? 3 : 0),
       pointHoverRadius: 4, pointHoverBorderWidth: 2, pointHoverBorderColor: theme.palette.background.paper,
@@ -98,7 +98,13 @@ export function TimeSeriesChart({ periods, series, unit }) {
         usePointStyle: true, backgroundColor: theme.palette.background.paper, titleColor: ink, bodyColor: ink,
         borderColor: rule, borderWidth: 1, titleFont: font, bodyFont: font,
         callbacks: {
-          label: (c) => (c.parsed.y == null ? null : `${fmt.format(c.parsed.y)}  ${c.dataset.label}`),  // value leads
+          label: (c) => {
+            if (c.parsed.y == null) return null
+            const q = c.dataset.qualities?.[c.dataIndex]
+            // 0 below detection is "nothing the assay can see", not a measured zero.
+            const value = q ? t(`quality.${q}`, { defaultValue: q }) : fmt.format(c.parsed.y)
+            return `${value}  ${c.dataset.label}`  // value leads
+          },
           labelPointStyle: () => ({ pointStyle: 'line', rotation: 0 }),
         },
       },
