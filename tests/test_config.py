@@ -258,3 +258,10 @@ def test_date_range_reaches_the_client_even_when_omitted():
 def test_date_range_typos_fail_at_load(bad):
     with pytest.raises(ValidationError):
         Filters(date_range=bad)
+
+
+def test_target_and_page_label_keys_follow_their_ids():
+    # Spec §9: config carries stable ids; the label key is derived by convention unless overridden.
+    target = Target(id="covid", pages=[Page(id="clinical", path="/covid/clinical")])
+    assert (target.label_key, target.pages[0].label_key) == ("targets.covid", "pages.clinical")
+    assert Target(id="covid", label_key="targets.sars_cov_2").label_key == "targets.sars_cov_2"

@@ -73,8 +73,13 @@ class Page(BaseModel):
     model_config = ConfigDict(extra="forbid")
     id: str
     path: str
-    label_key: str | None = None  # i18n key, not text
+    label_key: str | None = None  # i18n key, not text; defaults to pages.<id>
     panels: list[Panel] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _default_label_key(self) -> "Page":
+        self.label_key = self.label_key or f"pages.{self.id}"
+        return self
 
     @field_validator("path")
     @classmethod
@@ -98,8 +103,13 @@ class Target(BaseModel):
     # A surveillance target, e.g. a pathogen.
     model_config = ConfigDict(extra="forbid")
     id: str
-    label_key: str | None = None
+    label_key: str | None = None  # defaults to targets.<id>
     pages: list[Page] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _default_label_key(self) -> "Target":
+        self.label_key = self.label_key or f"targets.{self.id}"
+        return self
 
     @model_validator(mode="after")
     def _unique_page_ids(self) -> "Target":

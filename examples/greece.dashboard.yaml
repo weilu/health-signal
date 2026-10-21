@@ -49,11 +49,9 @@ data:
 # query should match one row per series per week (checked against ERVISS); series_by splits it.
 targets:
   - id: covid
-    label_key: "targets.covid"
     pages:
       - id: clinical
         path: /covid/clinical
-        label_key: "pages.clinical"
         panels:
           - id: covid-hospital
             type: timeseries
@@ -90,7 +88,6 @@ targets:
             query: { feed: clinical, indicator: ILIconsultationrate, dimensions: { survtype: primary care syndromic, age: total } }
       - id: wastewater
         path: /covid/wastewater
-        label_key: "pages.wastewater"
         panels:
           - id: covid-ww-load
             type: timeseries
@@ -101,11 +98,9 @@ targets:
             label_key: "panels.ww_concentration"
             query: { feed: wastewater, indicator: cov, dimensions: { aggregation: me } }
   - id: influenza
-    label_key: "targets.influenza"
     pages:
       - id: clinical
         path: /influenza/clinical
-        label_key: "pages.clinical"
         panels:
           - id: flu-hospital
             type: timeseries
@@ -152,7 +147,6 @@ targets:
             query: { feed: clinical, indicator: ILIconsultationrate, dimensions: { survtype: primary care syndromic, age: total } }
       - id: wastewater
         path: /influenza/wastewater
-        label_key: "pages.wastewater"
         panels:
           - id: flu-a-ww-load
             type: timeseries
@@ -163,11 +157,9 @@ targets:
             label_key: "panels.ww_flu_b_load"
             query: { feed: wastewater, indicator: fluB, dimensions: { aggregation: floMean } }
   - id: rsv
-    label_key: "targets.rsv"
     pages:
       - id: clinical
         path: /rsv/clinical
-        label_key: "pages.clinical"
         panels:
           - id: rsv-sari-positivity
             type: timeseries
@@ -192,7 +184,6 @@ targets:
             query: { feed: clinical, indicator: ILIconsultationrate, dimensions: { survtype: primary care syndromic, age: total } }
       - id: wastewater
         path: /rsv/wastewater
-        label_key: "pages.wastewater"
         panels:
           - id: rsv-ww-load
             type: timeseries
