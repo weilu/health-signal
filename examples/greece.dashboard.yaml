@@ -43,8 +43,8 @@ data:
     - { id: wastewater, profile: phes_odm, dir: data/wastewater }
 
 # Wastewater pages show the flow- and population-normalised load (floMean, gene copies/day per 100k)
-# and the raw concentration (me, gene copies/L) per PHES-ODM measure (generic codes until assay targets
-# are pinned).
+# per PHES-ODM measure (generic codes until assay targets are pinned). Raw concentration (me) stays in
+# the feed but isn't charted: it moves with dilution, so it misleads read on its own.
 # Clinical pages mirror greece-public-health's Clinical view where ERVISS has the data. Labels are i18n keys. Each
 # query should match one row per series per week (checked against ERVISS); series_by splits it.
 targets:
@@ -75,8 +75,6 @@ targets:
         panels:
           - id: ww_load
             query: { feed: wastewater, indicator: cov, dimensions: { aggregation: floMean } }
-          - id: ww_concentration
-            query: { feed: wastewater, indicator: cov, dimensions: { aggregation: me } }
   - id: influenza
     pages:
       - id: clinical
@@ -133,5 +131,3 @@ targets:
         panels:
           - id: ww_load
             query: { feed: wastewater, indicator: rsvMe, dimensions: { aggregation: floMean } }
-          - id: ww_concentration
-            query: { feed: wastewater, indicator: rsvMe, dimensions: { aggregation: me } }
