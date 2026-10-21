@@ -260,8 +260,10 @@ def test_date_range_typos_fail_at_load(bad):
         Filters(date_range=bad)
 
 
-def test_target_and_page_label_keys_follow_their_ids():
+def test_label_keys_follow_ids():
     # Spec §9: config carries stable ids; the label key is derived by convention unless overridden.
     target = Target(id="covid", pages=[Page(id="clinical", path="/covid/clinical")])
     assert (target.label_key, target.pages[0].label_key) == ("targets.covid", "pages.clinical")
     assert Target(id="covid", label_key="targets.sars_cov_2").label_key == "targets.sars_cov_2"
+    panel = Panel(id="hospital_admissions", type="timeseries", query={"feed": "clinical", "indicator": "deaths"})
+    assert panel.label_key == "panels.hospital_admissions"

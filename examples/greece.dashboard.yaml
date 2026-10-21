@@ -53,143 +53,114 @@ targets:
       - id: clinical
         path: /covid/clinical
         panels:
-          - id: covid-hospital
+          - id: hospital_admissions
             type: timeseries
-            label_key: "panels.hospital_admissions"
             query: { feed: clinical, indicator: hospitaladmissions, dimensions: { survtype: non-sentinel, pathogen: SARS-CoV-2, age: total } }
-          - id: covid-icu
+          - id: icu_admissions
             type: timeseries
-            label_key: "panels.icu_admissions"
             query: { feed: clinical, indicator: ICUadmissions, dimensions: { survtype: non-sentinel, pathogen: SARS-CoV-2, age: total } }
-          - id: covid-deaths
+          - id: deaths
             type: timeseries
-            label_key: "panels.deaths"
             query: { feed: clinical, indicator: deaths, dimensions: { survtype: non-sentinel, pathogen: SARS-CoV-2, age: total } }
-          - id: covid-sari-positivity
+          - id: sari_positivity
             type: timeseries
-            label_key: "panels.sari_positivity"
             query: { feed: clinical, indicator: positivity, dimensions: { survtype: SARI virological, pathogen: SARS-CoV-2, age: total } }
-          - id: covid-sentinel-positivity
+          - id: sentinel_positivity
             type: timeseries
-            label_key: "panels.sentinel_positivity"
             query: { feed: clinical, indicator: positivity, dimensions: { survtype: primary care sentinel, pathogen: SARS-CoV-2, age: total } }
-          - id: covid-sari-rate
+          - id: sari_rate
             type: timeseries
-            label_key: "panels.sari_rate"
             query: { feed: clinical, indicator: SARIrate, dimensions: { survtype: SARI syndromic, age: total } }
-          - id: covid-sari-rate-by-age
+          - id: sari_rate_by_age
             type: timeseries
-            label_key: "panels.sari_rate_by_age"
             query: { feed: clinical, indicator: SARIrate, dimensions: { survtype: SARI syndromic } }
             series_by: age
-          - id: covid-ili-rate
+          - id: ili_rate
             type: timeseries
-            label_key: "panels.ili_rate"
             query: { feed: clinical, indicator: ILIconsultationrate, dimensions: { survtype: primary care syndromic, age: total } }
       - id: wastewater
         path: /covid/wastewater
         panels:
-          - id: covid-ww-load
+          - id: ww_load
             type: timeseries
-            label_key: "panels.ww_load"
             query: { feed: wastewater, indicator: cov, dimensions: { aggregation: floMean } }
-          - id: covid-ww-concentration
+          - id: ww_concentration
             type: timeseries
-            label_key: "panels.ww_concentration"
             query: { feed: wastewater, indicator: cov, dimensions: { aggregation: me } }
   - id: influenza
     pages:
       - id: clinical
         path: /influenza/clinical
         panels:
-          - id: flu-hospital
+          - id: hospital_admissions
             type: timeseries
-            label_key: "panels.hospital_admissions"
             query: { feed: clinical, indicator: hospitaladmissions, dimensions: { survtype: non-sentinel, pathogen: Influenza, age: total } }
-          - id: flu-icu
+          - id: icu_admissions
             type: timeseries
-            label_key: "panels.icu_admissions"
             query: { feed: clinical, indicator: ICUadmissions, dimensions: { survtype: non-sentinel, pathogen: Influenza, age: total } }
-          - id: flu-deaths
+          - id: deaths
             type: timeseries
-            label_key: "panels.deaths"
             query: { feed: clinical, indicator: deaths, dimensions: { survtype: non-sentinel, pathogen: Influenza, age: total } }
-          - id: flu-sari-positivity
+          - id: sari_positivity
             type: timeseries
-            label_key: "panels.sari_positivity"
             query: { feed: clinical, indicator: positivity, dimensions: { survtype: SARI virological, pathogen: Influenza, pathogentype: Influenza, pathogensubtype: total, age: total } }
-          - id: flu-sentinel-positivity
+          - id: sentinel_positivity
             type: timeseries
-            label_key: "panels.sentinel_positivity"
             query: { feed: clinical, indicator: positivity, dimensions: { survtype: primary care sentinel, pathogen: Influenza, pathogentype: Influenza, pathogensubtype: total, age: total } }
-          - id: flu-a-subtypes
+          - id: influenza_a_subtypes
             type: timeseries
-            label_key: "panels.influenza_a_subtypes"
             query: { feed: clinical, indicator: detections, dimensions: { survtype: primary care sentinel, pathogen: Influenza, pathogentype: Influenza A, age: total } }
             series_by: pathogensubtype
-          - id: flu-b-lineages
+          - id: influenza_b_lineages
             type: timeseries
-            label_key: "panels.influenza_b_lineages"
             query: { feed: clinical, indicator: detections, dimensions: { survtype: primary care sentinel, pathogen: Influenza, pathogentype: Influenza B, age: total } }
             series_by: pathogensubtype
-          - id: flu-sari-rate
+          - id: sari_rate
             type: timeseries
-            label_key: "panels.sari_rate"
             query: { feed: clinical, indicator: SARIrate, dimensions: { survtype: SARI syndromic, age: total } }
-          - id: flu-sari-rate-by-age
+          - id: sari_rate_by_age
             type: timeseries
-            label_key: "panels.sari_rate_by_age"
             query: { feed: clinical, indicator: SARIrate, dimensions: { survtype: SARI syndromic } }
             series_by: age
-          - id: flu-ili-rate
+          - id: ili_rate
             type: timeseries
-            label_key: "panels.ili_rate"
             query: { feed: clinical, indicator: ILIconsultationrate, dimensions: { survtype: primary care syndromic, age: total } }
       - id: wastewater
         path: /influenza/wastewater
         panels:
-          - id: flu-a-ww-load
+          - id: ww_flu_a_load
             type: timeseries
-            label_key: "panels.ww_flu_a_load"
             query: { feed: wastewater, indicator: fluA, dimensions: { aggregation: floMean } }
-          - id: flu-b-ww-load
+          - id: ww_flu_b_load
             type: timeseries
-            label_key: "panels.ww_flu_b_load"
             query: { feed: wastewater, indicator: fluB, dimensions: { aggregation: floMean } }
   - id: rsv
     pages:
       - id: clinical
         path: /rsv/clinical
         panels:
-          - id: rsv-sari-positivity
+          - id: sari_positivity
             type: timeseries
-            label_key: "panels.sari_positivity"
             query: { feed: clinical, indicator: positivity, dimensions: { survtype: SARI virological, pathogen: RSV, pathogentype: RSV, age: total } }
-          - id: rsv-sentinel-positivity
+          - id: sentinel_positivity
             type: timeseries
-            label_key: "panels.sentinel_positivity"
             query: { feed: clinical, indicator: positivity, dimensions: { survtype: primary care sentinel, pathogen: RSV, pathogentype: RSV, age: total } }
-          - id: rsv-sari-rate
+          - id: sari_rate
             type: timeseries
-            label_key: "panels.sari_rate"
             query: { feed: clinical, indicator: SARIrate, dimensions: { survtype: SARI syndromic, age: total } }
-          - id: rsv-sari-rate-by-age
+          - id: sari_rate_by_age
             type: timeseries
-            label_key: "panels.sari_rate_by_age"
             query: { feed: clinical, indicator: SARIrate, dimensions: { survtype: SARI syndromic } }
             series_by: age
-          - id: rsv-ili-rate
+          - id: ili_rate
             type: timeseries
-            label_key: "panels.ili_rate"
             query: { feed: clinical, indicator: ILIconsultationrate, dimensions: { survtype: primary care syndromic, age: total } }
       - id: wastewater
         path: /rsv/wastewater
         panels:
-          - id: rsv-ww-load
+          - id: ww_load
             type: timeseries
-            label_key: "panels.ww_load"
             query: { feed: wastewater, indicator: rsvMe, dimensions: { aggregation: floMean } }
-          - id: rsv-ww-concentration
+          - id: ww_concentration
             type: timeseries
-            label_key: "panels.ww_concentration"
             query: { feed: wastewater, indicator: rsvMe, dimensions: { aggregation: me } }

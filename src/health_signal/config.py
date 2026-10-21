@@ -57,9 +57,14 @@ class Panel(BaseModel):
     model_config = ConfigDict(extra="forbid")
     id: str
     type: Literal["timeseries"]
-    label_key: str | None = None
+    label_key: str | None = None  # defaults to panels.<id>
     query: PanelQuery
     series_by: str | None = None  # one line per value of this dimension
+
+    @model_validator(mode="after")
+    def _default_label_key(self) -> "Panel":
+        self.label_key = self.label_key or f"panels.{self.id}"
+        return self
 
 
 # ASCII slug segments only: dots, "%", "\\", "//", "?", "#" and router patterns could resolve elsewhere, and

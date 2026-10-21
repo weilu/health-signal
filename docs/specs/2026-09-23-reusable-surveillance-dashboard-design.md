@@ -363,10 +363,11 @@ precedence over client-side routes.
   library defaults. `/api/locales/{lang}` **deep-merges** library base + country overrides (country
   wins) so no country re-translates the generic chrome.
   - **Config carries keys, not translations.** `dashboard.yaml` holds structure + stable ids/i18n
-    **keys**, never inline `{en, el}` maps. Targets and pages derive their label key from their stable
-    id by convention (`id: covid` → `targets.covid`, `id: clinical` → `pages.clinical`), with an
-    optional `label_key` override; panels name theirs explicitly, since panels across targets share
-    strings (e.g. `panels.hospital_admissions`). The text for each key lives in the locale files. This keeps **one source of truth** for translatable
+    **keys**, never inline `{en, el}` maps. Targets, pages and panels derive their label key from their
+    stable id by convention (`id: covid` → `targets.covid`, `id: clinical` → `pages.clinical`,
+    `id: hospital_admissions` → `panels.hospital_admissions`), with an optional `label_key` override.
+    Page and panel ids need only be unique within their parent, so the same panel on several targets
+    shares one id and one string. The text for each key lives in the locale files. This keeps **one source of truth** for translatable
     text, so translators work in one place and adding a language is a single new locale file — no
     config edits. (Config fields like `site.title` that name the app/OpenAPI, not user-facing UI, stay
     plain strings.)
