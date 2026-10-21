@@ -126,7 +126,8 @@ add pathogens/strata/indicators within a profile.
 `data.feeds: [{id, profile, dir}]` (required; ids unique; e.g. `clinical`/`erviss` and
 `wastewater`/`phes_odm`). There is no default feed: every panel names the one it reads.
 
-Pages declare **panels** in config — `type: timeseries`, a `query` (a required `feed`, an `indicator`
+Pages declare **panels** in config — a `type` (default `timeseries`; later kinds such as status tiles or
+stacked bars are stated explicitly), a `query` (a required `feed`, an `indicator`
 plus a `dimensions: {name: value}` map of profile-dimension filters, which should match one row per
 series per week) and an optional `series_by` dimension that splits it into lines. The map keeps the
 config shape profile-agnostic: a wastewater profile's dimensions need no new fields. Each panel is

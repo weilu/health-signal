@@ -265,5 +265,10 @@ def test_label_keys_follow_ids():
     target = Target(id="covid", pages=[Page(id="clinical", path="/covid/clinical")])
     assert (target.label_key, target.pages[0].label_key) == ("targets.covid", "pages.clinical")
     assert Target(id="covid", label_key="targets.sars_cov_2").label_key == "targets.sars_cov_2"
-    panel = Panel(id="hospital_admissions", type="timeseries", query={"feed": "clinical", "indicator": "deaths"})
+    panel = Panel(id="hospital_admissions", query={"feed": "clinical", "indicator": "deaths"})
     assert panel.label_key == "panels.hospital_admissions"
+
+
+def test_panels_default_to_timeseries():
+    # The common kind is implied; other kinds (status tiles, stacked bars) will be stated explicitly.
+    assert Panel(id="deaths", query={"feed": "clinical", "indicator": "deaths"}).type == "timeseries"

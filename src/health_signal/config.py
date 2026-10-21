@@ -56,7 +56,7 @@ class PanelQuery(BaseModel):
 class Panel(BaseModel):
     model_config = ConfigDict(extra="forbid")
     id: str
-    type: Literal["timeseries"]
+    type: Literal["timeseries"] = "timeseries"  # other kinds (status, stacked_bar) must be stated
     label_key: str | None = None  # defaults to panels.<id>
     query: PanelQuery
     series_by: str | None = None  # one line per value of this dimension
