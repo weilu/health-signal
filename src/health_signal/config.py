@@ -169,6 +169,7 @@ class FeedConfig(BaseModel):
     id: str = Field(min_length=1)  # the client drops empty query params, so "" could never be requested
     profile: str
     dir: str
+    assessments: str | None = None  # Status/Trend tables for this feed's series (spec §6.3)
 
     @field_validator("profile")
     @classmethod
@@ -181,6 +182,7 @@ class FeedConfig(BaseModel):
 class DataConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
     feeds: list[FeedConfig] = Field(min_length=1)
+    phases: str | None = None  # pathogen-level phase table, across feeds
 
     @model_validator(mode="after")
     def _unique_ids(self) -> "DataConfig":

@@ -295,3 +295,9 @@ def test_methods_reach_the_client():
     methods = Config(schema_version="1", site=SiteConfig(title="T")).client_config()["methods"]
     assert methods["aedseo"] == {"levels": ["very_low", "low", "medium", "high", "very_high"],
                                  "phases": ["in_season", "in_wave", "out_of_season"], "trend": True}
+
+
+def test_feeds_and_phases_take_optional_assessment_dirs():
+    data = DataConfig(feeds=[{"id": "c", "profile": "erviss", "dir": "a", "assessments": "a/assessed"}], phases="p")
+    assert (data.feeds[0].assessments, data.phases) == ("a/assessed", "p")
+    assert DataConfig(feeds=[{"id": "c", "profile": "erviss", "dir": "a"}]).phases is None
