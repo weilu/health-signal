@@ -201,6 +201,11 @@ def _panel_problem(panel: Panel, profiles: dict) -> str | None:
         allowed = profile.dimension_vocab.get(dim)
         if allowed is not None and value not in allowed:
             return f"{dim} {value!r} not allowed for feed {q.feed!r} ({profile.name})"
+        # e.g. fluA with pathogen RSV: each value is valid, but no row can carry both, so the panel would
+        # read as "no data" rather than as a config mistake.
+        implied = profile.indicator_implies.get(q.indicator, {}).get(dim)
+        if implied is not None and value != implied:
+            return f"indicator {q.indicator!r} implies {dim} {implied!r}, not {value!r}"
     if panel.series_by is not None and panel.series_by not in profile.dimension_keys:
         return f"series_by {panel.series_by!r} is not a dimension of feed {q.feed!r} ({profile.name})"
     return None

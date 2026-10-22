@@ -114,8 +114,9 @@ def test_a_wastewater_panel_validates_against_its_feed():
     {"query": {"feed": "clinical", "indicator": "positivity", "dimensions": {"agee": "65+"}}},  # not an ERVISS dimension
     {"series_by": "colour"},                                                                     # not an ERVISS dimension
     {"query": {"feed": "sewage", "indicator": "positivity"}},                                    # no such feed
-    {"query": {"feed": "wastewater", "indicator": "fluA", "dimensions": {"survtype": "non-sentinel"}}},  # ERVISS dim on the ODM feed
-    {"query": {"feed": "wastewater", "indicator": "positivity"}},                                # ERVISS indicator on the ODM feed
+    {"series_by": None, "query": {"feed": "wastewater", "indicator": "fluA", "dimensions": {"survtype": "non-sentinel"}}},  # ERVISS dim on the ODM feed
+    {"series_by": None, "query": {"feed": "wastewater", "indicator": "positivity"}},                                # ERVISS indicator on the ODM feed
+    {"series_by": None, "query": {"feed": "wastewater", "indicator": "fluA", "dimensions": {"pathogen": "RSV"}}},  # fluA is always Influenza
 ])
 def test_panel_config_typos_fail_at_load(bad):
     with pytest.raises(ValidationError, match="panel 'p'"):
