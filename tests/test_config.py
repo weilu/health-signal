@@ -1,6 +1,6 @@
 import pytest
 from pydantic import ValidationError
-from health_signal.config import Branding, Config, Filters, Page, Panel, SiteConfig, Target, load_config
+from health_signal.config import Branding, Config, DataConfig, Filters, Page, Panel, SiteConfig, Target, load_config
 
 
 def test_load_valid_config(tmp_path):
@@ -85,37 +85,83 @@ def test_branding_projection_is_json_safe():
     json.dumps(cfg.client_config())
 
 
-_PANEL = {"id": "p", "type": "timeseries", "query": {"indicator": "positivity", "dimensions": {"pathogen": "Influenza"}}, "series_by": "survtype"}
+_PANEL = {"id": "p", "series_by": "survtype",
+          "query": {"feed": "clinical", "indicator": "positivity", "dimensions": {"pathogen": "Influenza"}}}
+_FEEDS = DataConfig(feeds=[{"id": "clinical", "profile": "erviss", "dir": "d/c"},
+                           {"id": "wastewater", "profile": "phes_odm", "dir": "d/w"}])
+
+
+def _with_panel(panel, data=_FEEDS):
+    return Config(schema_version="1", site=SiteConfig(title="T"), data=data,
+                  targets=[Target(id="flu", pages=[Page(id="o", path="/flu", panels=[Panel(**panel)])])])
 
 
 def test_panel_parses_and_reaches_client_config():
-    cfg = Config(schema_version="1", site=SiteConfig(title="T"),
-                 targets=[Target(id="flu", pages=[Page(id="o", path="/flu", panels=[Panel(**_PANEL)])])])
-    panel = cfg.client_config()["targets"][0]["pages"][0]["panels"][0]
-    assert panel["query"] == {"indicator": "positivity", "dimensions": {"pathogen": "Influenza"}}
+    panel = _with_panel(_PANEL).client_config()["targets"][0]["pages"][0]["panels"][0]
+    assert panel["query"] == {"feed": "clinical", "indicator": "positivity", "dimensions": {"pathogen": "Influenza"}}
     assert panel["series_by"] == "survtype"
 
 
+def test_a_panel_is_judged_by_its_own_feeds_profile():
+    query = {"indicator": "fluA", "dimensions": {"aggregation": "floMean"}}  # ODM terms, not ERVISS ones
+    ww = _with_panel({"id": "w", "query": {"feed": "wastewater", **query}})
+    assert ww.client_config()["targets"][0]["pages"][0]["panels"][0]["query"] == {"feed": "wastewater", **query}
+    with pytest.raises(ValidationError, match="feed 'clinical'"):
+        _with_panel({"id": "w", "query": {"feed": "clinical", **query}})
+
+
 @pytest.mark.parametrize("bad", [
-    {"type": "bar"},                                                 # only timeseries exists
-    {"query": {"indicator": "bogus"}},                               # not an ERVISS indicator
-    {"query": {"indicator": "positivity", "dimensions": {"pathogen": "Measles"}}},  # not in the ERVISS vocab
-    {"query": {"indicator": "positivity", "dimensions": {"agee": "65+"}}},         # not an ERVISS dimension
-    {"query": {"indicator": "positivity", "pathogen": "Influenza"}},               # dimensions belong under `dimensions`
-    {"series_by": "colour"},                                         # not an ERVISS dimension
+    {"query": {"feed": "clinical", "indicator": "bogus"}},                                       # not an ERVISS indicator
+    {"query": {"feed": "clinical", "indicator": "positivity", "dimensions": {"pathogen": "Measles"}}},
+    {"query": {"feed": "clinical", "indicator": "positivity", "dimensions": {"agee": "65+"}}},  # not an ERVISS dimension
+    {"series_by": "colour"},                                                                     # not an ERVISS dimension
+    {"query": {"feed": "sewage", "indicator": "positivity"}},                                    # no such feed
+    {"series_by": None, "query": {"feed": "wastewater", "indicator": "fluA", "dimensions": {"survtype": "non-sentinel"}}},  # ERVISS dim on the ODM feed
+    {"series_by": None, "query": {"feed": "wastewater", "indicator": "positivity"}},                                # ERVISS indicator on the ODM feed
+    {"series_by": None, "query": {"feed": "wastewater", "indicator": "fluA", "dimensions": {"pathogen": "RSV"}}},  # fluA is always Influenza
 ])
 def test_panel_config_typos_fail_at_load(bad):
+    with pytest.raises(ValidationError, match="panel 'p'"):
+        _with_panel({**_PANEL, **bad})
+
+
+@pytest.mark.parametrize("bad", [
+    {"type": "bar"},                                                                       # only timeseries exists
+    {"query": {"indicator": "positivity"}},                                                # feed is required
+    {"query": {"feed": "clinical", "indicator": "positivity", "pathogen": "Influenza"}},  # dimensions belong under `dimensions`
+])
+def test_panel_shape_errors_fail_at_load(bad):
     with pytest.raises(ValidationError):
         Panel(**{**_PANEL, **bad})
+
+
+def test_panels_need_a_data_block():
+    with pytest.raises(ValidationError, match="feed 'clinical'"):
+        _with_panel(_PANEL, data=None)
+
+
+@pytest.mark.parametrize("bad", [
+    {"feeds": []},
+    {"feeds": [{"id": "c", "profile": "erviss", "dir": "a"}, {"id": "c", "profile": "erviss", "dir": "b"}]},  # duplicate id
+    {"feeds": [{"id": "c", "profile": "nwss", "dir": "a"}]},                                                  # unknown profile
+    {"feeds": [{"id": "", "profile": "erviss", "dir": "a"}]},                                                 # the client drops empty params
+    {"dir": "a"},                                                                                             # the old single-feed form
+])
+def test_data_config_errors_fail_at_load(bad):
+    with pytest.raises(ValidationError):
+        DataConfig(**bad)
 
 
 def test_example_config_loads():
     cfg = load_config("examples/greece.dashboard.yaml")
     assert all(p.panels for t in cfg.targets for p in t.pages)
+    assert {f.id for f in cfg.data.feeds} == {"clinical", "wastewater"}
+    # Every target pairs clinical and wastewater pages, the way greece-public-health's source tabs do.
+    assert all({p.id for p in t.pages} == {"clinical", "wastewater"} for t in cfg.targets)
 
 
 @pytest.mark.parametrize("bad", [
-    {"query": {"indicator": "positivity", "dimensiosn": {"age": "65+"}}},  # misspelt key
+    {"query": {"feed": "clinical", "indicator": "positivity", "dimensiosn": {"age": "65+"}}},  # misspelt key
     {"seriesby": "survtype"},                               # misspelt panel key
 ])
 def test_panel_unknown_keys_fail_at_load(bad):
@@ -140,14 +186,18 @@ def _cfg_pages(*pages):
                 targets=[Target(id=f"t{i}", pages=[p]) for i, p in enumerate(pages)])
 
 
-def test_duplicate_page_paths_and_ids_fail_at_load():
+def test_duplicate_page_paths_fail_at_load():
     with pytest.raises(ValidationError, match="path"):
         Config(**_cfg_pages(Page(id="a", path="/flu"), Page(id="b", path="/flu")))
     with pytest.raises(ValidationError, match="path"):
         Config(**_cfg_pages(Page(id="a", path="/flu"), Page(id="b", path="/FLU")))
-    with pytest.raises(ValidationError, match="page id"):
-        Config(**_cfg_pages(Page(id="a", path="/flu"), Page(id="a", path="/rsv")))
 
+
+def test_page_ids_repeat_across_targets_but_not_within_one():
+    # Tabs and routes key on paths; an id only names a page inside its target's tab row.
+    Config(**_cfg_pages(Page(id="clinical", path="/flu/clinical"), Page(id="clinical", path="/rsv/clinical")))
+    with pytest.raises(ValidationError, match="page id"):
+        Target(id="flu", pages=[Page(id="clinical", path="/flu/a"), Page(id="clinical", path="/flu/b")])
 
 def test_duplicate_target_ids_fail_at_load():
     with pytest.raises(ValidationError, match="target ids"):
@@ -163,9 +213,9 @@ def test_duplicate_panel_ids_on_a_page_fail_at_load():
 @pytest.mark.parametrize("key", ["location", "week_from", "week_to"])
 def test_panel_query_leaves_location_and_dates_to_dashboard_filters(key):
     with pytest.raises(ValidationError):
-        Panel(**{**_PANEL, "query": {"indicator": "positivity", key: "x"}})
+        Panel(**{**_PANEL, "query": {"feed": "clinical", "indicator": "positivity", key: "x"}})
     with pytest.raises(ValidationError):  # nor can they hide among the dimensions
-        Panel(**{**_PANEL, "query": {"indicator": "positivity", "dimensions": {key: "x"}}})
+        _with_panel({**_PANEL, "query": {"feed": "clinical", "indicator": "positivity", "dimensions": {key: "x"}}})
 
 
 _LOC = {"location": {"default": "Greece", "options": [{"value": "Greece", "label_key": "locations.national"}, {"value": "Attica"}]}}
@@ -212,3 +262,22 @@ def test_date_range_reaches_the_client_even_when_omitted():
 def test_date_range_typos_fail_at_load(bad):
     with pytest.raises(ValidationError):
         Filters(date_range=bad)
+
+
+def test_label_keys_follow_ids():
+    # Spec §9: config carries stable ids; the label key always follows from the id.
+    target = Target(id="covid", pages=[Page(id="clinical", path="/covid/clinical")])
+    assert (target.label_key, target.pages[0].label_key) == ("targets.covid", "pages.clinical")
+    panel = Panel(id="hospital_admissions", query={"feed": "clinical", "indicator": "deaths"})
+    assert panel.label_key == "panels.hospital_admissions"
+    assert _with_panel(_PANEL).client_config()["targets"][0]["label_key"] == "targets.flu"  # sent to the client
+
+
+@pytest.mark.parametrize("build", [
+    lambda: Target(id="covid", label_key="targets.other"),
+    lambda: Page(id="clinical", path="/c", label_key="pages.other"),
+    lambda: Panel(id="deaths", query={"feed": "clinical", "indicator": "deaths"}, label_key="panels.other"),
+])
+def test_label_keys_cannot_be_overridden(build):
+    with pytest.raises(ValidationError):
+        build()

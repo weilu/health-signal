@@ -256,6 +256,22 @@ def test_spa_injects_bootstrap_only(tmp_path, monkeypatch):
     assert "targets" not in body  # structure is NOT injected; it comes from /api/config
 
 
+def test_spa_base_lets_relative_assets_load_on_nested_pages(tmp_path, monkeypatch):
+    ui = _write_ui(tmp_path)
+    (ui / "index.html").write_text('<html><head><script src="./assets/app.js"></script></head></html>', encoding="utf-8")
+    monkeypatch.setattr("health_signal.app._UI_DIR", ui)
+    body = _client(public_paths=["/"]).get("/covid/clinical").text
+    # Without a base, ./assets on /covid/clinical resolves to /covid/assets and falls through to this HTML.
+    assert body.index('<base href="/">') < body.index("./assets/app.js")
+
+
+def test_spa_base_follows_the_mount_prefix(tmp_path, monkeypatch):
+    monkeypatch.setattr("health_signal.app._UI_DIR", _write_ui(tmp_path))
+    app = _client(public_paths=["/"]).app
+    body = TestClient(app, base_url="https://testserver", root_path="/content/abc").get("/content/abc/covid/clinical").text
+    assert '<base href="/content/abc/">' in body
+
+
 def test_login_path_serves_spa_under_locked_policy(tmp_path, monkeypatch):
     # GET /login must reach the SPA (it's always-public), even under the default locked policy —
     # guards against reintroducing a server-owned /login HTML route or breaking its public handling.

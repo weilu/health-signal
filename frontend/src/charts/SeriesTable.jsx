@@ -21,7 +21,8 @@ export function SeriesTable({ periods, series, unit }) {
               <TableCell component="th" scope="row">{p}</TableCell>
               {series.map((s) => (
                 <TableCell key={s.key} align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>
-                  {s.values[i] == null ? '—' : fmt.format(s.values[i])}
+                  {s.qualities?.[i] ? t(`quality.${s.qualities[i]}`, { defaultValue: s.qualities[i] })
+                    : s.values[i] == null ? '—' : fmt.format(s.values[i])}
                 </TableCell>
               ))}
             </TableRow>

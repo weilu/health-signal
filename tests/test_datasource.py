@@ -1,6 +1,7 @@
 import pytest
 from pathlib import Path
 from health_signal.datasource import FileDataSource
+from health_signal.profile import ERVISS, PHES_ODM
 
 FIX = Path(__file__).parent / "fixtures" / "erviss_sample.csv"
 
@@ -9,7 +10,7 @@ def _src(tmp_path, text=None):
     d = tmp_path / "data"
     d.mkdir()
     (d / "feed.csv").write_text(text if text is not None else FIX.read_text(), encoding="utf-8")
-    return FileDataSource(d)
+    return FileDataSource(d, ERVISS)
 
 
 def test_reads_and_folds_dimensions(tmp_path):
@@ -51,7 +52,7 @@ def test_out_of_vocab_indicator_rejected(tmp_path):
 
 def test_missing_data_dir_fails_fast(tmp_path):
     with pytest.raises(ValueError, match="not a directory"):
-        FileDataSource(tmp_path / "nope")
+        FileDataSource(tmp_path / "nope", ERVISS)
 
 
 def test_bom_header_loads(tmp_path):
@@ -83,7 +84,7 @@ def test_non_utf8_file_names_the_file(tmp_path):
     header = b"location,period,survtype,pathogen,age,indicator,value,unit\n"
     (d / "feed.csv").write_bytes(header + "\u0391\u03c4\u03c4\u03b9\u03ba\u03ae".encode("cp1253") + b",2025-W01,non-sentinel,Influenza,total,deaths,1,count\n")
     with pytest.raises(ValueError, match=r"feed\.csv: not valid UTF-8"):
-        FileDataSource(d)
+        FileDataSource(d, ERVISS)
 
 
 _H = "location,period,survtype,pathogen,age,indicator,value,unit,datasource\n"
@@ -102,14 +103,14 @@ def test_files_with_different_optional_columns_combine(tmp_path):
     d.mkdir()
     (d / "a.csv").write_text(_H + _OK, encoding="utf-8")
     (d / "b.csv").write_text("location,period,survtype,age,indicator,value,unit\nB,2025-W02,non-sentinel,total,deaths,2,count\n", encoding="utf-8")
-    rows = FileDataSource(d).query()
+    rows = FileDataSource(d, ERVISS).query()
     assert [(r.location, r.datasource, "pathogen" in r.dimensions) for r in rows] == [("A", "X", True), ("B", None, False)]
 
 
 def test_empty_file_names_the_file(tmp_path):
     for text in ("", "\n\n"):
         with pytest.raises(ValueError, match=r"feed\.csv: empty file"):
-            FileDataSource(_write(tmp_path, text))
+            FileDataSource(_write(tmp_path, text), ERVISS)
 
 
 def test_error_reports_data_row_not_physical_line(tmp_path):
@@ -154,4 +155,44 @@ def test_periods_span_the_whole_feed(tmp_path):
 def test_periods_of_an_empty_feed_are_none(tmp_path):
     d = tmp_path / "data"
     d.mkdir()
-    assert FileDataSource(d).periods() is None
+    assert FileDataSource(d, ERVISS).periods() is None
+
+
+def test_exact_duplicate_rows_are_dropped_with_a_warning(tmp_path, caplog):
+    # ERVISS's published files overlap by design; an exact copy carries no information.
+    d = tmp_path / "data"
+    d.mkdir()
+    (d / "a.csv").write_text(_H + _OK, encoding="utf-8")
+    (d / "b.csv").write_text(_H + _OK.replace("A,", "B,") + _OK, encoding="utf-8")
+    rows = FileDataSource(d, ERVISS).query()
+    assert sorted(r.location for r in rows) == ["A", "B"]  # same value, other location: a different reading
+    assert "1 exact duplicate row(s)" in caplog.text and "b.csv" in caplog.text
+
+
+def test_conflicting_readings_fail_naming_both(tmp_path):
+    d = tmp_path / "data"
+    d.mkdir()
+    (d / "a.csv").write_text(_H + _OK, encoding="utf-8")
+    (d / "b.csv").write_text(_H + _OK.replace("A,", "B,") + _OK.replace(",1,", ",2,"), encoding="utf-8")
+    with pytest.raises(ValueError, match=r"b\.csv row 2: conflicts with a\.csv row 1"):
+        FileDataSource(d, ERVISS)
+
+def test_quality_reaches_the_rows(tmp_path):
+    d = tmp_path / "ww"
+    d.mkdir()
+    (d / "feed.csv").write_text(
+        "location,period,pathogen,aggregation,indicator,value,unit,quality\n"
+        "Testville,2025-W01,Influenza,floMean,fluA,0,gcDay100k,beLOD\n"
+        "Testville,2025-W02,Influenza,floMean,fluA,8.5,gcDay100k,\n", encoding="utf-8")
+    src = FileDataSource(d, PHES_ODM)
+    assert [(r.value, r.quality) for r in src.query(indicator="fluA")] == [(0.0, "beLOD"), (8.5, None)]
+    assert src.profile is PHES_ODM
+
+
+def test_duplicates_are_compared_as_numbers(tmp_path):
+    # 1 and 1.0 are the same reading, so the second is an exact copy, not a conflict.
+    d = tmp_path / "data"
+    d.mkdir()
+    (d / "a.csv").write_text(_H + _OK, encoding="utf-8")
+    (d / "b.csv").write_text(_H + _OK.replace(",1,", ",1.0,"), encoding="utf-8")
+    assert [r.value for r in FileDataSource(d, ERVISS).query()] == [1.0]

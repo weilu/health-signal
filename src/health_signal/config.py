@@ -3,9 +3,9 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, PositiveInt, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, PositiveInt, computed_field, field_validator, model_validator
 
-from .profile import ERVISS
+from .profile import PROFILES
 
 
 class Branding(BaseModel):
@@ -48,36 +48,22 @@ class PanelQuery(BaseModel):
     # `dimensions` is a map so other profiles (e.g. wastewater) need no new fields. Location and dates
     # are dashboard filters, not panel settings.
     model_config = ConfigDict(extra="forbid")  # a misspelt key would otherwise be silently dropped
+    feed: str  # no default: every panel says which feed it reads
     indicator: str
     dimensions: dict[str, str] = Field(default_factory=dict)
-
-    @model_validator(mode="after")
-    def _in_profile_vocab(self) -> "PanelQuery":
-        if self.indicator not in ERVISS.indicators:
-            raise ValueError(f"unknown indicator {self.indicator!r} for profile {ERVISS.name}")
-        for dim, value in self.dimensions.items():
-            if dim not in ERVISS.dimension_keys:
-                raise ValueError(f"{dim!r} is not an {ERVISS.name} dimension")
-            allowed = ERVISS.dimension_vocab.get(dim)
-            if allowed is not None and value not in allowed:
-                raise ValueError(f"{dim} {value!r} not allowed in profile {ERVISS.name}")
-        return self
 
 
 class Panel(BaseModel):
     model_config = ConfigDict(extra="forbid")
     id: str
-    type: Literal["timeseries"]
-    label_key: str | None = None
+    type: Literal["timeseries"] = "timeseries"  # other kinds (status, stacked_bar) must be stated
     query: PanelQuery
     series_by: str | None = None  # one line per value of this dimension
 
-    @field_validator("series_by")
-    @classmethod
-    def _is_dimension(cls, v: str | None) -> str | None:
-        if v is not None and v not in ERVISS.dimension_keys:
-            raise ValueError(f"series_by {v!r} is not an {ERVISS.name} dimension")
-        return v
+    @computed_field
+    @property
+    def label_key(self) -> str:  # i18n key, by convention (spec §9); not settable in config
+        return f"panels.{self.id}"
 
 
 # ASCII slug segments only: dots, "%", "\\", "//", "?", "#" and router patterns could resolve elsewhere, and
@@ -91,8 +77,12 @@ class Page(BaseModel):
     model_config = ConfigDict(extra="forbid")
     id: str
     path: str
-    label_key: str | None = None  # i18n key, not text
     panels: list[Panel] = Field(default_factory=list)
+
+    @computed_field
+    @property
+    def label_key(self) -> str:
+        return f"pages.{self.id}"
 
     @field_validator("path")
     @classmethod
@@ -116,8 +106,20 @@ class Target(BaseModel):
     # A surveillance target, e.g. a pathogen.
     model_config = ConfigDict(extra="forbid")
     id: str
-    label_key: str | None = None
     pages: list[Page] = Field(default_factory=list)
+
+    @computed_field
+    @property
+    def label_key(self) -> str:
+        return f"targets.{self.id}"
+
+    @model_validator(mode="after")
+    def _unique_page_ids(self) -> "Target":
+        # An id names a page within its target's tab row, so it may repeat across targets.
+        ids = [page.id for page in self.pages]
+        if len(ids) != len(set(ids)):
+            raise ValueError(f"target {self.id!r} has duplicate page ids")
+        return self
 
 
 class LocationOption(BaseModel):
@@ -157,8 +159,53 @@ class Filters(BaseModel):
     date_range: DateRangeFilter = Field(default_factory=DateRangeFilter)
 
 
-class DataConfig(BaseModel):
+class FeedConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id: str = Field(min_length=1)  # the client drops empty query params, so "" could never be requested
+    profile: str
     dir: str
+
+    @field_validator("profile")
+    @classmethod
+    def _known_profile(cls, name: str) -> str:
+        if name not in PROFILES:
+            raise ValueError(f"unknown profile {name!r}; one of {sorted(PROFILES)}")
+        return name
+
+
+class DataConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    feeds: list[FeedConfig] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _unique_ids(self) -> "DataConfig":
+        ids = [f.id for f in self.feeds]
+        if len(ids) != len(set(ids)):
+            raise ValueError("feed ids must be unique")
+        return self
+
+
+def _panel_problem(panel: Panel, profiles: dict) -> str | None:
+    q = panel.query
+    profile = profiles.get(q.feed)
+    if profile is None:
+        return f"feed {q.feed!r} is not configured under data.feeds"
+    if q.indicator not in profile.indicators:
+        return f"unknown indicator {q.indicator!r} for feed {q.feed!r} ({profile.name})"
+    for dim, value in q.dimensions.items():
+        if dim not in profile.dimension_keys:
+            return f"{dim!r} is not a dimension of feed {q.feed!r} ({profile.name})"
+        allowed = profile.dimension_vocab.get(dim)
+        if allowed is not None and value not in allowed:
+            return f"{dim} {value!r} not allowed for feed {q.feed!r} ({profile.name})"
+        # e.g. fluA with pathogen RSV: each value is valid, but no row can carry both, so the panel would
+        # read as "no data" rather than as a config mistake.
+        implied = profile.indicator_implies.get(q.indicator, {}).get(dim)
+        if implied is not None and value != implied:
+            return f"indicator {q.indicator!r} implies {dim} {implied!r}, not {value!r}"
+    if panel.series_by is not None and panel.series_by not in profile.dimension_keys:
+        return f"series_by {panel.series_by!r} is not a dimension of feed {q.feed!r} ({profile.name})"
+    return None
 
 
 class Config(BaseModel):
@@ -172,16 +219,25 @@ class Config(BaseModel):
 
     @model_validator(mode="after")
     def _unique_pages(self) -> "Config":
-        # Duplicate paths shadow each other as routes (matched case-insensitively); ids key tabs and React lists.
+        # Duplicate paths shadow each other as routes (matched case-insensitively), and key tabs and React lists.
         target_ids = [t.id for t in self.targets]
         if len(target_ids) != len(set(target_ids)):
             raise ValueError("duplicate target ids")
-        pages = [page for target in self.targets for page in target.pages]
-        for key, label in ((lambda p: p.path.lower(), "path"), (lambda p: p.id, "page id")):
-            values = [key(page) for page in pages]
-            dupes = sorted({v for v in values if values.count(v) > 1})
-            if dupes:
-                raise ValueError(f"duplicate {label}(s) {', '.join(dupes)} across targets")
+        paths = [page.path.lower() for target in self.targets for page in target.pages]
+        dupes = sorted({p for p in paths if paths.count(p) > 1})
+        if dupes:
+            raise ValueError(f"duplicate path(s) {', '.join(dupes)} across targets")
+        return self
+
+    @model_validator(mode="after")
+    def _panels_match_their_feeds(self) -> "Config":
+        # Checked here, not on the panel: only the config knows which profile a feed id means.
+        profiles = {f.id: PROFILES[f.profile] for f in self.data.feeds} if self.data else {}
+        for target in self.targets:
+            for page in target.pages:
+                for panel in page.panels:
+                    if (problem := _panel_problem(panel, profiles)) is not None:
+                        raise ValueError(f"panel {panel.id!r} on page {page.id!r}: {problem}")
         return self
 
     def bootstrap_config(self) -> dict:

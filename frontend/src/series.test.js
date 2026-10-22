@@ -43,7 +43,7 @@ describe('toChartModel', () => {
     ]
     expect(toChartModel(rows, 'survtype', 8)).toEqual({
       status: 'ok', unit: 'percent', periods: ['2025-W01', '2025-W02', '2025-W03'],
-      series: [{ key: 'SARI', values: [null, 5, null] }, { key: 'sentinel', values: [1, null, 3] }],
+      series: [{ key: 'SARI', values: [null, 5, null], qualities: [null, null, null] }, { key: 'sentinel', values: [1, null, 3], qualities: [null, null, null] }],
     })
   })
   it('keeps a week no series reported on the axis', () => {
@@ -58,8 +58,14 @@ describe('toChartModel', () => {
     const m = toChartModel([row('2025-W01', 1, {}), row('2025-W01', 2, { survtype: 'SARI' })], 'survtype', 8)
     expect(m.series.map((s) => s.key)).toEqual(['SARI', ''])
   })
+  it('keeps a week below detection on its line and records why it reads 0', () => {
+    const rows = [row('2025-W01', 5), { ...row('2025-W02', 0), quality: 'beLOD' }, row('2025-W03', 4)]
+    expect(toChartModel(rows, null, 8)).toMatchObject({
+      status: 'ok', series: [{ values: [5, 0, 4], qualities: [null, 'beLOD', null] }],
+    })
+  })
   it('makes one series when nothing splits it', () => {
-    expect(toChartModel([row('2025-W01', 4)], null, 8).series).toEqual([{ key: '', values: [4] }])
+    expect(toChartModel([row('2025-W01', 4)], null, 8).series).toEqual([{ key: '', values: [4], qualities: [null] }])
   })
 })
 

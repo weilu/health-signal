@@ -1,6 +1,6 @@
 import pandas as pd
 import pytest
-from health_signal.profile import ERVISS, FeedRow
+from health_signal.profile import ERVISS, PHES_ODM, PROFILES, FeedRow
 
 _VALID = {
     "location": "Attica", "period": "2025-W01", "survtype": "non-sentinel", "pathogen": "Influenza",
@@ -99,3 +99,50 @@ def test_feedrow_rejects_blank_location_and_period():
     with pytest.raises(Exception):
         _row(period="")
 
+
+
+_ODM = {"location": "Testville", "period": "2025-W01", "pathogen": "Influenza", "aggregation": "floMean",
+        "indicator": "fluA", "value": "12.5", "unit": "gcDay100k"}
+
+
+def _odm_violation(**over):
+    row = {k: v for k, v in {**_ODM, **over}.items() if v is not None}
+    found = PHES_ODM.first_violation(pd.DataFrame([row]))
+    return found and found[1]
+
+
+def test_odm_accepts_a_valid_row():
+    assert _odm_violation() is None
+    assert _odm_violation(quality="beLOD", value="0") is None
+
+
+def test_odm_measure_must_match_its_pathogen():
+    assert "implies pathogen 'Influenza'" in _odm_violation(pathogen="RSV")
+    assert "implies pathogen 'Influenza'" in _odm_violation(pathogen="")
+
+
+def test_odm_pmmov_needs_no_pathogen():
+    assert _odm_violation(indicator="ppmv", pathogen="", unit="gcL", aggregation="me") is None
+
+
+def test_below_lod_rows_keep_the_producers_value():
+    # The lab or ETL decides what stands in for a non-detection (0, LOD/2, the LOD); the label carries the meaning.
+    assert _odm_violation(quality="beLOD", value="3.2") is None
+
+
+def test_unknown_quality_is_rejected():
+    assert "quality" in _odm_violation(quality="dodgy")
+    assert "quality" in _violation(quality="beLOD")  # ERVISS defines no quality indicators
+
+
+def test_odm_vocabulary_is_pinned():
+    assert "unit" in _odm_violation(unit="copies/L")
+    assert "aggregation" in _odm_violation(aggregation="mean")
+
+
+def test_profiles_are_registered_by_name():
+    assert PROFILES["erviss"] is ERVISS and PROFILES["phes_odm"] is PHES_ODM
+
+
+def test_feedrow_quality_is_optional():
+    assert FeedRow(location="A", period="2025-W01", dimensions={}, indicator="fluA", value=0, unit="gcL").quality is None

@@ -21,10 +21,11 @@ export function toChartModel(rows, seriesBy, maxSeries, span) {
   const reported = [...new Set(rows.map((r) => r.period))].sort()  // ISO weeks sort as strings
   const periods = span ? weekRange(span.from, span.to) : weekRange(reported[0], reported.at(-1))
   const byKey = new Map()
+  const qualities = new Map()
   const populations = new Map()
   for (const r of rows) {
     const key = seriesBy ? (r.dimensions?.[seriesBy] ?? '') : ''
-    if (!byKey.has(key)) { byKey.set(key, new Map()); populations.set(key, population(r, seriesBy)) }
+    if (!byKey.has(key)) { byKey.set(key, new Map()); qualities.set(key, new Map()); populations.set(key, population(r, seriesBy)) }
     // In disjoint weeks two populations never collide on a week, so compare them directly.
     const field = firstDifference(populations.get(key), population(r, seriesBy))
     if (field) return { status: 'mixedSeries', key, field }
@@ -32,12 +33,17 @@ export function toChartModel(rows, seriesBy, maxSeries, span) {
     // Two rows per series-week: the query is too broad (e.g. subtypes alongside totals).
     if (points.has(r.period)) return { status: 'ambiguous', key, period: r.period }
     points.set(r.period, r.value)
+    if (r.quality) qualities.get(key).set(r.period, r.quality)
   }
   if (byKey.size > maxSeries) return { status: 'tooManySeries', count: byKey.size }
   const keys = [...byKey.keys()].sort((a, b) => (a === '') - (b === '') || a.localeCompare(b))
   return {
     status: 'ok', unit: units[0], periods,
-    series: keys.map((key) => ({ key, values: periods.map((p) => byKey.get(key).get(p) ?? null) })),
+    series: keys.map((key) => ({
+      key,
+      values: periods.map((p) => byKey.get(key).get(p) ?? null),
+      qualities: periods.map((p) => qualities.get(key).get(p) ?? null),
+    })),
   }
 }
 

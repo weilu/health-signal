@@ -11,6 +11,7 @@ class FeedRow(BaseModel):
     value: float = Field(allow_inf_nan=False)  # nan would serialize to JSON null and read as a gap
     unit: str
     datasource: str | None = None
+    quality: str | None = None  # annotates the value (e.g. ODM beLOD), so it never splits a series
 
 
 class Profile(BaseModel):
@@ -22,6 +23,9 @@ class Profile(BaseModel):
     dimension_vocab: dict[str, set[str]]  # dimension name -> allowed values
     period_pattern: str  # granularity: week_range filters compare periods as strings, so format must be fixed
     required_dimensions: set[str] = set()
+    qualities: set[str] = set()  # allowed `quality` values
+    # indicator -> {dimension: value} it fixes, e.g. ODM measure fluA -> pathogen Influenza, so feeds join.
+    indicator_implies: dict[str, dict[str, str]] = {}
 
     def first_violation(self, df: pd.DataFrame) -> tuple[int, str] | None:
         """(row label, message) of the first row breaking the profile, rule by rule; None if clean."""
@@ -45,6 +49,14 @@ class Profile(BaseModel):
             if dim in df.columns:
                 rules.append((df[dim].ne("") & ~df[dim].isin(allowed),
                               lambda r, d=dim: f"value {r[d]!r} not allowed for dimension {d!r} in profile {self.name}"))
+        for dim in sorted({d for implied in self.indicator_implies.values() for d in implied}):
+            expected = df["indicator"].map({i: m[dim] for i, m in self.indicator_implies.items() if dim in m})
+            actual = df[dim] if dim in df.columns else pd.Series("", index=df.index)
+            rules.append((expected.notna() & actual.ne(expected),
+                          lambda r, d=dim, e=expected: f"indicator {r['indicator']!r} implies {d} {e[r.name]!r}"))
+        if "quality" in df.columns:
+            rules.append((df["quality"].ne("") & ~df["quality"].isin(self.qualities),
+                          lambda r: f"unknown quality {r['quality']!r} for profile {self.name}"))
         for dim in sorted(self.required_dimensions):
             absent = df[dim].eq("") if dim in df.columns else pd.Series(True, index=df.index)
             rules.append((absent, lambda r, d=dim: f"missing required dimension {d!r} for profile {self.name}"))
@@ -82,3 +94,30 @@ ERVISS = Profile(
     period_pattern=r"\d{4}-W\d{2}",
     required_dimensions={"survtype", "age"},  # spec §6.2: only the pathogen fields are nullable
 )
+
+
+# PHES-ODM v3.0.1 wastewater profile (spec §6.3): the respiratory subset of the ODM dictionary. The
+# indicator is ODM's measure (gene target); pathogen keeps ERVISS spelling so feeds join.
+_ODM_PATHOGEN = {
+    "cov": "SARS-CoV-2", "covN1": "SARS-CoV-2", "covN2": "SARS-CoV-2", "covE": "SARS-CoV-2",
+    "fluA": "Influenza", "fluB": "Influenza",
+    "rsvMe": "RSV", "rsvAMe": "RSV", "rsvB": "RSV", "rsvAB": "RSV",
+}
+PHES_ODM = Profile(
+    name="phes_odm",
+    version="3.0.1",
+    dimension_keys=["pathogen", "aggregation", "fraction"],
+    indicators=set(_ODM_PATHOGEN) | {"ppmv"},  # ppmv: the PMMoV faecal-strength marker, no pathogen
+    units={"gcL", "gcMl", "log10cpL", "gCGS", "gcPpmov", "gcDay", "gcDay100k"},
+    dimension_vocab={
+        "pathogen": {"Influenza", "RSV", "SARS-CoV-2"},
+        "aggregation": {"me", "med", "gmn", "floMean", "pmmovNorm", "pmFloMean"},
+        "fraction": {"liq", "sol", "mix", "mul"},
+    },
+    period_pattern=r"\d{4}-W\d{2}",
+    required_dimensions={"aggregation"},
+    qualities={"beLOD"},  # below LOD: the value is the producer's stand-in (0, LOD/2, …), not a measurement
+    indicator_implies={measure: {"pathogen": p} for measure, p in _ODM_PATHOGEN.items()},
+)
+
+PROFILES = {p.name: p for p in (ERVISS, PHES_ODM)}

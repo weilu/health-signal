@@ -13,5 +13,8 @@
     "ambiguous": "More than one row per series in {{period}}. Narrow the panel's query (e.g. pathogentype) or set series_by.",
     "mixedSeries": "Rows with different {{field}} would share one line. Narrow the panel's query or set series_by.",
     "tooManySeries": "{{count}} series are more than colour can tell apart. Narrow the panel's query." },
+  "quality": { "beLOD": "below detection limit" },
   "unit": { "per_100k": "per 100,000 population", "per_100_consultations": "per 100 consultations",
-    "per_100k_consultations": "per 100,000 consultations", "count": "count", "percent": "%", "rate": "rate" } }
+    "per_100k_consultations": "per 100,000 consultations", "count": "count", "percent": "%", "rate": "rate",
+    "gcL": "gene copies/L", "gcMl": "gene copies/mL", "log10cpL": "log10 gene copies/L", "gCGS": "gene copies/g solids",
+    "gcPpmov": "gene copies per PMMoV copy", "gcDay": "gene copies/day", "gcDay100k": "gene copies/day per 100,000 people" } }
