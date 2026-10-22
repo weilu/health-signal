@@ -4,7 +4,7 @@ import { Alert, Button, Paper, Stack, Typography } from '@mui/material'
 import { alpha, useTheme } from '@mui/material/styles'
 import { useTranslation } from 'react-i18next'
 import { fetchAssessments, fetchData, fetchThresholds } from '../api.js'
-import { activeWeeks, assessmentParams, bandsFor, levelTone, pickInRange } from '../assessments.js'
+import { activeWeeks, assessmentParams, bandAlpha, bandsFor, levelTone, pickInRange } from '../assessments.js'
 import { useMethod } from '../useMethod.js'
 import { StatusTrendTiles, TileGrid } from './StatusTrendTiles.jsx'
 import { ResourceBoundary } from '../ResourceBoundary.jsx'
@@ -31,7 +31,8 @@ export function TimeSeriesPanel({ panel, location, range, latest }) {
   const pick = single && range && assessed.data ? pickInRange(assessed.data, range, latest) : null
   const chartExtras = single ? {
     bands: bandsFor(thresholds.data ?? [], method.levels),
-    bandColour: (level) => alpha(theme.palette[levelTone(method.levels, level)].main, 0.08),
+    bandColour: (level) => alpha(theme.palette[levelTone(method.levels, level)].main, bandAlpha(method.levels, level)),
+    bandLabel: (level) => t(`level.${level}`),
     shading: activeWeeks(assessed.data ?? [], method.active_phases),
   } : {}
   const title = configLabel(t, panel.label_key, panel.id)

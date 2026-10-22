@@ -54,7 +54,7 @@ export function useChartPalette() {
   return theme.palette.chart?.[theme.palette.mode] ?? []
 }
 
-export function TimeSeriesChart({ periods, series, unit, bands = [], bandColour, shading = null, height = 320 }) {
+export function TimeSeriesChart({ periods, series, unit, bands = [], bandColour, bandLabel, shading = null, height = 320 }) {
   const theme = useTheme()
   const { t, i18n } = useTranslation()
   const palette = useChartPalette()
@@ -110,7 +110,7 @@ export function TimeSeriesChart({ periods, series, unit, bands = [], bandColour,
         },
       },
       crosshair: { color: rule },
-      thresholdBands: { bands, colour: bandColour },
+      thresholdBands: { bands, colour: bandColour, labelFor: bandLabel, lineColour: alpha(ink2, 0.5), labelColour: ink2, font: `11px ${theme.typography.fontFamily}` },
       phaseShading: { weeks: shading, colour: alpha(theme.palette.text.primary, 0.06) },
       endLabels: { enabled: labelled, color: ink2, font: labelFont },
     },

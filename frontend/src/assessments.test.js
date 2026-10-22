@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { activeWeeks, assessmentParams, bandsFor, levelTone, phaseSince, pickInRange, sameSeries } from './assessments.js'
+import { activeWeeks, assessmentParams, bandAlpha, bandsFor, levelTone, phaseSince, pickInRange, sameSeries } from './assessments.js'
 
 const a = (period, extra = {}) => ({ period, level: 'low', ...extra })
 const LEVELS = ['very_low', 'low', 'medium', 'high', 'very_high']
@@ -26,9 +26,11 @@ describe('activeWeeks', () => {
 })
 
 describe('bandsFor', () => {
-  it('turns lower bounds into bands, the top one open-ended', () => {
+  it('turns lower bounds into bands from the lowest level up, the top one open-ended', () => {
+    // Thresholds give each level's lower bound from the second level on; the lowest runs from the axis bottom.
     const rows = [{ from: 'A', to: 'B', level: 'medium', lower_bound: 20 }, { from: 'A', to: 'B', level: 'low', lower_bound: 10 }]
     expect(bandsFor(rows, LEVELS)).toEqual([
+      { from: 'A', to: 'B', level: 'very_low', lower: -Infinity, upper: 10 },
       { from: 'A', to: 'B', level: 'low', lower: 10, upper: 20 },
       { from: 'A', to: 'B', level: 'medium', lower: 20, upper: Infinity },
     ])
@@ -60,5 +62,14 @@ describe('levelTone for ungraded weeks', () => {
   it('is neutral, never the all-clear tone', () => {
     expect(levelTone(LEVELS, null)).toBe('neutral')
     expect(levelTone(LEVELS, 'alert')).toBe('neutral')
+  })
+})
+
+describe('bandAlpha', () => {
+  it('steps darker within a tone, so adjacent levels sharing a tone stay apart', () => {
+    const alphas = LEVELS.map((l) => bandAlpha(LEVELS, l))
+    expect(alphas[1]).toBeGreaterThan(alphas[0])  // low darker than very low (both green)
+    expect(alphas[4]).toBeGreaterThan(alphas[3])  // very high darker than high (both red)
+    expect(new Set(alphas.map((a, i) => `${levelTone(LEVELS, LEVELS[i])}:${a}`)).size).toBe(5)
   })
 })

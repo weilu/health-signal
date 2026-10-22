@@ -25,7 +25,9 @@ export function activeWeeks(rows, activePhases) {
   return new Set(rows.filter((r) => activePhases.includes(r.phase)).map((r) => r.period))
 }
 
-// Each level's lower bound up to the next level's, the top one open-ended.
+// Each level's lower bound up to the next level's, the top one open-ended. Thresholds give lower bounds
+// from the second level on, so the lowest level runs from the axis bottom: without it, the commonest
+// state reads as unexplained white space.
 export function bandsFor(rows, levels) {
   const spans = new Map()
   for (const r of rows) {
@@ -35,9 +37,11 @@ export function bandsFor(rows, levels) {
   }
   return [...spans.values()].flatMap((span) => {
     const sorted = [...span].sort((x, y) => levels.indexOf(x.level) - levels.indexOf(y.level))
-    return sorted.map((r, i) => ({
+    const bands = sorted.map((r, i) => ({
       from: r.from, to: r.to, level: r.level, lower: r.lower_bound, upper: sorted[i + 1]?.lower_bound ?? Infinity,
     }))
+    const lowest = levels.find((l) => !span.some((r) => r.level === l) && levels.indexOf(l) < levels.indexOf(sorted[0].level))
+    return lowest ? [{ from: sorted[0].from, to: sorted[0].to, level: lowest, lower: -Infinity, upper: sorted[0].lower_bound }, ...bands] : bands
   })
 }
 
@@ -55,6 +59,13 @@ export function sameSeries(feed, params, stream) {
   const keys = Object.keys(stream.series)
   return feed === stream.feed && keys.length === Object.keys(params).length
     && keys.every((k) => params[k] === stream.series[k])
+}
+
+// Levels sharing a tone step darker in level order, so e.g. very low and low stay distinguishable.
+export function bandAlpha(levels, level) {
+  const tone = levelTone(levels, level)
+  const rank = levels.filter((l) => levelTone(levels, l) === tone).indexOf(level)
+  return 0.1 + 0.08 * Math.max(rank, 0)
 }
 
 export function toneColor(tone) {

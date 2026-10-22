@@ -13,8 +13,26 @@ export const thresholdBands = {
       const top = Math.max(area.top, y.getPixelForValue(Math.min(b.upper, y.max)))
       const bottom = Math.min(area.bottom, y.getPixelForValue(Math.max(b.lower, y.min)))
       if (bottom <= top) continue
+      const left = x.getPixelForValue(i0)
+      const width = x.getPixelForValue(i1) - left
       ctx.fillStyle = opts.colour(b.level)
-      ctx.fillRect(x.getPixelForValue(i0), top, x.getPixelForValue(i1) - x.getPixelForValue(i0), bottom - top)
+      ctx.fillRect(left, top, width, bottom - top)
+      // A dashed boundary at each threshold, and the level named inside its band: direct labels, no key.
+      if (Number.isFinite(b.lower) && b.lower >= y.min && b.lower <= y.max) {
+        ctx.strokeStyle = opts.lineColour
+        ctx.setLineDash([4, 3])
+        ctx.beginPath()
+        ctx.moveTo(left, bottom)
+        ctx.lineTo(left + width, bottom)
+        ctx.stroke()
+        ctx.setLineDash([])
+      }
+      if (bottom - top >= 14) {
+        ctx.fillStyle = opts.labelColour
+        ctx.font = opts.font
+        ctx.textBaseline = 'middle'
+        ctx.fillText(opts.labelFor(b.level), left + 6, (top + bottom) / 2)
+      }
     }
     ctx.restore()
   },
