@@ -125,8 +125,9 @@ def test_odm_pmmov_needs_no_pathogen():
     assert _odm_violation(indicator="ppmv", pathogen="", unit="gcL", aggregation="me") is None
 
 
-def test_below_lod_rows_carry_zero():
-    assert "beLOD" in _odm_violation(quality="beLOD", value="3.2")
+def test_below_lod_rows_keep_the_producers_value():
+    # The lab or ETL decides what stands in for a non-detection (0, LOD/2, the LOD); the label carries the meaning.
+    assert _odm_violation(quality="beLOD", value="3.2") is None
 
 
 def test_unknown_quality_is_rejected():

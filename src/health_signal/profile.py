@@ -24,7 +24,6 @@ class Profile(BaseModel):
     period_pattern: str  # granularity: week_range filters compare periods as strings, so format must be fixed
     required_dimensions: set[str] = set()
     qualities: set[str] = set()  # allowed `quality` values
-    zero_qualities: set[str] = set()  # qualities whose rows must carry value 0 (below detection)
     # indicator -> {dimension: value} it fixes, e.g. ODM measure fluA -> pathogen Influenza, so feeds join.
     indicator_implies: dict[str, dict[str, str]] = {}
 
@@ -58,8 +57,6 @@ class Profile(BaseModel):
         if "quality" in df.columns:
             rules.append((df["quality"].ne("") & ~df["quality"].isin(self.qualities),
                           lambda r: f"unknown quality {r['quality']!r} for profile {self.name}"))
-            rules.append((df["quality"].isin(self.zero_qualities) & value.ne(0),
-                          lambda r: f"quality {r['quality']!r} must carry value 0, not {r['value']!r}"))
         for dim in sorted(self.required_dimensions):
             absent = df[dim].eq("") if dim in df.columns else pd.Series(True, index=df.index)
             rules.append((absent, lambda r, d=dim: f"missing required dimension {d!r} for profile {self.name}"))
@@ -119,8 +116,7 @@ PHES_ODM = Profile(
     },
     period_pattern=r"\d{4}-W\d{2}",
     required_dimensions={"aggregation"},
-    qualities={"beLOD"},
-    zero_qualities={"beLOD"},
+    qualities={"beLOD"},  # below LOD: the value is the producer's stand-in (0, LOD/2, …), not a measurement
     indicator_implies={measure: {"pathogen": p} for measure, p in _ODM_PATHOGEN.items()},
 )
 

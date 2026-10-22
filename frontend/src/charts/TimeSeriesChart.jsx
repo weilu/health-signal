@@ -101,7 +101,7 @@ export function TimeSeriesChart({ periods, series, unit }) {
           label: (c) => {
             if (c.parsed.y == null) return null
             const q = c.dataset.qualities?.[c.dataIndex]
-            // 0 below detection is "nothing the assay can see", not a measured zero.
+            // A below-detection value is the producer's stand-in (0, LOD/2, …), not a measurement.
             const value = q ? t(`quality.${q}`, { defaultValue: q }) : fmt.format(c.parsed.y)
             return `${value}  ${c.dataset.label}`  // value leads
           },
