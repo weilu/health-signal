@@ -27,23 +27,21 @@ class Profile(BaseModel):
     # indicator -> {dimension: value} it fixes, e.g. ODM measure fluA -> pathogen Influenza, so feeds join.
     indicator_implies: dict[str, dict[str, str]] = {}
 
-    def first_violation(self, df: pd.DataFrame) -> tuple[int, str] | None:
-        """(row label, message) of the first row breaking the profile, rule by rule; None if clean."""
-        value = pd.to_numeric(df["value"], errors="coerce")
-        rules = [
-            (df["location"].eq(""), lambda r: "location is empty"),
-            (df["period"].eq(""), lambda r: "period is empty"),
-            (~np.isfinite(value), lambda r: f"value {r['value']!r} is not a finite number"),
-            (~df["period"].str.fullmatch(self.period_pattern),
-             lambda r: f"period {r['period']!r} does not match {self.period_pattern!r} for profile {self.name}"),
-            # The pattern only fixes the shape; 2025-W53 fits it but doesn't exist and would fall off the axis.
-            (df["period"].str.fullmatch(r"\d{4}-W\d{2}")
-             & pd.to_datetime(df["period"] + "-1", format="%G-W%V-%u", errors="coerce").isna(),
-             lambda r: f"period {r['period']!r} is not a week of its ISO year"),
-            (~df["indicator"].isin(self.indicators),
-             lambda r: f"unknown indicator {r['indicator']!r} for profile {self.name}"),
-            (~df["unit"].isin(self.units), lambda r: f"unknown unit {r['unit']!r} for profile {self.name}"),
-        ]
+    def key_violation(self, df: pd.DataFrame, period_columns=("period",)) -> tuple[int, str] | None:
+        """The series-key rules alone, for tables keyed like the feed (assessments, thresholds)."""
+        rules = [(df["location"].eq(""), lambda r: "location is empty")]
+        for col in period_columns:
+            rules += [
+                (df[col].eq(""), lambda r, c=col: f"{c} is empty"),
+                (~df[col].str.fullmatch(self.period_pattern),
+                 lambda r, c=col: f"{c} {r[c]!r} does not match {self.period_pattern!r} for profile {self.name}"),
+                # The pattern only fixes the shape; 2025-W53 fits it but doesn't exist and would fall off the axis.
+                (df[col].str.fullmatch(r"\d{4}-W\d{2}")
+                 & pd.to_datetime(df[col] + "-1", format="%G-W%V-%u", errors="coerce").isna(),
+                 lambda r, c=col: f"{c} {r[c]!r} is not a week of its ISO year"),
+            ]
+        rules.append((~df["indicator"].isin(self.indicators),
+                      lambda r: f"unknown indicator {r['indicator']!r} for profile {self.name}"))
         # Dimensions without a vocab entry (e.g. pathogensubtype) are unconstrained.
         for dim, allowed in self.dimension_vocab.items():
             if dim in df.columns:
@@ -54,18 +52,31 @@ class Profile(BaseModel):
             actual = df[dim] if dim in df.columns else pd.Series("", index=df.index)
             rules.append((expected.notna() & actual.ne(expected),
                           lambda r, d=dim, e=expected: f"indicator {r['indicator']!r} implies {d} {e[r.name]!r}"))
-        if "quality" in df.columns:
-            rules.append((df["quality"].ne("") & ~df["quality"].isin(self.qualities),
-                          lambda r: f"unknown quality {r['quality']!r} for profile {self.name}"))
         for dim in sorted(self.required_dimensions):
             absent = df[dim].eq("") if dim in df.columns else pd.Series(True, index=df.index)
             rules.append((absent, lambda r, d=dim: f"missing required dimension {d!r} for profile {self.name}"))
-        for mask, message in rules:
-            if mask.any():
-                label = mask.idxmax()
-                return label, message(df.loc[label])
-        return None
+        return first_match(df, rules)
 
+    def first_violation(self, df: pd.DataFrame) -> tuple[int, str] | None:
+        """(row label, message) of the first row breaking the profile, rule by rule; None if clean."""
+        value = pd.to_numeric(df["value"], errors="coerce")
+        rules = [
+            (~np.isfinite(value), lambda r: f"value {r['value']!r} is not a finite number"),
+            (~df["unit"].isin(self.units), lambda r: f"unknown unit {r['unit']!r} for profile {self.name}"),
+        ]
+        if "quality" in df.columns:
+            rules.append((df["quality"].ne("") & ~df["quality"].isin(self.qualities),
+                          lambda r: f"unknown quality {r['quality']!r} for profile {self.name}"))
+        return first_match(df, rules) or self.key_violation(df)
+
+
+def first_match(df: pd.DataFrame, rules) -> tuple[int, str] | None:
+    """(row label, message) of the first row any rule flags, rules in order; None if none does."""
+    for mask, message in rules:
+        if mask.any():
+            label = mask.idxmax()
+            return label, message(df.loc[label])
+    return None
 
 # Canonical pathogen keys (spec §6.1): ERVISS's spellings, which its published data already uses; display
 # names come from i18n. Profiles, the phase table and target ids all validate against this one set.

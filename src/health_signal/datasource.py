@@ -10,7 +10,7 @@ _REQUIRED = pd.Index(["location", "period", "indicator", "value", "unit"])
 # All cells as text, blanks kept as "": default NaN/type inference would turn a blank value into nan
 # and mangle codes like "0-4". utf-8-sig drops Excel's BOM.
 _READ_CSV = dict(dtype=str, keep_default_na=False, na_filter=False, encoding="utf-8-sig")
-_PROVENANCE = ["_file", "_row"]  # where each row came from, so a conflict can name both rows
+PROVENANCE = ["_file", "_row"]  # where each row came from, so a conflict can name both rows
 
 log = logging.getLogger(__name__)
 
@@ -33,48 +33,23 @@ class FileDataSource:
         self.profile = profile
         frames = [self._load(path) for path in sorted(data_dir.glob("*.csv"))]
         # concat leaves NaN where a file lacks an optional column.
-        df = pd.concat(frames, ignore_index=True).fillna("") if frames else pd.DataFrame(columns=[*_REQUIRED, *_PROVENANCE])
+        df = pd.concat(frames, ignore_index=True).fillna("") if frames else pd.DataFrame(columns=[*_REQUIRED, *PROVENANCE])
         df = df.astype({"value": float})  # compare values as numbers: 1 and 1.0 are the same reading
         key = ["location", "period", "indicator", *(d for d in profile.dimension_keys if d in df.columns)]
-        self._df = _drop_copies_reject_conflicts(df, key).drop(columns=_PROVENANCE)
+        self._df = drop_copies_reject_conflicts(df, key).drop(columns=PROVENANCE)
 
     def _load(self, path: Path) -> pd.DataFrame:
-        try:
-            df = pd.read_csv(path, **_READ_CSV)
-        except UnicodeDecodeError as e:
-            # The bare decode error doesn't say which file; Greek Excel's plain "CSV" is cp1253.
-            raise ValueError(f"{path.name}: not valid UTF-8 (byte {e.start}) — re-save it as 'CSV UTF-8'") from e
-        except pd.errors.ParserError as e:
-            # e.g. an unclosed quote, which would otherwise swallow the rows after it.
-            raise ValueError(f"{path.name}: malformed CSV ({e})") from e
-        except pd.errors.EmptyDataError as e:
-            raise ValueError(f"{path.name}: empty file") from e
-        df.columns = df.columns.str.strip()
-        missing = _REQUIRED.difference(df.columns, sort=False)
-        if not missing.empty:
-            raise ValueError(f"{path.name}: missing column(s) {', '.join(missing)}")
-        df = df.apply(lambda col: col.str.strip())
-        if (violation := self.profile.first_violation(df)) is not None:
-            label, message = violation
-            # A data-row number: the reader skips blank lines, so a file line would be off.
-            raise ValueError(f"{path.name} row {label + 1}: {message}")
-        return df.assign(_file=path.name, _row=range(1, len(df) + 1))
+        df = read_table(path, list(_REQUIRED))
+        raise_row(path, self.profile.first_violation(df))
+        return with_provenance(df, path)
 
     def query(self, *, location=None, indicator=None, week_from=None, week_to=None,
               **dimensions) -> list[FeedRow]:
         unknown = dimensions.keys() - set(self.profile.dimension_keys)
         if unknown:
             raise ValueError(f"unknown filter(s) {', '.join(sorted(unknown))} for profile {self.profile.name}")
-        df = self._df
-        mask = pd.Series(True, index=df.index)
-        for column, wanted in (("location", location), ("indicator", indicator), *dimensions.items()):
-            if wanted is not None:
-                mask &= df[column].eq(wanted) if column in df.columns else False
-        if week_from is not None:
-            mask &= df["period"].ge(week_from)
-        if week_to is not None:
-            mask &= df["period"].le(week_to)
-        return self._to_rows(df[mask])
+        return self._to_rows(filter_rows(self._df, location=location, indicator=indicator, week_from=week_from,
+                                         week_to=week_to, dimensions=dimensions))
 
     def periods(self) -> tuple[str, str] | None:
         # ISO weeks are zero-padded, so string min/max are chronological.
@@ -93,10 +68,52 @@ class FileDataSource:
         ]
 
 
-def _drop_copies_reject_conflicts(df: pd.DataFrame, key: list[str]) -> pd.DataFrame:
+def read_table(path: Path, required: list[str]) -> pd.DataFrame:
+    try:
+        df = pd.read_csv(path, **_READ_CSV)
+    except UnicodeDecodeError as e:
+        # The bare decode error doesn't say which file; Greek Excel's plain "CSV" is cp1253.
+        raise ValueError(f"{path.name}: not valid UTF-8 (byte {e.start}) — re-save it as 'CSV UTF-8'") from e
+    except pd.errors.ParserError as e:
+        # e.g. an unclosed quote, which would otherwise swallow the rows after it.
+        raise ValueError(f"{path.name}: malformed CSV ({e})") from e
+    except pd.errors.EmptyDataError as e:
+        raise ValueError(f"{path.name}: empty file") from e
+    df.columns = df.columns.str.strip()
+    missing = pd.Index(required).difference(df.columns, sort=False)
+    if not missing.empty:
+        raise ValueError(f"{path.name}: missing column(s) {', '.join(missing)}")
+    return df.apply(lambda col: col.str.strip())
+
+
+def raise_row(path: Path, violation: tuple[int, str] | None) -> None:
+    if violation is not None:
+        label, message = violation
+        # A data-row number: the reader skips blank lines, so a file line would be off.
+        raise ValueError(f"{path.name} row {label + 1}: {message}")
+
+
+def with_provenance(df: pd.DataFrame, path: Path) -> pd.DataFrame:
+    return df.assign(_file=path.name, _row=range(1, len(df) + 1))
+
+
+def filter_rows(df: pd.DataFrame, *, location=None, indicator=None, week_from=None, week_to=None,
+                dimensions=None, period="period") -> pd.DataFrame:
+    mask = pd.Series(True, index=df.index)
+    for column, wanted in (("location", location), ("indicator", indicator), *(dimensions or {}).items()):
+        if wanted is not None:
+            mask &= df[column].eq(wanted) if column in df.columns else False
+    if week_from is not None:
+        mask &= df[period].ge(week_from)
+    if week_to is not None:
+        mask &= df[period].le(week_to)
+    return df[mask]
+
+
+def drop_copies_reject_conflicts(df: pd.DataFrame, key: list[str]) -> pd.DataFrame:
     # An exact copy carries no information (ERVISS's published files overlap by design), so it's
     # dropped. Two different readings of one series-week can't both be right, so that fails the load.
-    copies = df.duplicated(subset=df.columns.difference(_PROVENANCE))
+    copies = df.duplicated(subset=df.columns.difference(PROVENANCE))
     if copies.any():
         files = ", ".join(sorted(df.loc[copies, "_file"].unique()))
         log.warning("dropped %d exact duplicate row(s) found in %s", copies.sum(), files)

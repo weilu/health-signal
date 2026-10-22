@@ -150,3 +150,9 @@ def test_feedrow_quality_is_optional():
 
 def test_profiles_share_the_pathogen_registry():
     assert ERVISS.dimension_vocab["pathogen"] == PATHOGENS == PHES_ODM.dimension_vocab["pathogen"]
+
+
+def test_key_rules_check_every_period_column():
+    df = pd.DataFrame([{"location": "Testville", "indicator": "fluA", "pathogen": "Influenza",
+                        "aggregation": "floMean", "from": "2025-W21", "to": "2025-W53"}])
+    assert "2025-W53" in PHES_ODM.key_violation(df, period_columns=("from", "to"))[1]
