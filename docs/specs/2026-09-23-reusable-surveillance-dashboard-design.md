@@ -240,7 +240,10 @@ and sequencing files have a different shape and belong to the variant track.
     (`true`/`false`: graded with less history than the method needs), `trend` (`increasing` /
     `stable` / `decreasing` / `inconclusive`, blank where the method has none), `growth_rate`,
     `growth_lower`, `growth_upper` (numbers or blank), and `phase` (the series' own phase, e.g.
-    `in_season`, or blank) — the run of active weeks is the shaded band on that series' chart.
+    `in_season`, or blank) — the run of active weeks is the shaded band on that series' chart. Each
+    period's row is computed **as of that period**, from data available up to it: a past week shows
+    what the method said then, not a re-grade with hindsight (aedseo's thresholds and growth shift as
+    data arrives). A producer may supply only recent periods (e.g. the latest); the UI handles gaps.
   - **`thresholds.csv`** — series key × `from`/`to` (the span's first and last period, stated
     explicitly so the app needs no method's season convention) × `method` × `level` → `lower_bound`:
     one row per level boundary, so methods may have any number of bands and thresholds may be fixed
