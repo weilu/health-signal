@@ -177,3 +177,13 @@ def test_quality_reaches_the_rows(tmp_path):
     src = FileDataSource(d, PHES_ODM)
     assert [(r.value, r.quality) for r in src.query(indicator="fluA")] == [(0.0, "beLOD"), (8.5, None)]
     assert src.profile is PHES_ODM
+
+
+def test_duplicates_are_compared_as_numbers(tmp_path):
+    # 1 and 1.0 load as the same value, so they would make the series ambiguous just the same.
+    d = tmp_path / "data"
+    d.mkdir()
+    (d / "a.csv").write_text(_H + _OK, encoding="utf-8")
+    (d / "b.csv").write_text(_H + _OK.replace(",1,", ",1.0,"), encoding="utf-8")
+    with pytest.raises(ValueError, match=r"b\.csv row 1: duplicates a\.csv row 1"):
+        FileDataSource(d, ERVISS)

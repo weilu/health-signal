@@ -31,8 +31,9 @@ class FileDataSource:
         frames = [self._load(path) for path in sorted(data_dir.glob("*.csv"))]
         # concat leaves NaN where a file lacks an optional column.
         df = pd.concat(frames, ignore_index=True).fillna("") if frames else pd.DataFrame(columns=[*_REQUIRED, *_PROVENANCE])
+        df = df.astype({"value": float})  # compare values as numbers: 1 and 1.0 are the same reading
         _reject_duplicates(df)
-        self._df = df.drop(columns=_PROVENANCE).astype({"value": float})
+        self._df = df.drop(columns=_PROVENANCE)
 
     def _load(self, path: Path) -> pd.DataFrame:
         try:

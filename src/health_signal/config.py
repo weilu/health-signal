@@ -164,7 +164,7 @@ class Filters(BaseModel):
 
 class FeedConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    id: str
+    id: str = Field(min_length=1)  # the client drops empty query params, so "" could never be requested
     profile: str
     dir: str
 
