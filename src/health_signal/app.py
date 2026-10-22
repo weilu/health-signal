@@ -54,12 +54,10 @@ def create_app(
     app = FastAPI(title=config.site.title)
     provider = auth_provider if auth_provider is not None else _auth.from_env()
     provider.install(app)
+    feeds = config.data.feeds if config.data else []
     if data_sources is None:
-        feeds = config.data.feeds if config.data else []
         data_sources = {f.id: FileDataSource(f.dir, PROFILES[f.profile]) for f in feeds}
-    feed_configs = config.data.feeds if config.data else []
-    assessment_sources = {f.id: AssessmentSource(f.assessments, PROFILES[f.profile])
-                          for f in feed_configs if f.assessments}
+    assessment_sources = {f.id: AssessmentSource(f.assessments, PROFILES[f.profile]) for f in feeds if f.assessments}
     phase_source = PhaseSource(config.data.phases) if config.data and config.data.phases else None
 
     _ALWAYS_PUBLIC = ("/healthz", "/login", "/logout")
