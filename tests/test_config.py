@@ -153,7 +153,8 @@ def test_example_config_loads():
     assert all(p.panels for t in cfg.targets for p in t.pages)
     assert {f.id for f in cfg.data.feeds} == {"clinical", "wastewater"}
     # Every target pairs clinical and wastewater pages, the way greece-public-health's source tabs do.
-    assert all({p.id for p in t.pages} == {"clinical", "wastewater"} for t in cfg.targets)
+    assert all([p.id for p in t.pages] == ["overview", "clinical", "wastewater"] for t in cfg.targets)
+    assert all([x.type for x in t.pages[0].panels] == ["phase", "summary"] for t in cfg.targets)
 
 
 @pytest.mark.parametrize("bad", [
@@ -308,3 +309,18 @@ def test_a_panel_whose_indicator_implies_another_pathogen_fails():
     # cov is always SARS-CoV-2, so under the Influenza target it would show COVID data.
     with pytest.raises(ValidationError, match="target 'Influenza'"):
         _with_panel({"id": "w", "query": {"feed": "wastewater", "indicator": "cov", "dimensions": {"aggregation": "floMean"}}})
+
+
+def test_overview_panels_take_no_query():
+    _with_panel({"id": "phase", "type": "phase"})
+    _with_panel({"id": "summary", "type": "summary"})
+
+
+@pytest.mark.parametrize("bad", [
+    {"id": "phase", "type": "phase", "query": {"feed": "clinical", "indicator": "deaths"}},
+    {"id": "summary", "type": "summary", "series_by": "age"},
+    {"id": "deaths", "type": "timeseries"},  # a time series needs its query
+])
+def test_panel_kinds_check_their_fields(bad):
+    with pytest.raises(ValidationError):
+        _with_panel(bad)
