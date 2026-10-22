@@ -241,7 +241,9 @@ class Config(BaseModel):
                 for panel in page.panels:
                     if (problem := _panel_problem(panel, profiles)) is not None:
                         raise ValueError(f"panel {panel.id!r} on page {page.id!r}: {problem}")
-                    pathogen = panel.query.dimensions.get("pathogen")
+                    # Explicit, or implied by the indicator (wastewater cov is always SARS-CoV-2).
+                    implied = profiles[panel.query.feed].indicator_implies.get(panel.query.indicator, {})
+                    pathogen = panel.query.dimensions.get("pathogen") or implied.get("pathogen")
                     if pathogen is not None and pathogen != target.id:
                         raise ValueError(f"panel {panel.id!r} on page {page.id!r} queries pathogen {pathogen!r} "
                                          f"but sits under target {target.id!r}")

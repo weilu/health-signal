@@ -85,7 +85,8 @@ class AssessmentSource:
         self._t = t.drop(columns=PROVENANCE)
 
     def _assessment_violation(self, df: pd.DataFrame):
-        growth = df[_GROWTH].apply(pd.to_numeric, errors="coerce")
+        # astype: an empty column stays object dtype after to_numeric, and isfinite rejects object.
+        growth = df[_GROWTH].apply(pd.to_numeric, errors="coerce").astype(float)
         blank = df[_GROWTH].eq("")
         no_trend = df["method"].map(lambda m: m in METHODS and not METHODS[m].trend).astype(bool)
         in_interval = (np.isfinite(growth).all(axis=1) & (growth["growth_lower"] <= growth["growth_rate"])
@@ -106,7 +107,7 @@ class AssessmentSource:
         return first_match(df, rules) or self.profile.key_violation(df)
 
     def _threshold_violation(self, df: pd.DataFrame):
-        bound = pd.to_numeric(df["lower_bound"], errors="coerce")
+        bound = pd.to_numeric(df["lower_bound"], errors="coerce").astype(float)
         rules = [
             (~df["method"].isin(METHODS), lambda r: f"unknown method {r['method']!r}"),
             (df["level"].eq("") | _outside_method(df, "level", "levels"),

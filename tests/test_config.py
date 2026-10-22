@@ -301,3 +301,9 @@ def test_feeds_and_phases_take_optional_assessment_dirs():
     data = DataConfig(feeds=[{"id": "c", "profile": "erviss", "dir": "a", "assessments": "a/assessed"}], phases="p")
     assert (data.feeds[0].assessments, data.phases) == ("a/assessed", "p")
     assert DataConfig(feeds=[{"id": "c", "profile": "erviss", "dir": "a"}]).phases is None
+
+
+def test_a_panel_whose_indicator_implies_another_pathogen_fails():
+    # cov is always SARS-CoV-2, so under the Influenza target it would show COVID data.
+    with pytest.raises(ValidationError, match="target 'Influenza'"):
+        _with_panel({"id": "w", "query": {"feed": "wastewater", "indicator": "cov", "dimensions": {"aggregation": "floMean"}}})

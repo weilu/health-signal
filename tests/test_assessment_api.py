@@ -53,3 +53,8 @@ def test_unknown_feed_or_dimension_is_422(tmp_path):
     client = _client(tmp_path)
     assert client.get("/api/assessments", params={"feed": "sewage"}).status_code == 422
     assert client.get("/api/thresholds", params={"feed": "wastewater", "survtype": "x"}).status_code == 422
+
+
+def test_phases_reject_unknown_filters(tmp_path):
+    # An ignored typo (?pathogn=) would silently return every pathogen.
+    assert _client(tmp_path).get("/api/phases", params={"pathogn": "RSV"}).status_code == 422

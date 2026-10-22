@@ -152,6 +152,7 @@ def create_app(
 
     @app.get("/api/phases", response_model=list[PhaseRow])
     def get_phases(
+        request: Request,
         user: User = Depends(require_auth),
         location: str | None = None,
         pathogen: str | None = None,
@@ -159,6 +160,10 @@ def create_app(
         week_from: str | None = Query(default=None, pattern=_WEEK),
         week_to: str | None = Query(default=None, pattern=_WEEK),
     ) -> list[PhaseRow]:
+        unknown = request.query_params.keys() - {"location", "pathogen", "method", "week_from", "week_to"}
+        if unknown:
+            # An ignored typo (?pathogn=) would silently return every pathogen.
+            raise HTTPException(status_code=422, detail=f"unknown filter(s) {', '.join(sorted(unknown))}")
         return phase_source.phases(location=location, pathogen=pathogen, method=method,
                                    week_from=week_from, week_to=week_to) if phase_source else []
 

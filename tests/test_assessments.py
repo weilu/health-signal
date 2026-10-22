@@ -77,3 +77,13 @@ def test_phases_load_and_validate(tmp_path):
     (d / "phase.csv").write_text(_P + "Testville,Measles,2025-W02,aedseo,in_season\n", encoding="utf-8")
     with pytest.raises(ValueError, match=r"phase\.csv row 1: .*pathogen"):
         PhaseSource(d)
+
+
+def test_header_only_tables_load_empty(tmp_path):
+    # A producer may export before the season's first assessment.
+    src = _src(tmp_path, "", "")
+    assert src.assessments() == [] and src.thresholds() == []
+    d = tmp_path / "phases"
+    d.mkdir()
+    (d / "phase.csv").write_text(_P, encoding="utf-8")
+    assert PhaseSource(d).phases() == []
