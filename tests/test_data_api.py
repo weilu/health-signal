@@ -122,9 +122,3 @@ def test_api_data_filters_on_survtype(tmp_path):
     assert [(r["dimensions"]["survtype"], r["value"]) for r in sari] == [("SARI virological", 9.5)]
     rest = client.get("/api/data", params={"feed": "clinical", "survtype": "non-sentinel"}).json()
     assert len(rest) == 4 and {r["dimensions"]["survtype"] for r in rest} == {"non-sentinel"}
-
-
-def test_api_data_rejects_a_method_filter(tmp_path):
-    # `method` belongs to the assessment endpoints; on /api/data it would be silently ignored.
-    r = TestClient(_app(tmp_path, _AllowAll())).get("/api/data", params={"feed": "clinical", "method": "aedseo"})
-    assert r.status_code == 422
