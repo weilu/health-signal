@@ -6,13 +6,25 @@ import { levelTone, toneColor } from '../assessments.js'
 // growth_* are proportional change per period (spec §6.3), so -0.2 reads -20%/wk.
 const pct = (v) => `${v > 0 ? '+' : ''}${Math.round(v * 100)}%`
 
+// The chart card and its tiles as sibling cards, as greece-public-health lays them out; one column on phones.
+export function TileGrid({ card, tiles }) {
+  if (!tiles) return card
+  return (
+    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1.85fr 1fr' }, gap: 3, alignItems: 'start' }}>
+      {card}
+      {tiles}
+    </Box>
+  )
+}
+
 // Not-current tiles are dashed and muted so a past state isn't read as now (spec §9).
 export function Tile({ title, current, footer, children }) {
   return (
-    <Paper variant="outlined" sx={{ p: 1.5, flex: 1, opacity: current ? 1 : 0.75, borderStyle: current ? 'solid' : 'dashed' }}>
+    <Paper component="section" variant="outlined" aria-label={title}
+      sx={{ px: 3, py: 2.75, opacity: current ? 1 : 0.75, borderStyle: current ? 'solid' : 'dashed' }}>
       <Typography variant="overline" color="text.secondary" component="p">{title}</Typography>
       {children}
-      <Typography variant="caption" color="text.secondary" component="p">{footer}</Typography>
+      <Typography variant="caption" color="text.secondary" component="p" sx={{ mt: 1 }}>{footer}</Typography>
     </Paper>
   )
 }
@@ -20,7 +32,7 @@ export function Tile({ title, current, footer, children }) {
 export function NoneInRange() {
   const { t } = useTranslation()
   return (
-    <Paper variant="outlined" sx={{ p: 1.5 }}>
+    <Paper variant="outlined" sx={{ px: 3, py: 2.75 }}>
       <Typography variant="body2" color="text.secondary">{t('assessment.noneInRange')}</Typography>
     </Paper>
   )
@@ -35,17 +47,20 @@ export function StatusTrendTiles({ pick, method }) {
   if (!pick.row) return <NoneInRange />
   const { row, current } = pick
   const footer = asOfFooter(t, pick, row.method)
+  const tone = toneColor(levelTone(method.levels, row.level))
   return (
-    <Stack direction={{ xs: 'row', md: 'column' }} spacing={1.5} useFlexGap>
+    <Stack spacing={2.25}>
       <Tile title={t('assessment.status')} current={current} footer={footer}>
-        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-          <Box sx={{ width: 10, height: 10, borderRadius: '50%', flexShrink: 0, bgcolor: toneColor(levelTone(method.levels, row.level)) }} />
-          <Typography variant="h6" component="p">{row.level ? t(`level.${row.level}`) : t('assessment.ungraded')}</Typography>
+        <Stack direction="row" spacing={1.25} sx={{ alignItems: 'center' }}>
+          <Box sx={{ width: 12, height: 12, borderRadius: '50%', flexShrink: 0, bgcolor: tone }} />
+          <Typography variant="h5" component="p" sx={{ color: tone === 'grey.500' ? 'text.secondary' : tone }}>
+            {row.level ? t(`level.${row.level}`) : t('assessment.ungraded')}
+          </Typography>
           {row.provisional && <Chip size="small" variant="outlined" label={t('assessment.provisional')} />}
         </Stack>
       </Tile>
       <Tile title={t('assessment.trend')} current={current} footer={footer}>
-        <Typography variant="h6" component="p">{row.trend ? t(`trend.${row.trend}`) : '—'}</Typography>
+        <Typography variant="h5" component="p">{row.trend ? t(`trend.${row.trend}`) : '—'}</Typography>
         {row.growth_rate != null && (
           <Typography variant="body2" color="text.secondary">
             {t('assessment.growth', { rate: pct(row.growth_rate), lower: pct(row.growth_lower), upper: pct(row.growth_upper) })}

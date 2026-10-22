@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Alert, Box, Button, Paper, Stack, Typography } from '@mui/material'
+import { Alert, Button, Paper, Stack, Typography } from '@mui/material'
 import { alpha, useTheme } from '@mui/material/styles'
 import { useTranslation } from 'react-i18next'
 import { fetchAssessments, fetchData, fetchThresholds } from '../api.js'
 import { activeWeeks, assessmentParams, bandsFor, levelTone, pickInRange } from '../assessments.js'
 import { useMethod } from '../useMethod.js'
-import { StatusTrendTiles } from './StatusTrendTiles.jsx'
+import { StatusTrendTiles, TileGrid } from './StatusTrendTiles.jsx'
 import { ResourceBoundary } from '../ResourceBoundary.jsx'
 import { toChartModel } from '../series.js'
 import { configLabel, weekStamp } from '../labels.js'
@@ -35,8 +35,8 @@ export function TimeSeriesPanel({ panel, location, range, latest }) {
     shading: activeWeeks(assessed.data ?? [], method.active_phases),
   } : {}
   const title = configLabel(t, panel.label_key, panel.id)
-  return (
-    <Paper component="section" variant="outlined" aria-label={title} sx={{ p: 2 }}>
+  const card = (
+    <Paper component="section" variant="outlined" aria-label={title} sx={{ p: 2, minWidth: 0 }}>
       <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
         <Typography variant="h6" component="h2">{title}</Typography>
         <Button size="small" onClick={() => setAsTable((v) => !v)}>{t(asTable ? 'chart.showChart' : 'chart.showTable')}</Button>
@@ -52,19 +52,12 @@ export function TimeSeriesPanel({ panel, location, range, latest }) {
           }
           const series = model.series.map((s) => ({ ...s, label: panel.series_by ? s.key || t('chart.unspecified') : title }))
           const unit = t(`unit.${model.unit}`, { defaultValue: model.unit })
-          const body = asTable
+          return asTable
             ? <SeriesTable periods={model.periods} series={series} unit={unit} />
             : <TimeSeriesChart periods={model.periods} series={series} unit={unit} {...chartExtras} />
-          if (!pick) return body
-          return (
-            // Tiles sit beside the chart, and above it on phones.
-            <Stack direction={{ xs: 'column-reverse', md: 'row' }} spacing={2}>
-              <Box sx={{ flex: 1, minWidth: 0 }}>{body}</Box>
-              <Box sx={{ width: { md: 240 }, flexShrink: 0 }}><StatusTrendTiles pick={pick} method={method} /></Box>
-            </Stack>
-          )
         }}
       </ResourceBoundary>
     </Paper>
   )
+  return <TileGrid card={card} tiles={pick && <StatusTrendTiles pick={pick} method={method} />} />
 }

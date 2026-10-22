@@ -7,7 +7,7 @@ import { configLabel, weekStamp } from '../labels.js'
 import { ResourceBoundary } from '../ResourceBoundary.jsx'
 import { toChartModel } from '../series.js'
 import { useMethod } from '../useMethod.js'
-import { NoneInRange, Tile, asOfFooter } from './StatusTrendTiles.jsx'
+import { NoneInRange, Tile, TileGrid, asOfFooter } from './StatusTrendTiles.jsx'
 import { TimeSeriesChart } from './TimeSeriesChart.jsx'
 
 export function phaseQuery(target, location, method) {
@@ -51,33 +51,26 @@ export function PhasePanel({ panel, target, location, range, latest }) {
   const phases = useQuery({ queryKey: ['phases', base], queryFn: () => fetchPhases(base), enabled: !!method })
   const streams = useQuery({ queryKey: ['phase-streams', base], queryFn: () => fetchPhaseStreams(base), enabled: !!method })
   const title = configLabel(t, panel.label_key, panel.id)
-  return (
-    <Paper component="section" variant="outlined" aria-label={title} sx={{ p: 2 }}>
+  const rows = phases.data ?? []
+  const pick = rows.length && range ? pickInRange(rows, range, latest) : null
+  const tile = pick && (pick.row ? (
+    <Tile title={t('phase.title')} current={pick.current} footer={asOfFooter(t, pick, pick.row.method)}>
+      <Typography variant="h5" component="p">{phaseLabel(t, pick.row, rows, method)}</Typography>
+    </Tile>
+  ) : <NoneInRange />)
+  const card = (
+    <Paper component="section" variant="outlined" aria-label={title} sx={{ p: 2, minWidth: 0 }}>
       <Typography variant="h6" component="h2" sx={{ mb: 1 }}>{title}</Typography>
       <ResourceBoundary query={phases}>
-        {(rows) => {
-          if (!rows.length) return <Typography color="text.secondary">{t('phase.none')}</Typography>
-          const pick = range ? pickInRange(rows, range, latest) : null
-          const shading = activeWeeks(rows, method.active_phases)
+        {(loaded) => {
+          if (!loaded.length) return <Typography color="text.secondary">{t('phase.none')}</Typography>
+          const shading = activeWeeks(loaded, method.active_phases)
+          // A declared or stream-less phase has no evidence to chart; the card keeps just the rule text.
           return (
-            <Stack direction={{ xs: 'column-reverse', md: 'row' }} spacing={2}>
-              {/* A declared or stream-less phase has no evidence to chart; the tile stands alone. */}
-              {streams.data?.length > 0 && (
-                <Stack spacing={2} sx={{ flex: 1, minWidth: 0 }}>
-                  {streams.data.map((s) => (
-                    <StreamChart key={s.role} stream={s} location={location} range={range} shading={shading} />
-                  ))}
-                </Stack>
-              )}
-              {pick && (
-                <Box sx={{ width: { md: 240 }, flexShrink: 0 }}>
-                  {pick.row ? (
-                    <Tile title={t('phase.title')} current={pick.current} footer={asOfFooter(t, pick, pick.row.method)}>
-                      <Typography variant="h6" component="p">{phaseLabel(t, pick.row, rows, method)}</Typography>
-                    </Tile>
-                  ) : <NoneInRange />}
-                </Box>
-              )}
+            <Stack spacing={2}>
+              {(streams.data ?? []).map((s) => (
+                <StreamChart key={s.role} stream={s} location={location} range={range} shading={shading} />
+              ))}
             </Stack>
           )
         }}
@@ -89,4 +82,5 @@ export function PhasePanel({ panel, target, location, range, latest }) {
       )}
     </Paper>
   )
+  return <TileGrid card={card} tiles={tile} />
 }
