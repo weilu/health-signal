@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from typing import Protocol
 
@@ -9,7 +10,9 @@ _REQUIRED = pd.Index(["location", "period", "indicator", "value", "unit"])
 # All cells as text, blanks kept as "": default NaN/type inference would turn a blank value into nan
 # and mangle codes like "0-4". utf-8-sig drops Excel's BOM.
 _READ_CSV = dict(dtype=str, keep_default_na=False, na_filter=False, encoding="utf-8-sig")
-_PROVENANCE = ["_file", "_row"]  # where each row came from, so a duplicate can name both copies
+_PROVENANCE = ["_file", "_row"]  # where each row came from, so a conflict can name both rows
+
+log = logging.getLogger(__name__)
 
 
 class DataSource(Protocol):
@@ -32,8 +35,8 @@ class FileDataSource:
         # concat leaves NaN where a file lacks an optional column.
         df = pd.concat(frames, ignore_index=True).fillna("") if frames else pd.DataFrame(columns=[*_REQUIRED, *_PROVENANCE])
         df = df.astype({"value": float})  # compare values as numbers: 1 and 1.0 are the same reading
-        _reject_duplicates(df)
-        self._df = df.drop(columns=_PROVENANCE)
+        key = ["location", "period", "indicator", *(d for d in profile.dimension_keys if d in df.columns)]
+        self._df = _drop_copies_reject_conflicts(df, key).drop(columns=_PROVENANCE)
 
     def _load(self, path: Path) -> pd.DataFrame:
         try:
@@ -90,11 +93,18 @@ class FileDataSource:
         ]
 
 
-def _reject_duplicates(df: pd.DataFrame) -> None:
-    # A repeated row (often a re-exported file) would make its series look ambiguous on every chart.
-    data = df.columns.difference(_PROVENANCE)
-    repeated = df.duplicated(subset=data)
-    if repeated.any():
-        later = df[repeated].iloc[0]
-        first = df[(df[data] == later[data]).all(axis=1)].iloc[0]
-        raise ValueError(f"{later['_file']} row {later['_row']}: duplicates {first['_file']} row {first['_row']}")
+def _drop_copies_reject_conflicts(df: pd.DataFrame, key: list[str]) -> pd.DataFrame:
+    # An exact copy carries no information (ERVISS's published files overlap by design), so it's
+    # dropped. Two different readings of one series-week can't both be right, so that fails the load.
+    copies = df.duplicated(subset=df.columns.difference(_PROVENANCE))
+    if copies.any():
+        files = ", ".join(sorted(df.loc[copies, "_file"].unique()))
+        log.warning("dropped %d exact duplicate row(s) found in %s", copies.sum(), files)
+        df = df[~copies]
+    clash = df.duplicated(subset=key)
+    if clash.any():
+        later = df[clash].iloc[0]
+        first = df[(df[key] == later[key]).all(axis=1)].iloc[0]
+        raise ValueError(f"{later['_file']} row {later['_row']}: conflicts with {first['_file']} row {first['_row']} "
+                         f"(same {', '.join(key)}; different values)")
+    return df

@@ -158,14 +158,24 @@ def test_periods_of_an_empty_feed_are_none(tmp_path):
     assert FileDataSource(d, ERVISS).periods() is None
 
 
-def test_exact_duplicate_rows_across_files_fail_naming_both(tmp_path):
+def test_exact_duplicate_rows_are_dropped_with_a_warning(tmp_path, caplog):
+    # ERVISS's published files overlap by design; an exact copy carries no information.
     d = tmp_path / "data"
     d.mkdir()
     (d / "a.csv").write_text(_H + _OK, encoding="utf-8")
     (d / "b.csv").write_text(_H + _OK.replace("A,", "B,") + _OK, encoding="utf-8")
-    with pytest.raises(ValueError, match=r"b\.csv row 2: duplicates a\.csv row 1"):
-        FileDataSource(d, ERVISS)
+    rows = FileDataSource(d, ERVISS).query()
+    assert sorted(r.location for r in rows) == ["A", "B"]  # same value, other location: a different reading
+    assert "1 exact duplicate row(s)" in caplog.text and "b.csv" in caplog.text
 
+
+def test_conflicting_readings_fail_naming_both(tmp_path):
+    d = tmp_path / "data"
+    d.mkdir()
+    (d / "a.csv").write_text(_H + _OK, encoding="utf-8")
+    (d / "b.csv").write_text(_H + _OK.replace("A,", "B,") + _OK.replace(",1,", ",2,"), encoding="utf-8")
+    with pytest.raises(ValueError, match=r"b\.csv row 2: conflicts with a\.csv row 1"):
+        FileDataSource(d, ERVISS)
 
 def test_quality_reaches_the_rows(tmp_path):
     d = tmp_path / "ww"
@@ -180,10 +190,9 @@ def test_quality_reaches_the_rows(tmp_path):
 
 
 def test_duplicates_are_compared_as_numbers(tmp_path):
-    # 1 and 1.0 load as the same value, so they would make the series ambiguous just the same.
+    # 1 and 1.0 are the same reading, so the second is an exact copy, not a conflict.
     d = tmp_path / "data"
     d.mkdir()
     (d / "a.csv").write_text(_H + _OK, encoding="utf-8")
     (d / "b.csv").write_text(_H + _OK.replace(",1,", ",1.0,"), encoding="utf-8")
-    with pytest.raises(ValueError, match=r"b\.csv row 1: duplicates a\.csv row 1"):
-        FileDataSource(d, ERVISS)
+    assert [r.value for r in FileDataSource(d, ERVISS).query()] == [1.0]

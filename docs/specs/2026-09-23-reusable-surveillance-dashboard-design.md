@@ -249,8 +249,10 @@ class DataSource(Protocol):
 
 - One `DataSource` per configured feed, keyed by feed id; each validates against its own profile.
 - `FileDataSource(data_dir, profile)` — reads profile-format CSV with pandas and validates every row
-  against the profile (fails at load naming the file and data row). Exact duplicate rows across a
-  feed's files fail at load too: a duplicated row would make a series look ambiguous. **MVP.** Parquet/JSON can be added behind it later.
+  against the profile (fails at load naming the file and data row). Across a feed's files, an exact
+  copy of a row is dropped with a logged warning (it carries no information, and ERVISS's published
+  files overlap by design), while two different readings of one series-week — same location, period,
+  indicator and dimensions, different value or unit — fail at load naming both rows. **MVP.** Parquet/JSON can be added behind it later.
 - `PostgresDataSource(dsn)` — same schema as a table/view. **Deferred.**
 - `DHIS2DataSource(base_url, token)` — pulls aggregate/analytics data via the DHIS2 Web API and maps
   it into a feed's schema profile, for countries that run DHIS2 as their HMIS. **Deferred.**
@@ -477,7 +479,7 @@ cap and lifecycle.
 
 Stage 4c (Status/Trend, z-score severity, wastewater) exceeds the cap, so it ships as four PRs:
 **4c-1** wastewater feed (multiple feeds, the `phes_odm` profile, profile-derived `/api/data`
-parameters, duplicate-row rejection, wastewater pages); **4c-2** the assessment / thresholds / phase
+parameters, duplicate and conflicting-row handling, wastewater pages); **4c-2** the assessment / thresholds / phase
 contract and its endpoint (§6.3), no UI; **4c-3** Status/Trend tiles, threshold bands and season-phase
 shading; **4c-4** the EuroMOMO-style mortality z-score strip.
 
