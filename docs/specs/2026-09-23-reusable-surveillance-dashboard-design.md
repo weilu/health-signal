@@ -122,9 +122,26 @@ A profile is a Pydantic-backed declaration: `dimensions` (names + controlled voc
 `indicators`, `units`, `period` granularity, and validation rules. New rows — not schema changes —
 add pathogens/strata/indicators within a profile.
 
+**Pathogens.** One shared registry of canonical pathogen keys (`SARS-CoV-2`, `Influenza`, `RSV`;
+extended for other domains, e.g. polio or HIV). The keys use ERVISS's spellings: ERVISS is the EU
+standard and its published data already uses them, so an ERVISS feed needs no mapping, and display
+names come from i18n (`pathogens.SARS-CoV-2`). Every profile's `pathogen` dimension, the pathogen
+phase table (§6.3) and target ids validate against it. (WHO's ICD-11 has infectious-agent extension
+codes, e.g. `XN109` for SARS-CoV-2; nothing here uses them, so they are not carried.)
+
+**Targets, pages and paths.** A target is a surveillance subject, so its `id` is a pathogen registry
+key; there is no separate pathogen field. A panel that sets `pathogen` in its query must equal its
+target's id, so a COVID tab can't show influenza. Cross-pathogen views are pages, not targets. Page
+paths are derived, not configured: `/<lower-cased target id>/<page id>` (e.g. `/sars-cov-2/clinical`),
+with page ids URL-safe (`[a-z0-9_-]+`); target ids and page ids being unique makes paths unique, and
+no registry key may slugify to an app route (`config`, `api`, `login`, …). The server sends the
+derived `path` and `label_key` to the client as computed fields. (Non-organism subjects such as AMR,
+which spans organisms × antibiotics, are decided when an AMR profile arrives.)
+
 **Feeds.** A dashboard serves one or more feeds, each a directory of one profile's rows:
-`data.feeds: [{id, profile, dir}]` (required; ids unique; e.g. `clinical`/`erviss` and
-`wastewater`/`phes_odm`). There is no default feed: every panel names the one it reads.
+`data.feeds: [{id, profile, dir, assessments?}]` (required; ids unique; e.g. `clinical`/`erviss` and
+`wastewater`/`phes_odm`), plus an optional `data.phases` directory (§6.3). There is no default feed:
+every panel names the one it reads.
 
 Pages declare **panels** in config — a `type` (default `timeseries`; later kinds such as status tiles or
 stacked bars are stated explicitly), a `query` (a required `feed`, an `indicator`
@@ -201,25 +218,65 @@ and sequencing files have a different shape and belong to the variant track.
   concentrations → `aggregation` `floMean` / `pmmovNorm` with their units; NWSS's below-LOD flag →
   `quality: beLOD`. NWSS's derived WVAL has no ODM code. (Exact NWSS field names are pinned from the
   current NWSS data dictionary when a US adopter needs the crosswalk.)
-- **Derived analytics (Status / Trend / season phase) — a separate, method-agnostic contract, not
-  feed rows.** These are *assessments of a series* by a method (aedseo, MEM, …), not observations:
-  categorical, carrying uncertainty, thresholds and method parameters that do not fit a numeric feed
-  row. Computed by the **country ETL** (e.g. greece-public-health's aedseo bridge); the app only
-  presents them. Three tables, each at its natural grain:
-  - **assessment** — series key (`location` + the profile's `dimensions` + `indicator`) × `period` ×
-    `method` → `level` (`very low`…`very high`, null = no data), `provisional` (too little history),
-    `trend` (`increasing`/`stable`/`decreasing`/`inconclusive`, null where the method has none, e.g.
-    MEM), `growth_rate` + `growth_lower`/`growth_upper` (nullable).
-  - **thresholds** — series × season × `method` → the level boundaries (and aedseo's disease
-    threshold), so charts can draw the bands.
-  - **phase** — `location` × `pathogen` × `period` × `method` → `in season` / `pre-season` /
-    `in wave` / `between waves` and the shaded band (the pathogen-level, multi-stream rollup).
+- **Derived analytics (Status / Trend / phase) — a separate, method-agnostic contract, not feed
+  rows.** These are *assessments of a series* by a method (aedseo, MEM, IDSR-style thresholds, …), not
+  observations: categorical, carrying uncertainty and thresholds that don't fit a numeric feed row.
+  They are **computed outside the app**, by the analytics component (§6.3.1) or by a country's own
+  ETL, and the app only loads and presents them. The tables are the interface between the two.
 
-  **Methods coexist** as rows with different `method` values; config decides whether the UI shows one,
-  the other, or a comparison — a producer choice plus a display toggle, no app logic. Whether MEM is
-  viable for a series is a data-depth question (its thresholds need several seasons of history), not a
-  schema one. Loaded in Stage 4c-2, shown by the Status/Trend UI in 4c-3. *(A shared `StatusTrendEstimator` with
-  pluggable aedseo/MEM estimators remains a post-MVP producer-side idea — §14.)*
+  **Methods** are a registry in code, like profiles, read by both the app and the analytics
+  component. Each declares its **ordered** `levels`, its `phases`, and whether it produces a `trend`;
+  e.g. aedseo: levels `very_low` < `low` < `medium` < `high` < `very_high`, phases `in_season`,
+  `in_wave`, `out_of_season`, trend yes. Vocabularies are per method because other domains grade
+  differently: IDSR-style surveillance of epidemic-prone diseases uses *normal / alert / epidemic*
+  against fixed or week-of-year thresholds; polio AFP surveillance and HIV 95-95-95 monitoring grade
+  attainment against fixed targets, with outbreak status as the useful phase and no season. The UI
+  colours levels by their order, so tiles work for any method.
+
+  **Three tables**, long CSVs at their natural grain, codes not display text:
+  - **`assessment.csv`** — series key (`location` + `indicator` + the feed profile's dimensions) ×
+    `period` (every period, so tiles can describe any selected range, not only the latest week) ×
+    `method` → `level` (the method's code, or blank when ungradeable), `provisional`
+    (`true`/`false`: graded with less history than the method needs), `trend` (`increasing` /
+    `stable` / `decreasing` / `inconclusive`, blank where the method has none), `growth_rate`,
+    `growth_lower`, `growth_upper` (numbers or blank), and `phase` (the series' own phase, e.g.
+    `in_season`, or blank) — the run of active weeks is the shaded band on that series' chart.
+  - **`thresholds.csv`** — series key × `from`/`to` (the span's first and last period, stated
+    explicitly so the app needs no method's season convention) × `method` × `level` → `lower_bound`:
+    one row per level boundary, so methods may have any number of bands and thresholds may be fixed
+    (one span) or change per season or per week. Draws the chart bands.
+  - **`phase.csv`** — `location` × `pathogen` × `period` × `method` → `phase` (e.g. `in_season`,
+    `in_wave`, `out_of_season`): the pathogen-level status behind the "in season since W48" badge,
+    e.g. greece-public-health's cross-stream rule (community and admissions streams have each onset
+    and their runs overlap). **Precomputed, not derived in the app:** the rule is a policy choice that
+    belongs with the analysis, and a country may write its officially declared season here instead.
+    `out_of_season`, not "pre-season": a quiet week can't tell before-onset from after-season.
+
+  **Attachment and validation.** Assessments attach to a feed — `data.feeds[].assessments: <dir>`
+  holding `assessment.csv` and `thresholds.csv`, validated against that feed's profile — and the
+  cross-feed pathogen phases to `data.phases: <dir>`; both optional (no assessments, no tiles). At
+  load, failing fast with file and row: series keys valid for the profile and periods matching its
+  format; `method` in the registry and `level` / `phase` / `trend` in that method's lists or blank
+  (`trend` blank for a method without one); growth finite with `lower ≤ rate ≤ upper`, or all blank;
+  thresholds with `from ≤ to`, non-overlapping spans per series and method, and lower bounds rising
+  in level order; phase pathogens in the registry. Duplicates follow the feed rule: exact copies
+  dropped with a warning, conflicting readings for one series × period × method fail the load.
+  Assessment rows for series no panel shows are allowed.
+
+  **Methods coexist** as rows with different `method` values; config decides whether the UI shows one
+  or a comparison. Whether MEM is viable for a series is a data-depth question (its thresholds need
+  several seasons of history), not a schema one.
+
+#### 6.3.1 Analytics component
+
+The methods are standard, so they are computed once, generically, rather than in each country's
+ETL: `health_signal.analytics` reads feeds (a series is location + dimensions + indicator, with its
+periods and values) and writes the tables above, via a CLI (`health-signal assess --config
+dashboard.yaml`) run as a batch step after the feeds refresh. aedseo first (Status, Trend, onset and
+phase), generalised from greece-public-health's aedseo bridge; MEM and others as further registry
+entries. aedseo and MEM are R packages (via rpy2), so the component installs as an optional extra
+(`health-signal[analytics]`) and the app itself stays free of R. Countries may still supply their own
+tables in the same format.
 
 ### 6.4 Future profiles (post-MVP)
 
@@ -309,9 +366,12 @@ provider's login routes are always public. Default-locked matches "keep content 
 |---|---|---|
 | `GET /login`, `POST /login`, `POST /logout` | public / session | account login, session cookie |
 | `GET /api/me` | required | current user (name/role for the UI) |
-| `GET /api/config` | required | which pathogens/indicators/layout/branding/locales |
+| `GET /api/config` | required | which pathogens/indicators/layout/branding/locales, plus the method registry (each method's ordered levels, phases, trend) |
 | `GET /api/periods` | required | `{first, last}` ISO weeks spanned across all feeds (null without data); bounds the date-range control |
 | `GET /api/data?feed=…&…` | required | rows from one feed (required `feed`); filters: `location`, `indicator`, `week_from`/`week_to`, and that feed's profile dimensions. Parameters come from the feed's profile, so a new profile needs no route change; an unknown feed or dimension is a 422 |
+| `GET /api/assessments?feed=…&…` | required | assessment rows for one feed; same filters as `/api/data` plus optional `method`. A feed without assessments returns `[]` |
+| `GET /api/thresholds?feed=…&…` | required | threshold rows whose `from`–`to` span overlaps `week_from`–`week_to`; same filters plus optional `method` |
+| `GET /api/phases?…` | required | pathogen phase rows; filters `location`, `pathogen`, `method`, `week_from`/`week_to` |
 | `GET /api/locales/{lang}` | required | translation bundle (library base + country overrides, merged) |
 | `GET /api/methodology/{lang}` | required | config-selected methodology content (Markdown) for the Methodology view |
 | `GET /docs`, `/redoc`, `/openapi.json` | required | auto-generated API documentation (Swagger UI / ReDoc / OpenAPI schema) |
@@ -335,8 +395,8 @@ precedence over client-side routes.
   no code. Prototype panels/logic (Status/Trend tiles, range selector, season/wave band, EuroMOMO
   strip, Methods view) port into config-driven React components.
 - **Routing (per-page URLs).** React Router gives every page its own path — e.g.
-  `/covid-19/overview`, `/covid-19/clinical`, `/covid-19/wastewater`, `/methods` — so pages are
-  deep-linkable and shareable. Paths are derived from config (pathogen × section). The FastAPI
+  `/sars-cov-2/clinical`, `/sars-cov-2/wastewater` — so pages are deep-linkable and shareable. Paths
+  are derived from the target id and page id (§6.1), never configured. The FastAPI
   catch-all (`GET /{path}`, auth-gated) serves `index.html` for all of them; React Router takes over
   client-side.
 - **Styling discipline — minimize custom CSS.** Use **canonical MUI components** and MUI's own
@@ -478,20 +538,21 @@ should be independently reviewable and, where practical, leave the app in a work
 The implementation plan (writing-plans) decomposes the build into stages that each satisfy this
 cap and lifecycle.
 
-Stage 4c (Status/Trend, z-score severity, wastewater) exceeds the cap, so it ships as four PRs:
+Stage 4c (Status/Trend, z-score severity, wastewater) exceeds the cap, so it ships as five PRs:
 **4c-1** wastewater feed (multiple feeds, the `phes_odm` profile, profile-derived `/api/data`
-parameters, duplicate and conflicting-row handling, wastewater pages); **4c-2** the assessment / thresholds / phase
-contract and its endpoint (§6.3), no UI; **4c-3** Status/Trend tiles, threshold bands and season-phase
-shading; **4c-4** the EuroMOMO-style mortality z-score strip.
+parameters, duplicate and conflicting-row handling, wastewater pages); **4c-2** the assessment
+contract (§6.3: the three tables, method and pathogen registries, target ids as pathogen keys,
+derived page paths, loading, validation and the three endpoints), no UI; **4c-3** the analytics
+component (§6.3.1) with aedseo; **4c-4** Status/Trend tiles, threshold bands and phase shading;
+**4c-5** the EuroMOMO-style mortality z-score strip.
 
 **Repo:** `weilu/health-signal` on GitHub — **public**, **MIT** licensed. The staged-PR flow runs here.
 
 ## 14. Open questions / assumptions
 
-- A shared Status/Trend analytics package (post-MVP): a `StatusTrendEstimator` interface with
-  pluggable **aedseo** and **MEM** estimators, so ETLs produce comparable derived rows without each
-  reimplementing a method. The app already consumes the `method`-tagged output (§6.3), so this is a
-  producer-side addition, not an app change.
+- Which series the analytics component assesses (every series in a feed, or those panels show) and
+  where method settings live (minimum seasons, season start) — decided in Stage 4c-3.
+- Non-organism surveillance subjects (e.g. AMR) as targets — decided when an AMR profile arrives.
 - Exact per-country config schema (`dashboard.yaml`) fields — to be pinned in the implementation plan.
 - Whether the generic repo is a true monorepo (frontend + package together) or split — assume
   monorepo for MVP.
