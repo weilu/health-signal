@@ -102,10 +102,12 @@ def test_panel_parses_and_reaches_client_config():
     assert panel["series_by"] == "survtype"
 
 
-def test_a_wastewater_panel_validates_against_its_feed():
-    ww = {"id": "w", "type": "timeseries",
-          "query": {"feed": "wastewater", "indicator": "fluA", "dimensions": {"aggregation": "floMean"}}}
-    _with_panel(ww)
+def test_a_panel_is_judged_by_its_own_feeds_profile():
+    query = {"indicator": "fluA", "dimensions": {"aggregation": "floMean"}}  # ODM terms, not ERVISS ones
+    ww = _with_panel({"id": "w", "query": {"feed": "wastewater", **query}})
+    assert ww.client_config()["targets"][0]["pages"][0]["panels"][0]["query"] == {"feed": "wastewater", **query}
+    with pytest.raises(ValidationError, match="feed 'clinical'"):
+        _with_panel({"id": "w", "query": {"feed": "clinical", **query}})
 
 
 @pytest.mark.parametrize("bad", [
