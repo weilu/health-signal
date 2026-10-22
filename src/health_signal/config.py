@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, PositiveInt, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, PositiveInt, computed_field, field_validator, model_validator
 
 from .profile import PROFILES
 
@@ -57,14 +57,13 @@ class Panel(BaseModel):
     model_config = ConfigDict(extra="forbid")
     id: str
     type: Literal["timeseries"] = "timeseries"  # other kinds (status, stacked_bar) must be stated
-    label_key: str | None = None  # defaults to panels.<id>
     query: PanelQuery
     series_by: str | None = None  # one line per value of this dimension
 
-    @model_validator(mode="after")
-    def _default_label_key(self) -> "Panel":
-        self.label_key = self.label_key or f"panels.{self.id}"
-        return self
+    @computed_field
+    @property
+    def label_key(self) -> str:  # i18n key, by convention (spec §9); not settable in config
+        return f"panels.{self.id}"
 
 
 # ASCII slug segments only: dots, "%", "\\", "//", "?", "#" and router patterns could resolve elsewhere, and
@@ -78,13 +77,12 @@ class Page(BaseModel):
     model_config = ConfigDict(extra="forbid")
     id: str
     path: str
-    label_key: str | None = None  # i18n key, not text; defaults to pages.<id>
     panels: list[Panel] = Field(default_factory=list)
 
-    @model_validator(mode="after")
-    def _default_label_key(self) -> "Page":
-        self.label_key = self.label_key or f"pages.{self.id}"
-        return self
+    @computed_field
+    @property
+    def label_key(self) -> str:
+        return f"pages.{self.id}"
 
     @field_validator("path")
     @classmethod
@@ -108,13 +106,12 @@ class Target(BaseModel):
     # A surveillance target, e.g. a pathogen.
     model_config = ConfigDict(extra="forbid")
     id: str
-    label_key: str | None = None  # defaults to targets.<id>
     pages: list[Page] = Field(default_factory=list)
 
-    @model_validator(mode="after")
-    def _default_label_key(self) -> "Target":
-        self.label_key = self.label_key or f"targets.{self.id}"
-        return self
+    @computed_field
+    @property
+    def label_key(self) -> str:
+        return f"targets.{self.id}"
 
     @model_validator(mode="after")
     def _unique_page_ids(self) -> "Target":

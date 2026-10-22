@@ -263,13 +263,22 @@ def test_date_range_typos_fail_at_load(bad):
 
 
 def test_label_keys_follow_ids():
-    # Spec §9: config carries stable ids; the label key is derived by convention unless overridden.
+    # Spec §9: config carries stable ids; the label key always follows from the id.
     target = Target(id="covid", pages=[Page(id="clinical", path="/covid/clinical")])
     assert (target.label_key, target.pages[0].label_key) == ("targets.covid", "pages.clinical")
-    assert Target(id="covid", label_key="targets.sars_cov_2").label_key == "targets.sars_cov_2"
     panel = Panel(id="hospital_admissions", query={"feed": "clinical", "indicator": "deaths"})
     assert panel.label_key == "panels.hospital_admissions"
+    assert _with_panel(_PANEL).client_config()["targets"][0]["label_key"] == "targets.flu"  # sent to the client
 
+
+@pytest.mark.parametrize("build", [
+    lambda: Target(id="covid", label_key="targets.other"),
+    lambda: Page(id="clinical", path="/c", label_key="pages.other"),
+    lambda: Panel(id="deaths", query={"feed": "clinical", "indicator": "deaths"}, label_key="panels.other"),
+])
+def test_label_keys_cannot_be_overridden(build):
+    with pytest.raises(ValidationError):
+        build()
 
 def test_panels_default_to_timeseries():
     # The common kind is implied; other kinds (status tiles, stacked bars) will be stated explicitly.
