@@ -1,8 +1,12 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Alert, Button, Paper, Stack, Typography } from '@mui/material'
+import { Alert, Box, Button, Paper, Stack, Typography } from '@mui/material'
+import { alpha, useTheme } from '@mui/material/styles'
 import { useTranslation } from 'react-i18next'
-import { fetchData } from '../api.js'
+import { fetchAssessments, fetchData, fetchThresholds } from '../api.js'
+import { activeWeeks, assessmentParams, bandsFor, levelTone, pickInRange } from '../assessments.js'
+import { useMethod } from '../useMethod.js'
+import { StatusTrendTiles } from './StatusTrendTiles.jsx'
 import { ResourceBoundary } from '../ResourceBoundary.jsx'
 import { toChartModel } from '../series.js'
 import { configLabel, weekStamp } from '../labels.js'
@@ -10,12 +14,26 @@ import { panelParams } from '../filters.js'
 import { SeriesTable } from './SeriesTable.jsx'
 import { TimeSeriesChart, useChartPalette } from './TimeSeriesChart.jsx'
 
-export function TimeSeriesPanel({ panel, location, range }) {
+export function TimeSeriesPanel({ panel, location, range, latest }) {
   const { t } = useTranslation()
+  const theme = useTheme()
   const palette = useChartPalette()
+  const method = useMethod()
   const [asTable, setAsTable] = useState(false)
   const params = panelParams(panel.query, location?.value, range)
   const query = useQuery({ queryKey: ['data', params], queryFn: () => fetchData(params) })
+  // Tiles describe one series, so panels split into several lines get none.
+  const single = !panel.series_by && !!method
+  const aParams = { ...assessmentParams(params), method: method?.name }
+  const assessed = useQuery({ queryKey: ['assessments', aParams], queryFn: () => fetchAssessments(aParams), enabled: single })
+  const tParams = { ...params, method: method?.name }
+  const thresholds = useQuery({ queryKey: ['thresholds', tParams], queryFn: () => fetchThresholds(tParams), enabled: single })
+  const pick = single && range && assessed.data ? pickInRange(assessed.data, range, latest) : null
+  const chartExtras = single ? {
+    bands: bandsFor(thresholds.data ?? [], method.levels),
+    bandColour: (level) => alpha(theme.palette[levelTone(method.levels, level)].main, 0.08),
+    shading: activeWeeks(assessed.data ?? [], method.active_phases),
+  } : {}
   const title = configLabel(t, panel.label_key, panel.id)
   return (
     <Paper component="section" variant="outlined" aria-label={title} sx={{ p: 2 }}>
@@ -34,10 +52,16 @@ export function TimeSeriesPanel({ panel, location, range }) {
           }
           const series = model.series.map((s) => ({ ...s, label: panel.series_by ? s.key || t('chart.unspecified') : title }))
           const unit = t(`unit.${model.unit}`, { defaultValue: model.unit })
+          const body = asTable
+            ? <SeriesTable periods={model.periods} series={series} unit={unit} />
+            : <TimeSeriesChart periods={model.periods} series={series} unit={unit} {...chartExtras} />
+          if (!pick) return body
           return (
-            asTable
-              ? <SeriesTable periods={model.periods} series={series} unit={unit} />
-              : <TimeSeriesChart periods={model.periods} series={series} unit={unit} />
+            // Tiles sit beside the chart, and above it on phones.
+            <Stack direction={{ xs: 'column-reverse', md: 'row' }} spacing={2}>
+              <Box sx={{ flex: 1, minWidth: 0 }}>{body}</Box>
+              <Box sx={{ width: { md: 240 }, flexShrink: 0 }}><StatusTrendTiles pick={pick} method={method} /></Box>
+            </Stack>
           )
         }}
       </ResourceBoundary>
