@@ -289,3 +289,9 @@ def test_no_pathogen_key_shadows_an_app_route():
 def test_a_panel_must_query_its_targets_pathogen():
     with pytest.raises(ValidationError, match="target 'Influenza'"):
         _with_panel({**_PANEL, "query": {"feed": "clinical", "indicator": "positivity", "dimensions": {"pathogen": "RSV"}}})
+
+
+def test_methods_reach_the_client():
+    methods = Config(schema_version="1", site=SiteConfig(title="T")).client_config()["methods"]
+    assert methods["aedseo"] == {"levels": ["very_low", "low", "medium", "high", "very_high"],
+                                 "phases": ["in_season", "in_wave", "out_of_season"], "trend": True}

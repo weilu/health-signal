@@ -5,6 +5,7 @@ from typing import Literal
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, PositiveInt, computed_field, field_validator, model_validator
 
+from .methods import METHODS
 from .profile import PATHOGENS, PROFILES
 
 
@@ -263,6 +264,7 @@ class Config(BaseModel):
                 for t in self.targets
             ],
             "filters": self.filters.model_dump(mode="json"),
+            "methods": {name: m.model_dump(mode="json", exclude={"name"}) for name, m in METHODS.items()},
         }
 
 
