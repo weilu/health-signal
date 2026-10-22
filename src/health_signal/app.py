@@ -8,6 +8,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from . import auth as _auth
+from .assessments import AssessmentRow, AssessmentSource, PhaseRow, PhaseSource, ThresholdRow
 from .auth import AuthProvider, User
 from .config import Config
 from .datasource import DataSource, FileDataSource
@@ -56,6 +57,10 @@ def create_app(
     if data_sources is None:
         feeds = config.data.feeds if config.data else []
         data_sources = {f.id: FileDataSource(f.dir, PROFILES[f.profile]) for f in feeds}
+    feed_configs = config.data.feeds if config.data else []
+    assessment_sources = {f.id: AssessmentSource(f.assessments, PROFILES[f.profile])
+                          for f in feed_configs if f.assessments}
+    phase_source = PhaseSource(config.data.phases) if config.data and config.data.phases else None
 
     _ALWAYS_PUBLIC = ("/healthz", "/login", "/logout")
 
@@ -87,6 +92,18 @@ def create_app(
     def get_config(user: User = Depends(require_auth)) -> dict:
         return config.client_config()
 
+    def _feed_dimensions(feed: str, request: Request, fixed: set[str] = _FIXED_PARAMS) -> dict[str, str]:
+        # Dimension filters come from the feed's profile, so a new profile needs no route change.
+        source = data_sources.get(feed)
+        if source is None:
+            raise HTTPException(status_code=422, detail=f"unknown feed {feed!r}")
+        dimensions = {k: v for k, v in request.query_params.items() if k not in fixed}
+        unknown = dimensions.keys() - set(source.profile.dimension_keys)
+        if unknown:
+            # An ignored filter would silently widen the result.
+            raise HTTPException(status_code=422, detail=f"unknown filter(s) {', '.join(sorted(unknown))} for feed {feed!r}")
+        return dimensions
+
     @app.get("/api/data", response_model=list[FeedRow])
     def get_data(
         request: Request,
@@ -97,16 +114,53 @@ def create_app(
         week_from: str | None = Query(default=None, pattern=_WEEK),
         week_to: str | None = Query(default=None, pattern=_WEEK),
     ) -> list[FeedRow]:
-        # Dimension filters come from the feed's profile, so a new profile needs no route change.
-        source = data_sources.get(feed)
-        if source is None:
-            raise HTTPException(status_code=422, detail=f"unknown feed {feed!r}")
-        dimensions = {k: v for k, v in request.query_params.items() if k not in _FIXED_PARAMS}
-        unknown = dimensions.keys() - set(source.profile.dimension_keys)
-        if unknown:
-            # An ignored filter would silently widen the result.
-            raise HTTPException(status_code=422, detail=f"unknown filter(s) {', '.join(sorted(unknown))} for feed {feed!r}")
-        return source.query(location=location, indicator=indicator, week_from=week_from, week_to=week_to, **dimensions)
+        dimensions = _feed_dimensions(feed, request)
+        return data_sources[feed].query(location=location, indicator=indicator, week_from=week_from,
+                                        week_to=week_to, **dimensions)
+
+    @app.get("/api/assessments", response_model=list[AssessmentRow])
+    def get_assessments(
+        request: Request,
+        feed: str,
+        user: User = Depends(require_auth),
+        location: str | None = None,
+        indicator: str | None = None,
+        method: str | None = None,
+        week_from: str | None = Query(default=None, pattern=_WEEK),
+        week_to: str | None = Query(default=None, pattern=_WEEK),
+    ) -> list[AssessmentRow]:
+        dimensions = _feed_dimensions(feed, request, _FIXED_PARAMS | {"method"})
+        source = assessment_sources.get(feed)  # optional per feed: none means no tiles, not an error
+        return source.assessments(location=location, indicator=indicator, week_from=week_from, week_to=week_to,
+                                  dimensions=dimensions, method=method) if source else []
+
+    @app.get("/api/thresholds", response_model=list[ThresholdRow])
+    def get_thresholds(
+        request: Request,
+        feed: str,
+        user: User = Depends(require_auth),
+        location: str | None = None,
+        indicator: str | None = None,
+        method: str | None = None,
+        week_from: str | None = Query(default=None, pattern=_WEEK),
+        week_to: str | None = Query(default=None, pattern=_WEEK),
+    ) -> list[ThresholdRow]:
+        dimensions = _feed_dimensions(feed, request, _FIXED_PARAMS | {"method"})
+        source = assessment_sources.get(feed)
+        return source.thresholds(location=location, indicator=indicator, week_from=week_from, week_to=week_to,
+                                 dimensions=dimensions, method=method) if source else []
+
+    @app.get("/api/phases", response_model=list[PhaseRow])
+    def get_phases(
+        user: User = Depends(require_auth),
+        location: str | None = None,
+        pathogen: str | None = None,
+        method: str | None = None,
+        week_from: str | None = Query(default=None, pattern=_WEEK),
+        week_to: str | None = Query(default=None, pattern=_WEEK),
+    ) -> list[PhaseRow]:
+        return phase_source.phases(location=location, pathogen=pathogen, method=method,
+                                   week_from=week_from, week_to=week_to) if phase_source else []
 
     @app.get("/api/periods")
     def get_periods(user: User = Depends(require_auth)) -> dict | None:
