@@ -162,11 +162,12 @@ def _check_spans(t: pd.DataFrame, series: list[str]) -> None:
 
 
 class PhaseSource:
-    def __init__(self, directory: str | Path) -> None:
-        directory = Path(directory)
-        if not directory.is_dir():
-            raise ValueError(f"phases dir {str(directory)!r} is not a directory")
-        df = _load(directory, "phase.csv", _P_COLS, self._violation)
+    def __init__(self, path: str | Path) -> None:
+        path = Path(path)
+        if not path.is_file():
+            # One file per dashboard, so a configured path that doesn't exist is a typo, not "no phases".
+            raise ValueError(f"phases file {str(path)!r} does not exist")
+        df = _load(path.parent, path.name, _P_COLS, self._violation)
         self._p = drop_copies_reject_conflicts(df, ["location", "pathogen", "period", "method"]).drop(columns=PROVENANCE)
 
     @staticmethod

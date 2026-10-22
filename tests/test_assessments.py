@@ -70,20 +70,23 @@ def test_bad_thresholds_fail(tmp_path, bad, message):
 
 
 def test_phases_load_and_validate(tmp_path):
-    d = tmp_path / "phases"
-    d.mkdir()
-    (d / "phase.csv").write_text(_P + "Testville,Influenza,2025-W02,aedseo,in_season\n", encoding="utf-8")
-    assert [(p.pathogen, p.phase) for p in PhaseSource(d).phases(pathogen="Influenza")] == [("Influenza", "in_season")]
-    (d / "phase.csv").write_text(_P + "Testville,Measles,2025-W02,aedseo,in_season\n", encoding="utf-8")
+    f = tmp_path / "phase.csv"
+    f.write_text(_P + "Testville,Influenza,2025-W02,aedseo,in_season\n", encoding="utf-8")
+    assert [(p.pathogen, p.phase) for p in PhaseSource(f).phases(pathogen="Influenza")] == [("Influenza", "in_season")]
+    f.write_text(_P + "Testville,Measles,2025-W02,aedseo,in_season\n", encoding="utf-8")
     with pytest.raises(ValueError, match=r"phase\.csv row 1: .*pathogen"):
-        PhaseSource(d)
+        PhaseSource(f)
+
+
+def test_a_missing_phases_file_fails_at_load(tmp_path):
+    # A configured path that doesn't exist is a typo, not "no phases".
+    with pytest.raises(ValueError, match="phases file"):
+        PhaseSource(tmp_path / "phase.csv")
 
 
 def test_header_only_tables_load_empty(tmp_path):
     # A producer may export before the season's first assessment.
     src = _src(tmp_path, "", "")
     assert src.assessments() == [] and src.thresholds() == []
-    d = tmp_path / "phases"
-    d.mkdir()
-    (d / "phase.csv").write_text(_P, encoding="utf-8")
-    assert PhaseSource(d).phases() == []
+    (tmp_path / "phase.csv").write_text(_P, encoding="utf-8")
+    assert PhaseSource(tmp_path / "phase.csv").phases() == []

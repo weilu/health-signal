@@ -182,7 +182,7 @@ class FeedConfig(BaseModel):
 class DataConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
     feeds: list[FeedConfig] = Field(min_length=1)
-    phases: str | None = None  # pathogen-level phase table, across feeds
+    phases: str | None = None  # the pathogen-level phase CSV, one per dashboard (spec §6.3)
 
     @model_validator(mode="after")
     def _unique_ids(self) -> "DataConfig":

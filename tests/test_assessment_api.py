@@ -20,9 +20,9 @@ def _client(tmp_path, with_assessments=True):
     (tmp_path / "ww" / "feed.csv").write_text((FIX / "odm_sample.csv").read_text(), encoding="utf-8")
     feed = {"id": "wastewater", "profile": "phes_odm", "dir": str(tmp_path / "ww")}
     if with_assessments:
-        feed["assessments"] = str(FIX / "assessed")
+        feed["assessments"] = str(FIX / "wastewater" / "assessed")
     cfg = Config(schema_version="1", site=SiteConfig(title="T"),
-                 data=DataConfig(feeds=[feed], phases=str(FIX / "phases") if with_assessments else None))
+                 data=DataConfig(feeds=[feed], phases=str(FIX / "phase.csv") if with_assessments else None))
     return TestClient(create_app(cfg, auth_provider=_AllowAll()))
 
 

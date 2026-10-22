@@ -140,7 +140,7 @@ which spans organisms × antibiotics, are decided when an AMR profile arrives.)
 
 **Feeds.** A dashboard serves one or more feeds, each a directory of one profile's rows:
 `data.feeds: [{id, profile, dir, assessments?}]` (required; ids unique; e.g. `clinical`/`erviss` and
-`wastewater`/`phes_odm`), plus an optional `data.phases` directory (§6.3). There is no default feed:
+`wastewater`/`phes_odm`), plus an optional `data.phases` file (§6.3). There is no default feed:
 every panel names the one it reads.
 
 Pages declare **panels** in config — a `type` (default `timeseries`; later kinds such as status tiles or
@@ -254,7 +254,8 @@ and sequencing files have a different shape and belong to the variant track.
 
   **Attachment and validation.** Assessments attach to a feed — `data.feeds[].assessments: <dir>`
   holding `assessment.csv` and `thresholds.csv`, validated against that feed's profile — and the
-  cross-feed pathogen phases to `data.phases: <dir>`; both optional (no assessments, no tiles). At
+  cross-feed pathogen phases to `data.phases: <file>` (one `phase.csv` per dashboard); both optional
+  (no assessments, no tiles). At
   load, failing fast with file and row: series keys valid for the profile and periods matching its
   format; `method` in the registry and `level` / `phase` / `trend` in that method's lists or blank
   (`trend` blank for a method without one); growth finite with `lower ≤ rate ≤ upper`, or all blank;
