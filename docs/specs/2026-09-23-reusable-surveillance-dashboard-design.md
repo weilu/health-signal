@@ -231,7 +231,10 @@ and sequencing files have a different shape and belong to the variant track.
   differently: IDSR-style surveillance of epidemic-prone diseases uses *normal / alert / epidemic*
   against fixed or week-of-year thresholds; polio AFP surveillance and HIV 95-95-95 monitoring grade
   attainment against fixed targets, with outbreak status as the useful phase and no season. The UI
-  colours levels by their order, so tiles work for any method.
+  colours levels by their order, so tiles work for any method. A method that derives a pathogen-level
+  phase from several series also declares its `stream_roles` (aedseo: `cases`, `admissions` — SSI's
+  community and admissions pairing); a polio method would declare its own (e.g. AFP cases and
+  environmental samples), and a method with no derived phase declares none.
 
   **Three tables**, long CSVs at their natural grain, codes not display text:
   - **`assessment.csv`** — series key (`location` + `indicator` + the feed profile's dimensions) ×
@@ -254,11 +257,18 @@ and sequencing files have a different shape and belong to the variant track.
     and their runs overlap). **Precomputed, not derived in the app:** the rule is a policy choice that
     belongs with the analysis, and a country may write its officially declared season here instead.
     `out_of_season`, not "pre-season": a quiet week can't tell before-onset from after-season.
+  - **`phase_streams.csv`** (optional) — `location` × `pathogen` × `method` × `role` → `feed` +
+    `series`: the series a computed phase was derived from, `role` from the method's `stream_roles`,
+    `series` written as `/api/data` parameters (e.g. `indicator=cov&aggregation=floMean`). Recorded by
+    the producer, not re-declared in config, so the overview's evidence can't disagree with the rule
+    that produced it. Absent for declared states (an official season, a polio outbreak declaration)
+    and for pathogens with no phase (e.g. HIV).
 
   **Attachment and validation.** Assessments attach to a feed — `data.feeds[].assessments: <dir>`
   holding `assessment.csv` and `thresholds.csv`, validated against that feed's profile — and the
-  cross-feed pathogen phases to `data.phases: <file>` (one `phase.csv` per dashboard); both optional
-  (no assessments, no tiles). At
+  cross-feed pathogen phases to `data.phases: <file>` (one `phase.csv` per dashboard), with their
+  streams at `data.phase_streams: <file>`; all optional (no assessments, no tiles). Stream rows are
+  checked against the method's `stream_roles`, a configured feed, and that feed's profile. At
   load, failing fast with file and row: series keys valid for the profile and periods matching its
   format; `method` in the registry and `level` / `phase` / `trend` in that method's lists or blank
   (`trend` blank for a method without one); growth finite with `lower ≤ rate ≤ upper`, or all blank;
@@ -375,6 +385,7 @@ provider's login routes are always public. Default-locked matches "keep content 
 | `GET /api/data?feed=…&…` | required | rows from one feed (required `feed`); filters: `location`, `indicator`, `week_from`/`week_to`, and that feed's profile dimensions. Parameters come from the feed's profile, so a new profile needs no route change; an unknown feed or dimension is a 422 |
 | `GET /api/assessments?feed=…&…` | required | assessment rows for one feed; same filters as `/api/data` plus optional `method`. A feed without assessments returns `[]` |
 | `GET /api/thresholds?feed=…&…` | required | threshold rows whose `from`–`to` span overlaps `week_from`–`week_to`; same filters plus optional `method` |
+| `GET /api/phase-streams?…` | required | the series behind each pathogen phase; filters `location`, `pathogen`, `method` |
 | `GET /api/phases?…` | required | pathogen phase rows; filters `location`, `pathogen`, `method`, `week_from`/`week_to` |
 | `GET /api/locales/{lang}` | required | translation bundle (library base + country overrides, merged) |
 | `GET /api/methodology/{lang}` | required | config-selected methodology content (Markdown) for the Methodology view |
@@ -396,7 +407,20 @@ precedence over client-side routes.
   from the URL. `/` lands on the first target. Filters live in the URL (`?location=`, and `?range=` for
   a preset or `?from=&to=` for custom weeks) so a view is deep-linkable, and tab links carry them;
   presets stay relative, so a shared "last 52 weeks" link rolls forward with new data. Adding/removing/reconfiguring a surveillance target = config + data,
-  no code. Prototype panels/logic (Status/Trend tiles, range selector, season/wave band, EuroMOMO
+  no code. **Status/Trend (Stage 4c-4).** A single-series time-series panel shows Status and Trend
+  tiles (to the right of the chart; above it on phones) when its series has assessments — detected
+  from the data (the panel fetches its series' assessments over all periods; none means no tiles).
+  The tiles describe **the selected range's last week**: the latest assessment within the range,
+  labelled "As of W##", styled as not-current when that week isn't the latest reporting week, and
+  "No assessment in this range" when the range has none (never reaching before the range start).
+  Charts draw the method's threshold bands for spans in view and shade the series' own `phase` run.
+  Panel `type` adds `phase` and `summary`, which take no query and work from their target and the
+  location filter; an Overview page composes them, and either can be left out. The **phase panel**
+  overlays the `phase_streams` series, shaded with the pathogen-level phase, beside a tile stating
+  the phase as of the range's last week (same guardrails), with the method's rule text from i18n
+  (`methods.<method>.phase_rule`). The **summary panel** is a grid of the target's assessed
+  single-series panels — label, page, Status, Trend, as-of — highlighting the phase streams' rows
+  and linking to their pages. Prototype panels/logic (range selector, EuroMOMO
   strip, Methods view) port into config-driven React components.
 - **Routing (per-page URLs).** React Router gives every page its own path — e.g.
   `/sars-cov-2/clinical`, `/sars-cov-2/wastewater` — so pages are deep-linkable and shareable. Paths
@@ -547,7 +571,8 @@ Stage 4c (Status/Trend, z-score severity, wastewater) exceeds the cap, so it shi
 parameters, duplicate and conflicting-row handling, wastewater pages); **4c-2** the assessment
 contract (§6.3: the three tables, method and pathogen registries, target ids as pathogen keys,
 derived page paths, loading, validation and the three endpoints), no UI; **4c-3** the analytics
-component (§6.3.1) with aedseo; **4c-4** Status/Trend tiles, threshold bands and phase shading;
+component (§6.3.1) with aedseo; **4c-4** Status/Trend tiles, threshold bands, per-series phase shading, and the Overview's phase and
+summary panels (with `phase_streams` and method `stream_roles`);
 **4c-5** the EuroMOMO-style mortality z-score strip.
 
 **Repo:** `weilu/health-signal` on GitHub — **public**, **MIT** licensed. The staged-PR flow runs here.
