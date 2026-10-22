@@ -67,6 +67,10 @@ class Profile(BaseModel):
         return None
 
 
+# Canonical pathogen keys (spec §6.1): ERVISS's spellings, which its published data already uses; display
+# names come from i18n. Profiles, the phase table and target ids all validate against this one set.
+PATHOGENS = frozenset({"SARS-CoV-2", "Influenza", "RSV"})
+
 # ECDC/WHO-Europe ERVISS respiratory profile (spec §6.2); vocabularies pinned to the published dataset
 # EU-ECDC/Respiratory_viruses_weekly_data. Status/Trend are a separate assessment contract (§6.3).
 ERVISS = Profile(
@@ -83,7 +87,7 @@ ERVISS = Profile(
     dimension_vocab={
         "survtype": {"primary care sentinel", "primary care syndromic", "non-sentinel",
                      "SARI syndromic", "SARI virological"},
-        "pathogen": {"Influenza", "RSV", "SARS-CoV-2"},
+        "pathogen": set(PATHOGENS),
         "pathogentype": {"Influenza", "Influenza A", "Influenza B", "Influenza untyped",
                          "RSV", "RSV untyped", "RSV-A", "RSV-B", "SARS-CoV-2"},
         # "NA" is a literal ERVISS value, not a missing cell (the loader keeps it as text).
@@ -110,7 +114,7 @@ PHES_ODM = Profile(
     indicators=set(_ODM_PATHOGEN) | {"ppmv"},  # ppmv: the PMMoV faecal-strength marker, no pathogen
     units={"gcL", "gcMl", "log10cpL", "gCGS", "gcPpmov", "gcDay", "gcDay100k"},
     dimension_vocab={
-        "pathogen": {"Influenza", "RSV", "SARS-CoV-2"},
+        "pathogen": set(PATHOGENS),
         "aggregation": {"me", "med", "gmn", "floMean", "pmmovNorm", "pmFloMean"},
         "fraction": {"liq", "sol", "mix", "mul"},
     },

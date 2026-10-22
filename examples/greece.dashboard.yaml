@@ -48,10 +48,9 @@ data:
 # Clinical pages mirror greece-public-health's Clinical view where ERVISS has the data. Labels are i18n keys. Each
 # query should match one row per series per week (checked against ERVISS); series_by splits it.
 targets:
-  - id: covid
+  - id: SARS-CoV-2
     pages:
       - id: clinical
-        path: /covid/clinical
         panels:
           - id: hospital_admissions
             query: { feed: clinical, indicator: hospitaladmissions, dimensions: { survtype: non-sentinel, pathogen: SARS-CoV-2, age: total } }
@@ -71,14 +70,12 @@ targets:
           - id: ili_rate
             query: { feed: clinical, indicator: ILIconsultationrate, dimensions: { survtype: primary care syndromic, age: total } }
       - id: wastewater
-        path: /covid/wastewater
         panels:
           - id: ww_load
             query: { feed: wastewater, indicator: cov, dimensions: { aggregation: floMean } }
-  - id: influenza
+  - id: Influenza
     pages:
       - id: clinical
-        path: /influenza/clinical
         panels:
           - id: hospital_admissions
             query: { feed: clinical, indicator: hospitaladmissions, dimensions: { survtype: non-sentinel, pathogen: Influenza, age: total } }
@@ -104,16 +101,14 @@ targets:
           - id: ili_rate
             query: { feed: clinical, indicator: ILIconsultationrate, dimensions: { survtype: primary care syndromic, age: total } }
       - id: wastewater
-        path: /influenza/wastewater
         panels:
           - id: ww_flu_a_load
             query: { feed: wastewater, indicator: fluA, dimensions: { aggregation: floMean } }
           - id: ww_flu_b_load
             query: { feed: wastewater, indicator: fluB, dimensions: { aggregation: floMean } }
-  - id: rsv
+  - id: RSV
     pages:
       - id: clinical
-        path: /rsv/clinical
         panels:
           - id: sari_positivity
             query: { feed: clinical, indicator: positivity, dimensions: { survtype: SARI virological, pathogen: RSV, pathogentype: RSV, age: total } }
@@ -127,7 +122,6 @@ targets:
           - id: ili_rate
             query: { feed: clinical, indicator: ILIconsultationrate, dimensions: { survtype: primary care syndromic, age: total } }
       - id: wastewater
-        path: /rsv/wastewater
         panels:
           - id: ww_load
             query: { feed: wastewater, indicator: rsvMe, dimensions: { aggregation: floMean } }

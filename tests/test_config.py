@@ -1,6 +1,7 @@
 import pytest
 from pydantic import ValidationError
-from health_signal.config import Branding, Config, DataConfig, Filters, Page, Panel, SiteConfig, Target, load_config
+from health_signal.config import Branding, Config, DataConfig, Filters, Page, Panel, SiteConfig, Target, load_config, page_path
+from health_signal.profile import PATHOGENS
 
 
 def test_load_valid_config(tmp_path):
@@ -47,12 +48,12 @@ def test_client_config_adds_structure_but_not_server_only():
     cfg = Config(
         schema_version="0.1",
         site=SiteConfig(title="Demo", public_paths=["/about"]),
-        targets=[Target(id="covid-19", pages=[Page(id="overview", path="/covid-19/overview")])],
+        targets=[Target(id="SARS-CoV-2", pages=[Page(id="overview")])],
     )
     c = cfg.client_config()
     assert c["title"] == "Demo"
-    assert c["targets"][0]["id"] == "covid-19"
-    assert c["targets"][0]["pages"][0]["path"] == "/covid-19/overview"
+    assert c["targets"][0]["id"] == "SARS-CoV-2"
+    assert c["targets"][0]["pages"][0]["path"] == "/sars-cov-2/overview"  # derived, sent as data
     assert "public_paths" not in c and "schema_version" not in c
 
 
@@ -66,11 +67,6 @@ def test_default_locale_must_be_in_locales():
     with pytest.raises(ValidationError):
         SiteConfig(title="D", default_locale="el")  # locales defaults to ["en"]
     SiteConfig(title="D", default_locale="el", locales=["en", "el"])  # offered -> ok
-
-
-def test_page_requires_path():
-    with pytest.raises(ValidationError):
-        Page(id="overview")  # no path
 
 
 def test_branding_projection_is_json_safe():
@@ -93,7 +89,7 @@ _FEEDS = DataConfig(feeds=[{"id": "clinical", "profile": "erviss", "dir": "d/c"}
 
 def _with_panel(panel, data=_FEEDS):
     return Config(schema_version="1", site=SiteConfig(title="T"), data=data,
-                  targets=[Target(id="flu", pages=[Page(id="o", path="/flu", panels=[Panel(**panel)])])])
+                  targets=[Target(id="Influenza", pages=[Page(id="o", panels=[Panel(**panel)])])])
 
 
 def test_panel_parses_and_reaches_client_config():
@@ -171,43 +167,29 @@ def test_panel_unknown_keys_fail_at_load(bad):
 
 def test_page_unknown_key_fails_at_load():
     with pytest.raises(ValidationError):
-        Page(id="o", path="/flu", panel=[_PANEL])  # misspelt `panels`
-
-
-@pytest.mark.parametrize("path", ["/", "/login", "/config", "/CONFIG", "/api/x", "/docs", "/assets/a", "flu", "/flu/", "/flu/:id", "/flu/*", "/flu?x", "/flu#x",
-                                  "/flu/../config", "/flu/%2e%2e/config", "//other.example/flu", "/flu\\x", "/flu.x"])
-def test_page_path_must_not_collide_or_be_a_pattern(path):
-    with pytest.raises(ValidationError):
-        Page(id="o", path=path)
+        Page(id="o", panel=[_PANEL])  # misspelt `panels`
 
 
 def _cfg_pages(*pages):
     return dict(schema_version="1", site=SiteConfig(title="T"),
-                targets=[Target(id=f"t{i}", pages=[p]) for i, p in enumerate(pages)])
-
-
-def test_duplicate_page_paths_fail_at_load():
-    with pytest.raises(ValidationError, match="path"):
-        Config(**_cfg_pages(Page(id="a", path="/flu"), Page(id="b", path="/flu")))
-    with pytest.raises(ValidationError, match="path"):
-        Config(**_cfg_pages(Page(id="a", path="/flu"), Page(id="b", path="/FLU")))
+                targets=[Target(id=key, pages=[p]) for key, p in zip(["SARS-CoV-2", "Influenza", "RSV"], pages)])
 
 
 def test_page_ids_repeat_across_targets_but_not_within_one():
-    # Tabs and routes key on paths; an id only names a page inside its target's tab row.
-    Config(**_cfg_pages(Page(id="clinical", path="/flu/clinical"), Page(id="clinical", path="/rsv/clinical")))
+    # An id names a page inside its target's tab row; the derived paths differ by target.
+    Config(**_cfg_pages(Page(id="clinical"), Page(id="clinical")))
     with pytest.raises(ValidationError, match="page id"):
-        Target(id="flu", pages=[Page(id="clinical", path="/flu/a"), Page(id="clinical", path="/flu/b")])
+        Target(id="Influenza", pages=[Page(id="clinical"), Page(id="clinical")])
 
 def test_duplicate_target_ids_fail_at_load():
     with pytest.raises(ValidationError, match="target ids"):
         Config(schema_version="1", site=SiteConfig(title="T"),
-               targets=[Target(id="flu", pages=[Page(id="a", path="/a")]), Target(id="flu", pages=[Page(id="b", path="/b")])])
+               targets=[Target(id="Influenza", pages=[Page(id="a")]), Target(id="Influenza", pages=[Page(id="b")])])
 
 
 def test_duplicate_panel_ids_on_a_page_fail_at_load():
     with pytest.raises(ValidationError):
-        Page(id="o", path="/flu", panels=[Panel(**_PANEL), Panel(**_PANEL)])
+        Page(id="o", panels=[Panel(**_PANEL), Panel(**_PANEL)])
 
 
 @pytest.mark.parametrize("key", ["location", "week_from", "week_to"])
@@ -266,18 +248,44 @@ def test_date_range_typos_fail_at_load(bad):
 
 def test_label_keys_follow_ids():
     # Spec §9: config carries stable ids; the label key always follows from the id.
-    target = Target(id="covid", pages=[Page(id="clinical", path="/covid/clinical")])
-    assert (target.label_key, target.pages[0].label_key) == ("targets.covid", "pages.clinical")
+    target = Target(id="SARS-CoV-2", pages=[Page(id="clinical")])
+    assert (target.label_key, target.pages[0].label_key) == ("targets.SARS-CoV-2", "pages.clinical")
     panel = Panel(id="hospital_admissions", query={"feed": "clinical", "indicator": "deaths"})
     assert panel.label_key == "panels.hospital_admissions"
-    assert _with_panel(_PANEL).client_config()["targets"][0]["label_key"] == "targets.flu"  # sent to the client
+    assert _with_panel(_PANEL).client_config()["targets"][0]["label_key"] == "targets.Influenza"  # sent to the client
 
 
 @pytest.mark.parametrize("build", [
-    lambda: Target(id="covid", label_key="targets.other"),
-    lambda: Page(id="clinical", path="/c", label_key="pages.other"),
+    lambda: Target(id="SARS-CoV-2", label_key="targets.other"),
+    lambda: Page(id="clinical", label_key="pages.other"),
     lambda: Panel(id="deaths", query={"feed": "clinical", "indicator": "deaths"}, label_key="panels.other"),
 ])
 def test_label_keys_cannot_be_overridden(build):
     with pytest.raises(ValidationError):
         build()
+
+
+def test_target_ids_are_pathogen_keys():
+    with pytest.raises(ValidationError, match="pathogen registry"):
+        Target(id="covid")
+
+
+@pytest.mark.parametrize("page_id", ["Clinical", "clin ical", "a/b", ""])
+def test_page_ids_must_be_url_safe(page_id):
+    with pytest.raises(ValidationError):
+        Page(id=page_id)
+
+
+def test_page_paths_are_derived_from_ids():
+    assert page_path("SARS-CoV-2", "clinical") == "/sars-cov-2/clinical"
+    with pytest.raises(ValidationError):
+        Page(id="clinical", path="/x/y")  # paths are not configurable
+
+
+def test_no_pathogen_key_shadows_an_app_route():
+    assert not {k.lower() for k in PATHOGENS} & {"login", "logout", "config", "api", "docs", "redoc", "openapi.json", "healthz", "assets"}
+
+
+def test_a_panel_must_query_its_targets_pathogen():
+    with pytest.raises(ValidationError, match="target 'Influenza'"):
+        _with_panel({**_PANEL, "query": {"feed": "clinical", "indicator": "positivity", "dimensions": {"pathogen": "RSV"}}})

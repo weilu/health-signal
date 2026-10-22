@@ -1,6 +1,6 @@
 import pandas as pd
 import pytest
-from health_signal.profile import ERVISS, PHES_ODM, PROFILES, FeedRow
+from health_signal.profile import ERVISS, PATHOGENS, PHES_ODM, PROFILES, FeedRow
 
 _VALID = {
     "location": "Attica", "period": "2025-W01", "survtype": "non-sentinel", "pathogen": "Influenza",
@@ -146,3 +146,7 @@ def test_profiles_are_registered_by_name():
 
 def test_feedrow_quality_is_optional():
     assert FeedRow(location="A", period="2025-W01", dimensions={}, indicator="fluA", value=0, unit="gcL").quality is None
+
+
+def test_profiles_share_the_pathogen_registry():
+    assert ERVISS.dimension_vocab["pathogen"] == PATHOGENS == PHES_ODM.dimension_vocab["pathogen"]
