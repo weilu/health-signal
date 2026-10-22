@@ -242,7 +242,9 @@ and sequencing files have a different shape and belong to the variant track.
     `method` → `level` (the method's code, or blank when ungradeable), `provisional`
     (`true`/`false`: graded with less history than the method needs), `trend` (`increasing` /
     `stable` / `decreasing` / `inconclusive`, blank where the method has none), `growth_rate`,
-    `growth_lower`, `growth_upper` (numbers or blank), and `phase` (the series' own phase, e.g.
+    `growth_lower`, `growth_upper` (numbers or blank: the **proportional change per period**, e.g.
+    `-0.2` = −20%/week; a producer converts a log-scale rate such as aedseo's with `exp(r) − 1`), and
+    `phase` (the series' own phase, e.g.
     `in_season`, or blank) — the run of active weeks is the shaded band on that series' chart. Each
     period's row is computed **as of that period**, from data available up to it: a past week shows
     what the method said then, not a re-grade with hindsight (aedseo's thresholds and growth shift as

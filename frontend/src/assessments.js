@@ -13,8 +13,10 @@ export function pickInRange(rows, range, latest) {
   return row ? { row, asOf: row.period, current: row.period === latest } : { row: undefined }
 }
 
-// Ordered levels onto three tones by position, so any method's scale reads the same way.
+// Ordered levels onto three tones by position, so any method's scale reads the same way. An ungraded
+// week is neutral: the lowest tone would read as "all clear".
 export function levelTone(levels, level) {
+  if (!levels.includes(level)) return 'neutral'
   const position = levels.indexOf(level) / Math.max(levels.length - 1, 1)
   return position < 0.5 ? 'success' : position === 0.5 ? 'warning' : 'error'
 }
@@ -53,4 +55,17 @@ export function sameSeries(feed, params, stream) {
   const keys = Object.keys(stream.series)
   return feed === stream.feed && keys.length === Object.keys(params).length
     && keys.every((k) => params[k] === stream.series[k])
+}
+
+export function toneColor(tone) {
+  return tone === 'neutral' ? 'grey.500' : `${tone}.main`
+}
+
+// The summary's lookups as one state, by ResourceBoundary's rules: a 401 redirects, any lookup still
+// pending shows loading, and a failure is an error rather than "nothing assessed".
+export function combinedState(results) {
+  if (results.some((r) => r.error?.status === 401)) return 'unauth'
+  if (results.some((r) => r.data === undefined && r.isPending)) return 'loading'
+  if (results.some((r) => r.data === undefined)) return 'error'
+  return 'ok'
 }

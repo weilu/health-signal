@@ -1,9 +1,9 @@
 import { useQueries, useQuery } from '@tanstack/react-query'
-import { Link as RouterLink, useLocation } from 'react-router-dom'
-import { Box, Chip, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material'
+import { Navigate, Link as RouterLink, useLocation } from 'react-router-dom'
+import { Alert, Box, Chip, CircularProgress, Link, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { fetchAssessments, fetchPhaseStreams } from '../api.js'
-import { assessmentParams, levelTone, pickInRange, sameSeries } from '../assessments.js'
+import { assessmentParams, combinedState, levelTone, pickInRange, sameSeries, toneColor } from '../assessments.js'
 import { panelParams, withFilters } from '../filters.js'
 import { configLabel, weekStamp } from '../labels.js'
 import { useMethod } from '../useMethod.js'
@@ -22,14 +22,18 @@ export function SummaryPanel({ panel, target, location, range, latest }) {
   const results = useQueries({
     queries: entries.map((e) => ({ queryKey: ['assessments', e.params], queryFn: () => fetchAssessments(e.params), enabled: !!method })),
   })
+  const state = method ? combinedState(results) : 'loading'
   const rows = entries
     .map((e, i) => ({ ...e, data: results[i].data }))
     .filter((e) => e.data?.length)
   const title = configLabel(t, panel.label_key, panel.id)
+  if (state === 'unauth') return <Navigate to="/login" replace />
   return (
     <Paper component="section" variant="outlined" aria-label={title} sx={{ p: 2 }}>
       <Typography variant="h6" component="h2" sx={{ mb: 1 }}>{title}</Typography>
-      {!rows.length ? <Typography color="text.secondary">{t('summary.none')}</Typography> : (
+      {state === 'loading' ? <CircularProgress aria-label={t('app.loading')} />
+        : state === 'error' ? <Alert severity="error">{t('app.error')}</Alert>
+        : !rows.length ? <Typography color="text.secondary">{t('summary.none')}</Typography> : (
         <TableContainer>
           <Table size="small">
             <TableHead>
@@ -47,11 +51,14 @@ export function SummaryPanel({ panel, target, location, range, latest }) {
                 const row = pick?.row
                 const stream = (streams.data ?? []).find((s) => sameSeries(p.query.feed, { indicator: p.query.indicator, ...p.query.dimensions }, s))
                 return (
-                  <TableRow key={`${page.id}/${p.id}`} hover selected={!!stream} component={RouterLink} to={withFilters(page.path, search)}
-                    sx={{ textDecoration: 'none' }}>
+                  // A real row with a real link, stretched over the row so the whole row is clickable.
+                  <TableRow key={`${page.id}/${p.id}`} hover selected={!!stream} sx={{ position: 'relative' }}>
                     <TableCell>
                       <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                        <span>{configLabel(t, p.label_key, p.id)}</span>
+                        <Link component={RouterLink} to={withFilters(page.path, search)} underline="hover" color="inherit"
+                          sx={{ '&::after': { content: '""', position: 'absolute', inset: 0 } }}>
+                          {configLabel(t, p.label_key, p.id)}
+                        </Link>
                         {stream && <Chip size="small" variant="outlined" label={t(`role.${stream.role}`, { defaultValue: stream.role })} />}
                       </Stack>
                     </TableCell>
@@ -59,7 +66,7 @@ export function SummaryPanel({ panel, target, location, range, latest }) {
                     <TableCell>
                       {row ? (
                         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                          <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: `${levelTone(method.levels, row.level)}.main` }} />
+                          <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: toneColor(levelTone(method.levels, row.level)) }} />
                           <span>{row.level ? t(`level.${row.level}`) : t('assessment.ungraded')}</span>
                         </Stack>
                       ) : '—'}

@@ -114,6 +114,7 @@ def test_phase_streams_load(tmp_path):
     (_S1.replace("aggregation=floMean", "survtype=non-sentinel"), "dimension"),  # another profile's dimension
     (_S1.replace("indicator=fluA", "indicator=positivity"), "indicator"),
     (_S1.replace("indicator=fluA&", ""), "indicator"),                     # a series needs its indicator
+    (_S1.replace("indicator=fluA", "indicator=cov"), "implies pathogen"),  # COVID wastewater as influenza evidence
 ])
 def test_bad_phase_streams_fail(tmp_path, bad, message):
     with pytest.raises(ValueError, match=rf"phase_streams\.csv row 1: .*{message}"):

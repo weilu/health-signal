@@ -1,8 +1,9 @@
 import { Box, Chip, Paper, Stack, Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { weekStamp } from '../labels.js'
-import { levelTone } from '../assessments.js'
+import { levelTone, toneColor } from '../assessments.js'
 
+// growth_* are proportional change per period (spec §6.3), so -0.2 reads -20%/wk.
 const pct = (v) => `${v > 0 ? '+' : ''}${Math.round(v * 100)}%`
 
 // Not-current tiles are dashed and muted so a past state isn't read as now (spec §9).
@@ -38,7 +39,7 @@ export function StatusTrendTiles({ pick, method }) {
     <Stack direction={{ xs: 'row', md: 'column' }} spacing={1.5} useFlexGap>
       <Tile title={t('assessment.status')} current={current} footer={footer}>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-          <Box sx={{ width: 10, height: 10, borderRadius: '50%', flexShrink: 0, bgcolor: `${levelTone(method.levels, row.level)}.main` }} />
+          <Box sx={{ width: 10, height: 10, borderRadius: '50%', flexShrink: 0, bgcolor: toneColor(levelTone(method.levels, row.level)) }} />
           <Typography variant="h6" component="p">{row.level ? t(`level.${row.level}`) : t('assessment.ungraded')}</Typography>
           {row.provisional && <Chip size="small" variant="outlined" label={t('assessment.provisional')} />}
         </Stack>

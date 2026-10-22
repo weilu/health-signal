@@ -55,3 +55,10 @@ describe('assessmentParams', () => {
   it('drops the date range so the whole history is fetched once', () =>
     expect(assessmentParams({ feed: 'w', indicator: 'cov', week_from: 'a', week_to: 'b' })).toEqual({ feed: 'w', indicator: 'cov' }))
 })
+
+describe('levelTone for ungraded weeks', () => {
+  it('is neutral, never the all-clear tone', () => {
+    expect(levelTone(LEVELS, null)).toBe('neutral')
+    expect(levelTone(LEVELS, 'alert')).toBe('neutral')
+  })
+})

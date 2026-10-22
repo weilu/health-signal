@@ -212,7 +212,7 @@ class PhaseStreamSource:
         df = _load(path.parent, path.name, _S_COLS, self._violation)
         self._s = drop_copies_reject_conflicts(df, ["location", "pathogen", "method", "role"]).drop(columns=PROVENANCE)
 
-    def _series_problem(self, feed: str, series: str) -> str | None:
+    def _series_problem(self, feed: str, series: str, pathogen: str) -> str | None:
         profile = self._feeds.get(feed)
         if profile is None:
             return f"feed {feed!r} is not configured"
@@ -227,11 +227,15 @@ class PhaseStreamSource:
             allowed = profile.dimension_vocab.get(dim)
             if allowed is not None and value not in allowed:
                 return f"{dim} {value!r} not allowed for feed {feed!r} ({profile.name})"
+        # Explicit, or implied by the indicator (wastewater cov is always SARS-CoV-2), as for panels.
+        implied = params.get("pathogen") or profile.indicator_implies.get(params["indicator"], {}).get("pathogen")
+        if implied is not None and implied != pathogen:
+            return f"indicator {params['indicator']!r} implies pathogen {implied!r}, not {pathogen!r}"
         return None
 
     def _violation(self, df: pd.DataFrame):
         roles = df["method"].map(lambda m: METHODS[m].stream_roles if m in METHODS else [])
-        series = pd.Series([self._series_problem(f, s) for f, s in zip(df["feed"], df["series"])],
+        series = pd.Series([self._series_problem(f, s, p) for f, s, p in zip(df["feed"], df["series"], df["pathogen"])],
                            index=df.index, dtype=object)
         rules = [
             (df["location"].eq(""), lambda r: "location is empty"),
