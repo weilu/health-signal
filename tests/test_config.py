@@ -85,7 +85,7 @@ def test_branding_projection_is_json_safe():
     json.dumps(cfg.client_config())
 
 
-_PANEL = {"id": "p", "type": "timeseries", "series_by": "survtype",
+_PANEL = {"id": "p", "series_by": "survtype",
           "query": {"feed": "clinical", "indicator": "positivity", "dimensions": {"pathogen": "Influenza"}}}
 _FEEDS = DataConfig(feeds=[{"id": "clinical", "profile": "erviss", "dir": "d/c"},
                            {"id": "wastewater", "profile": "phes_odm", "dir": "d/w"}])
@@ -281,7 +281,3 @@ def test_label_keys_follow_ids():
 def test_label_keys_cannot_be_overridden(build):
     with pytest.raises(ValidationError):
         build()
-
-def test_panels_default_to_timeseries():
-    # The common kind is implied; other kinds (status tiles, stacked bars) will be stated explicitly.
-    assert Panel(id="deaths", query={"feed": "clinical", "indicator": "deaths"}).type == "timeseries"
