@@ -8,7 +8,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from . import auth as _auth
-from .assessments import AssessmentRow, AssessmentSource, PhaseRow, PhaseSource, ThresholdRow
+from .assessments import (AssessmentRow, AssessmentSource, PhaseRow, PhaseSource, PhaseStreamRow,
+                          PhaseStreamSource, ThresholdRow)
 from .auth import AuthProvider, User
 from .config import Config
 from .datasource import DataSource, FileDataSource
@@ -59,6 +60,8 @@ def create_app(
         data_sources = {f.id: FileDataSource(f.dir, PROFILES[f.profile]) for f in feeds}
     assessment_sources = {f.id: AssessmentSource(f.assessments, PROFILES[f.profile]) for f in feeds if f.assessments}
     phase_source = PhaseSource(config.data.phases) if config.data and config.data.phases else None
+    stream_source = (PhaseStreamSource(config.data.phase_streams, {f.id: PROFILES[f.profile] for f in feeds})
+                     if config.data and config.data.phase_streams else None)
 
     _ALWAYS_PUBLIC = ("/healthz", "/login", "/logout")
 
@@ -147,6 +150,20 @@ def create_app(
         source = assessment_sources.get(feed)
         return source.thresholds(location=location, indicator=indicator, week_from=week_from, week_to=week_to,
                                  dimensions=dimensions, method=method) if source else []
+
+    @app.get("/api/phase-streams", response_model=list[PhaseStreamRow])
+    def get_phase_streams(
+        request: Request,
+        user: User = Depends(require_auth),
+        location: str | None = None,
+        pathogen: str | None = None,
+        method: str | None = None,
+    ) -> list[PhaseStreamRow]:
+        unknown = request.query_params.keys() - {"location", "pathogen", "method"}
+        if unknown:
+            # An ignored typo would silently return every pathogen's streams.
+            raise HTTPException(status_code=422, detail=f"unknown filter(s) {', '.join(sorted(unknown))}")
+        return stream_source.streams(location=location, pathogen=pathogen, method=method) if stream_source else []
 
     @app.get("/api/phases", response_model=list[PhaseRow])
     def get_phases(

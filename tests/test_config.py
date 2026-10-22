@@ -294,7 +294,8 @@ def test_a_panel_must_query_its_targets_pathogen():
 def test_methods_reach_the_client():
     methods = Config(schema_version="1", site=SiteConfig(title="T")).client_config()["methods"]
     assert methods["aedseo"] == {"levels": ["very_low", "low", "medium", "high", "very_high"],
-                                 "phases": ["in_season", "in_wave", "out_of_season"], "trend": True}
+                                 "phases": ["in_season", "in_wave", "out_of_season"], "trend": True,
+                                 "stream_roles": ["cases", "admissions"], "active_phases": ["in_season", "in_wave"]}
 
 
 def test_feeds_and_phases_take_optional_assessment_dirs():

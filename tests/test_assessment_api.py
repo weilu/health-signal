@@ -22,7 +22,8 @@ def _client(tmp_path, with_assessments=True):
     if with_assessments:
         feed["assessments"] = str(FIX / "wastewater" / "assessed")
     cfg = Config(schema_version="1", site=SiteConfig(title="T"),
-                 data=DataConfig(feeds=[feed], phases=str(FIX / "phase.csv") if with_assessments else None))
+                 data=DataConfig(feeds=[feed], phases=str(FIX / "phase.csv") if with_assessments else None,
+                                 phase_streams=str(FIX / "phase_streams.csv") if with_assessments else None))
     return TestClient(create_app(cfg, auth_provider=_AllowAll()))
 
 
@@ -58,3 +59,14 @@ def test_unknown_feed_or_dimension_is_422(tmp_path):
 def test_phases_reject_unknown_filters(tmp_path):
     # An ignored typo (?pathogn=) would silently return every pathogen.
     assert _client(tmp_path).get("/api/phases", params={"pathogn": "RSV"}).status_code == 422
+
+
+def test_phase_streams_endpoint(tmp_path):
+    r = _client(tmp_path).get("/api/phase-streams", params={"pathogen": "Influenza"})
+    assert [(x["role"], x["series"]) for x in r.json()] == [("cases", {"indicator": "fluA", "aggregation": "floMean"})]
+    (tmp_path / "x").mkdir()
+    assert _client(tmp_path / "x", with_assessments=False).get("/api/phase-streams").json() == []
+
+
+def test_phase_streams_reject_unknown_filters(tmp_path):
+    assert _client(tmp_path).get("/api/phase-streams", params={"pathogn": "RSV"}).status_code == 422

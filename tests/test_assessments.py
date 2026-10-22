@@ -1,6 +1,6 @@
 import pytest
-from health_signal.assessments import AssessmentSource, PhaseSource
-from health_signal.profile import PHES_ODM
+from health_signal.assessments import AssessmentSource, PhaseSource, PhaseStreamSource
+from health_signal.profile import ERVISS, PHES_ODM
 
 _A = "location,period,pathogen,aggregation,indicator,method,level,provisional,trend,growth_rate,growth_lower,growth_upper,phase\n"
 _A1 = "Testville,2025-W02,Influenza,floMean,fluA,aedseo,low,false,increasing,0.2,0.1,0.3,in_season\n"
@@ -90,3 +90,31 @@ def test_header_only_tables_load_empty(tmp_path):
     assert src.assessments() == [] and src.thresholds() == []
     (tmp_path / "phase.csv").write_text(_P, encoding="utf-8")
     assert PhaseSource(tmp_path / "phase.csv").phases() == []
+
+
+_S = "location,pathogen,method,role,feed,series\n"
+_S1 = "Testville,Influenza,aedseo,cases,wastewater,indicator=fluA&aggregation=floMean\n"
+_FEEDS = {"wastewater": PHES_ODM, "clinical": ERVISS}
+
+
+def _streams(tmp_path, body):
+    f = tmp_path / "phase_streams.csv"
+    f.write_text(_S + body, encoding="utf-8")
+    return PhaseStreamSource(f, _FEEDS)
+
+
+def test_phase_streams_load(tmp_path):
+    [s] = _streams(tmp_path, _S1).streams(pathogen="Influenza")
+    assert (s.role, s.feed, s.series) == ("cases", "wastewater", {"indicator": "fluA", "aggregation": "floMean"})
+
+
+@pytest.mark.parametrize("bad, message", [
+    (_S1.replace(",cases,", ",community,"), "role"),                       # not one of aedseo's roles
+    (_S1.replace(",wastewater,", ",sewage,"), "feed"),                     # not a configured feed
+    (_S1.replace("aggregation=floMean", "survtype=non-sentinel"), "dimension"),  # another profile's dimension
+    (_S1.replace("indicator=fluA", "indicator=positivity"), "indicator"),
+    (_S1.replace("indicator=fluA&", ""), "indicator"),                     # a series needs its indicator
+])
+def test_bad_phase_streams_fail(tmp_path, bad, message):
+    with pytest.raises(ValueError, match=rf"phase_streams\.csv row 1: .*{message}"):
+        _streams(tmp_path, bad)
