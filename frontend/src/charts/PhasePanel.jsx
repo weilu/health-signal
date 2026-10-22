@@ -61,11 +61,14 @@ export function PhasePanel({ panel, target, location, range, latest }) {
           const shading = activeWeeks(rows, method.active_phases)
           return (
             <Stack direction={{ xs: 'column-reverse', md: 'row' }} spacing={2}>
-              <Stack spacing={2} sx={{ flex: 1, minWidth: 0 }}>
-                {(streams.data ?? []).map((s) => (
-                  <StreamChart key={s.role} stream={s} location={location} range={range} shading={shading} />
-                ))}
-              </Stack>
+              {/* A declared or stream-less phase has no evidence to chart; the tile stands alone. */}
+              {streams.data?.length > 0 && (
+                <Stack spacing={2} sx={{ flex: 1, minWidth: 0 }}>
+                  {streams.data.map((s) => (
+                    <StreamChart key={s.role} stream={s} location={location} range={range} shading={shading} />
+                  ))}
+                </Stack>
+              )}
               {pick && (
                 <Box sx={{ width: { md: 240 }, flexShrink: 0 }}>
                   {pick.row ? (
