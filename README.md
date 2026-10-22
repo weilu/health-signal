@@ -111,10 +111,13 @@ npm --prefix frontend ci && npm --prefix frontend run build
 `npm ci` installs exactly the versions pinned in `frontend/package-lock.json`. To add or upgrade a
 frontend dependency, use `npm --prefix frontend install <pkg>` instead and commit the updated lockfile.
 
-Then wrap `create_app` in a module and serve it. Auth needs a secret and at least one account
-(email → argon2 hash):
+Then wrap `create_app` in a module and serve it. Each feed in `data.feeds` must be an existing
+directory: put that profile's CSV files in it (`data/clinical` for ERVISS rows, `data/wastewater` for
+PHES-ODM rows); left empty, the dashboard starts and every panel says there's no data. Auth needs a
+secret and at least one account (email → argon2 hash):
 
 ```bash
+mkdir -p data/clinical data/wastewater
 export HEALTH_SIGNAL_SECRET_KEY=$(python -c "import secrets; print(secrets.token_urlsafe(32))")
 export HEALTH_SIGNAL_ACCOUNTS=$(uv run python -c "import json; from argon2 import PasswordHasher as P; print(json.dumps({'you@example.org': P().hash('change-me')}))")
 
