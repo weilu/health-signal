@@ -53,8 +53,9 @@ _PHASE_COLUMNS = ["location", "pathogen", "period", "method", "phase"]
 
 def _outside_method(df: pd.DataFrame, column: str, vocabulary: str) -> pd.Series:
     # Vocabularies are per method (spec §6.3): `alert` is fine for an IDSR method, not for aedseo.
-    allowed = df["method"].map(lambda m: getattr(METHODS[m], vocabulary) if m in METHODS else [])
-    return df[column].ne("") & ~pd.Series([v in a for v, a in zip(df[column], allowed)], index=df.index, dtype=bool)
+    allowed = df["method"].map(lambda method: getattr(METHODS[method], vocabulary) if method in METHODS else [])
+    return df[column].ne("") & ~pd.Series([value in values for value, values in zip(df[column], allowed)],
+                                          index=df.index, dtype=bool)
 
 
 def _load(directory: Path, name: str, required: list[str], check) -> pd.DataFrame:
@@ -67,7 +68,7 @@ def _load(directory: Path, name: str, required: list[str], check) -> pd.DataFram
 
 
 def _dims(profile: Profile, df: pd.DataFrame) -> list[str]:
-    return [d for d in profile.dimension_keys if d in df.columns]
+    return [dim for dim in profile.dimension_keys if dim in df.columns]
 
 
 class AssessmentSource:
@@ -76,23 +77,23 @@ class AssessmentSource:
         if not directory.is_dir():
             raise ValueError(f"assessments dir {str(directory)!r} is not a directory")
         self.profile = profile
-        a = _load(directory, "assessment.csv", _ASSESSMENT_COLUMNS, self._assessment_violation)
+        assessments = _load(directory, "assessment.csv", _ASSESSMENT_COLUMNS, self._assessment_violation)
         # Compared as numbers, as feeds are: 0.2 and 0.20 are one reading, not a conflict.
-        a[_GROWTH] = a[_GROWTH].replace("", np.nan).astype(float)
-        key = ["location", "period", "indicator", "method", *_dims(profile, a)]
-        self._a = drop_copies_reject_conflicts(a, key).drop(columns=PROVENANCE)
-        t = _load(directory, "thresholds.csv", _THRESHOLD_COLUMNS, self._threshold_violation)
-        t["lower_bound"] = t["lower_bound"].astype(float)
-        series = ["location", "indicator", "method", *_dims(profile, t)]
-        t = drop_copies_reject_conflicts(t, [*series, "from", "level"])
-        _check_spans(t, series)
-        self._t = t.drop(columns=PROVENANCE)
+        assessments[_GROWTH] = assessments[_GROWTH].replace("", np.nan).astype(float)
+        key = ["location", "period", "indicator", "method", *_dims(profile, assessments)]
+        self._assessments = drop_copies_reject_conflicts(assessments, key).drop(columns=PROVENANCE)
+        thresholds = _load(directory, "thresholds.csv", _THRESHOLD_COLUMNS, self._threshold_violation)
+        thresholds["lower_bound"] = thresholds["lower_bound"].astype(float)
+        series = ["location", "indicator", "method", *_dims(profile, thresholds)]
+        thresholds = drop_copies_reject_conflicts(thresholds, [*series, "from", "level"])
+        _check_spans(thresholds, series)
+        self._thresholds = thresholds.drop(columns=PROVENANCE)
 
     def _assessment_violation(self, df: pd.DataFrame):
         # astype: an empty column stays object dtype after to_numeric, and isfinite rejects object.
         growth = df[_GROWTH].apply(pd.to_numeric, errors="coerce").astype(float)
         blank = df[_GROWTH].eq("")
-        no_trend = df["method"].map(lambda m: m in METHODS and not METHODS[m].trend).astype(bool)
+        no_trend = df["method"].map(lambda method: method in METHODS and not METHODS[method].trend).astype(bool)
         in_interval = (np.isfinite(growth).all(axis=1) & (growth["growth_lower"] <= growth["growth_rate"])
                        & (growth["growth_rate"] <= growth["growth_upper"]))
         rules = [
@@ -123,19 +124,19 @@ class AssessmentSource:
 
     def assessments(self, *, location=None, indicator=None, week_from=None, week_to=None, dimensions=None,
                     method=None) -> list[AssessmentRow]:
-        df = filter_rows(self._a, location=location, indicator=indicator, week_from=week_from, week_to=week_to,
+        df = filter_rows(self._assessments, location=location, indicator=indicator, week_from=week_from, week_to=week_to,
                          dimensions={**(dimensions or {}), "method": method})
         dims = _dims(self.profile, df)
         return [AssessmentRow(
             location=r["location"], period=r["period"], indicator=r["indicator"], method=r["method"],
-            dimensions={k: r[k] for k in dims if r[k]}, level=r["level"] or None,
+            dimensions={dim: r[dim] for dim in dims if r[dim]}, level=r["level"] or None,
             provisional=r["provisional"] == "true", trend=r["trend"] or None, phase=r["phase"] or None,
-            **{g: None if pd.isna(r[g]) else r[g] for g in _GROWTH},
+            **{field: None if pd.isna(r[field]) else r[field] for field in _GROWTH},
         ) for r in df.to_dict("records")]
 
     def thresholds(self, *, location=None, indicator=None, week_from=None, week_to=None, dimensions=None,
                    method=None) -> list[ThresholdRow]:
-        df = filter_rows(self._t, location=location, indicator=indicator,
+        df = filter_rows(self._thresholds, location=location, indicator=indicator,
                          dimensions={**(dimensions or {}), "method": method})
         # A span overlapping the range counts, so a range starting mid-season still gets its season's bands.
         if week_from is not None:
@@ -145,17 +146,17 @@ class AssessmentSource:
         dims = _dims(self.profile, df)
         return [ThresholdRow(
             location=r["location"], indicator=r["indicator"], method=r["method"], from_=r["from"], to=r["to"],
-            level=r["level"], lower_bound=r["lower_bound"], dimensions={k: r[k] for k in dims if r[k]},
+            level=r["level"], lower_bound=r["lower_bound"], dimensions={dim: r[dim] for dim in dims if r[dim]},
         ) for r in df.to_dict("records")]
 
 
-def _check_spans(t: pd.DataFrame, series: list[str]) -> None:
-    for _, group in t.groupby(series, sort=False):
+def _check_spans(thresholds: pd.DataFrame, series: list[str]) -> None:
+    for _, group in thresholds.groupby(series, sort=False):
         spans = group.drop_duplicates(["from", "to"]).sort_values("from")
-        for (_, a), (_, b) in zip(spans.iterrows(), spans.iloc[1:].iterrows()):
-            if b["from"] <= a["to"]:
-                raise ValueError(f"{b['_file']} row {b['_row']}: span {b['from']}..{b['to']} overlaps "
-                                 f"{a['from']}..{a['to']}")
+        for (_, earlier), (_, later) in zip(spans.iterrows(), spans.iloc[1:].iterrows()):
+            if later["from"] <= earlier["to"]:
+                raise ValueError(f"{later['_file']} row {later['_row']}: span {later['from']}..{later['to']} overlaps "
+                                 f"{earlier['from']}..{earlier['to']}")
         for _, span in group.groupby(["from", "to"], sort=False):
             order = METHODS[span["method"].iat[0]].levels
             ranked = span.assign(_rank=span["level"].map(order.index)).sort_values("_rank")
@@ -172,7 +173,8 @@ class PhaseSource:
             # One file per dashboard, so a configured path that doesn't exist is a typo, not "no phases".
             raise ValueError(f"phases file {str(path)!r} does not exist")
         df = _load(path.parent, path.name, _PHASE_COLUMNS, self._violation)
-        self._p = drop_copies_reject_conflicts(df, ["location", "pathogen", "period", "method"]).drop(columns=PROVENANCE)
+        key = ["location", "pathogen", "period", "method"]
+        self._phases = drop_copies_reject_conflicts(df, key).drop(columns=PROVENANCE)
 
     @staticmethod
     def _violation(df: pd.DataFrame):
@@ -189,9 +191,9 @@ class PhaseSource:
         return first_match(df, rules)
 
     def phases(self, *, location=None, pathogen=None, method=None, week_from=None, week_to=None) -> list[PhaseRow]:
-        df = filter_rows(self._p, location=location, week_from=week_from, week_to=week_to,
+        df = filter_rows(self._phases, location=location, week_from=week_from, week_to=week_to,
                          dimensions={"pathogen": pathogen, "method": method})
-        return [PhaseRow(**{c: r[c] for c in _PHASE_COLUMNS}) for r in df.to_dict("records")]
+        return [PhaseRow(**{column: r[column] for column in _PHASE_COLUMNS}) for r in df.to_dict("records")]
 
 
 class PhaseStreamRow(BaseModel):
@@ -213,7 +215,8 @@ class PhaseStreamSource:
             raise ValueError(f"phase streams file {str(path)!r} does not exist")
         self._feeds = feeds
         df = _load(path.parent, path.name, _STREAM_COLUMNS, self._violation)
-        self._s = drop_copies_reject_conflicts(df, ["location", "pathogen", "method", "role"]).drop(columns=PROVENANCE)
+        key = ["location", "pathogen", "method", "role"]
+        self._streams = drop_copies_reject_conflicts(df, key).drop(columns=PROVENANCE)
 
     def _series_problem(self, feed: str, series: str, pathogen: str) -> str | None:
         profile = self._feeds.get(feed)
@@ -240,20 +243,22 @@ class PhaseStreamSource:
         return None
 
     def _violation(self, df: pd.DataFrame):
-        roles = df["method"].map(lambda m: METHODS[m].stream_roles if m in METHODS else [])
-        series = pd.Series([self._series_problem(f, s, p) for f, s, p in zip(df["feed"], df["series"], df["pathogen"])],
+        roles = df["method"].map(lambda method: METHODS[method].stream_roles if method in METHODS else [])
+        series = pd.Series([self._series_problem(feed, query, pathogen)
+                            for feed, query, pathogen in zip(df["feed"], df["series"], df["pathogen"])],
                            index=df.index, dtype=object)
         rules = [
             (df["location"].eq(""), lambda r: "location is empty"),
             (~df["pathogen"].isin(PATHOGENS), lambda r: f"pathogen {r['pathogen']!r} is not in the pathogen registry"),
             (~df["method"].isin(METHODS), lambda r: f"unknown method {r['method']!r}"),
-            (pd.Series([r not in a for r, a in zip(df["role"], roles)], index=df.index, dtype=bool),
+            (pd.Series([role not in allowed for role, allowed in zip(df["role"], roles)], index=df.index, dtype=bool),
              lambda r: f"role {r['role']!r} is not a {r['method']} stream role"),
             (series.notna(), lambda r: series[r.name]),
         ]
         return first_match(df, rules)
 
     def streams(self, *, location=None, pathogen=None, method=None) -> list[PhaseStreamRow]:
-        df = filter_rows(self._s, location=location, dimensions={"pathogen": pathogen, "method": method})
-        return [PhaseStreamRow(**{c: r[c] for c in _STREAM_COLUMNS if c != "series"}, series=dict(parse_qsl(r["series"])))
+        df = filter_rows(self._streams, location=location, dimensions={"pathogen": pathogen, "method": method})
+        return [PhaseStreamRow(**{column: r[column] for column in _STREAM_COLUMNS if column != "series"},
+                               series=dict(parse_qsl(r["series"])))
                 for r in df.to_dict("records")]
