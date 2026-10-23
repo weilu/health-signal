@@ -6,7 +6,7 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, PositiveInt, computed_field, field_validator, model_validator
 
 from .methods import METHODS
-from .profile import PATHOGENS, PROFILES
+from .profile import PATHOGENS, PROFILES, implies_message
 
 
 class Branding(BaseModel):
@@ -212,14 +212,14 @@ def _panel_problem(panel: Panel, profiles: dict) -> str | None:
     for dim, value in q.dimensions.items():
         if dim not in profile.dimension_keys:
             return f"{dim!r} is not a dimension of feed {q.feed!r} ({profile.name})"
-        allowed = profile.dimension_vocab.get(dim)
+        allowed = profile.vocab(dim)
         if allowed is not None and value not in allowed:
             return f"{dim} {value!r} not allowed for feed {q.feed!r} ({profile.name})"
         # e.g. fluA with pathogen RSV: each value is valid, but no row can carry both, so the panel would
         # read as "no data" rather than as a config mistake.
         implied = profile.indicator_implies.get(q.indicator, {}).get(dim)
         if implied is not None and value != implied:
-            return f"indicator {q.indicator!r} implies {dim} {implied!r}, not {value!r}"
+            return f"{implies_message(q.indicator, dim, implied)}, not {value!r}"
     if panel.series_by is not None and panel.series_by not in profile.dimension_keys:
         return f"series_by {panel.series_by!r} is not a dimension of feed {q.feed!r} ({profile.name})"
     return None
@@ -255,7 +255,7 @@ class Config(BaseModel):
                         raise ValueError(f"panel {panel.id!r} on page {page.id!r}: {problem}")
                     # Explicit, or implied by the indicator (wastewater cov is always SARS-CoV-2).
                     implied = profiles[panel.query.feed].indicator_implies.get(panel.query.indicator, {})
-                    pathogen = panel.query.dimensions.get("pathogen") or implied.get("pathogen")
+                    pathogen = panel.query.dimensions.get("pathogen") or implied.get("pathogen") or None
                     if pathogen is not None and pathogen != target.id:
                         raise ValueError(f"panel {panel.id!r} on page {page.id!r} queries pathogen {pathogen!r} "
                                          f"but sits under target {target.id!r}")

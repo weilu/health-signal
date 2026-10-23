@@ -1,6 +1,6 @@
 import pandas as pd
 import pytest
-from health_signal.profile import ERVISS, PATHOGENS, PHES_ODM, PROFILES, FeedRow
+from health_signal.profile import ERVISS, PHES_ODM, PROFILES, FeedRow, Profile
 
 _VALID = {
     "location": "Attica", "period": "2025-W01", "survtype": "non-sentinel", "pathogen": "Influenza",
@@ -121,8 +121,9 @@ def test_odm_measure_must_match_its_pathogen():
     assert "implies pathogen 'Influenza'" in _odm_violation(pathogen="")
 
 
-def test_odm_pmmov_needs_no_pathogen():
+def test_odm_pmmov_carries_no_pathogen():
     assert _odm_violation(indicator="ppmv", pathogen="", unit="gcL", aggregation="me") is None
+    assert "carries no pathogen" in _odm_violation(indicator="ppmv", pathogen="Influenza", unit="gcL", aggregation="me")
 
 
 def test_below_lod_rows_keep_the_producers_value():
@@ -148,8 +149,12 @@ def test_feedrow_quality_is_optional():
     assert FeedRow(location="A", period="2025-W01", dimensions={}, indicator="fluA", value=0, unit="gcL").quality is None
 
 
-def test_profiles_share_the_pathogen_registry():
-    assert ERVISS.dimension_vocab["pathogen"] == PATHOGENS == PHES_ODM.dimension_vocab["pathogen"]
+def test_a_pathogen_dimension_checks_the_registry_without_a_vocab_entry():
+    bare = Profile(name="bare", version="1", dimension_keys=["pathogen"], indicators={"x"}, units={"u"},
+                   dimension_vocab={}, period_pattern=r"\d{4}-W\d{2}")
+    row = {"location": "Testville", "period": "2025-W01", "indicator": "x", "value": "1", "unit": "u"}
+    assert "pathogen" in bare.first_violation(pd.DataFrame([{**row, "pathogen": "Measles"}]))[1]
+    assert bare.first_violation(pd.DataFrame([{**row, "pathogen": "RSV"}])) is None
 
 
 def test_key_rules_check_every_period_column():

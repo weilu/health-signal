@@ -305,6 +305,16 @@ def test_feeds_and_phases_take_optional_assessment_dirs():
     assert DataConfig(feeds=[{"id": "c", "profile": "erviss", "dir": "a"}]).phases is None
 
 
+def test_a_pmmov_panel_cannot_name_a_pathogen():
+    with pytest.raises(ValidationError, match="carries no pathogen"):
+        _with_panel({"id": "w", "query": {"feed": "wastewater", "indicator": "ppmv",
+                                          "dimensions": {"aggregation": "me", "pathogen": "Influenza"}}})
+
+
+def test_a_pmmov_panel_sits_under_any_target():
+    _with_panel({"id": "w", "query": {"feed": "wastewater", "indicator": "ppmv", "dimensions": {"aggregation": "me"}}})
+
+
 def test_a_panel_whose_indicator_implies_another_pathogen_fails():
     # cov is always SARS-CoV-2, so under the Influenza target it would show COVID data.
     with pytest.raises(ValidationError, match="target 'Influenza'"):

@@ -14,18 +14,26 @@ class FeedRow(BaseModel):
     quality: str | None = None  # annotates the value (e.g. ODM beLOD), so it never splits a series
 
 
+def implies_message(indicator: str, dim: str, value: str) -> str:
+    return f"indicator {indicator!r} carries no {dim}" if value == "" else f"indicator {indicator!r} implies {dim} {value!r}"
+
 class Profile(BaseModel):
     name: str
     version: str
     dimension_keys: list[str]
     indicators: set[str]
     units: set[str]
-    dimension_vocab: dict[str, set[str]]  # dimension name -> allowed values
+    dimension_vocab: dict[str, set[str]]  # dimension name -> allowed values; pathogen comes from PATHOGENS
     period_pattern: str  # granularity: week_range filters compare periods as strings, so format must be fixed
     required_dimensions: set[str] = set()
     qualities: set[str] = set()  # allowed `quality` values
     # indicator -> {dimension: value} it fixes, e.g. ODM measure fluA -> pathogen Influenza, so feeds join.
+    # An empty value means the indicator carries no value for that dimension (PMMoV has no pathogen).
     indicator_implies: dict[str, dict[str, str]] = {}
+
+    def vocab(self, dim: str) -> set[str] | None:
+        # Every profile spells pathogens from the one registry, so feeds join on it.
+        return set(PATHOGENS) if dim == "pathogen" else self.dimension_vocab.get(dim)
 
     def key_violation(self, df: pd.DataFrame, period_columns=("period",)) -> tuple[int, str] | None:
         """The series-key rules alone, for tables keyed like the feed (assessments, thresholds)."""
@@ -43,15 +51,15 @@ class Profile(BaseModel):
         rules.append((~df["indicator"].isin(self.indicators),
                       lambda r: f"unknown indicator {r['indicator']!r} for profile {self.name}"))
         # Dimensions without a vocab entry (e.g. pathogensubtype) are unconstrained.
-        for dim, allowed in self.dimension_vocab.items():
-            if dim in df.columns:
+        for dim in self.dimension_keys:
+            if (allowed := self.vocab(dim)) is not None and dim in df.columns:
                 rules.append((df[dim].ne("") & ~df[dim].isin(allowed),
                               lambda r, d=dim: f"value {r[d]!r} not allowed for dimension {d!r} in profile {self.name}"))
         for dim in sorted({d for implied in self.indicator_implies.values() for d in implied}):
             expected = df["indicator"].map({i: m[dim] for i, m in self.indicator_implies.items() if dim in m})
             actual = df[dim] if dim in df.columns else pd.Series("", index=df.index)
             rules.append((expected.notna() & actual.ne(expected),
-                          lambda r, d=dim, e=expected: f"indicator {r['indicator']!r} implies {d} {e[r.name]!r}"))
+                          lambda r, d=dim, e=expected: implies_message(r["indicator"], d, e[r.name])))
         for dim in sorted(self.required_dimensions):
             absent = df[dim].eq("") if dim in df.columns else pd.Series(True, index=df.index)
             rules.append((absent, lambda r, d=dim: f"missing required dimension {d!r} for profile {self.name}"))
@@ -98,7 +106,6 @@ ERVISS = Profile(
     dimension_vocab={
         "survtype": {"primary care sentinel", "primary care syndromic", "non-sentinel",
                      "SARI syndromic", "SARI virological"},
-        "pathogen": set(PATHOGENS),
         "pathogentype": {"Influenza", "Influenza A", "Influenza B", "Influenza untyped",
                          "RSV", "RSV untyped", "RSV-A", "RSV-B", "SARS-CoV-2"},
         # "NA" is a literal ERVISS value, not a missing cell (the loader keeps it as text).
@@ -125,14 +132,13 @@ PHES_ODM = Profile(
     indicators=set(_ODM_PATHOGEN) | {"ppmv"},  # ppmv: the PMMoV faecal-strength marker, no pathogen
     units={"gcL", "gcMl", "log10cpL", "gCGS", "gcPpmov", "gcDay", "gcDay100k"},
     dimension_vocab={
-        "pathogen": set(PATHOGENS),
         "aggregation": {"me", "med", "gmn", "floMean", "pmmovNorm", "pmFloMean"},
         "fraction": {"liq", "sol", "mix", "mul"},
     },
     period_pattern=r"\d{4}-W\d{2}",
     required_dimensions={"aggregation"},
     qualities={"beLOD"},  # below LOD: the value is the producer's stand-in (0, LOD/2, …), not a measurement
-    indicator_implies={measure: {"pathogen": p} for measure, p in _ODM_PATHOGEN.items()},
+    indicator_implies={measure: {"pathogen": p} for measure, p in {**_ODM_PATHOGEN, "ppmv": ""}.items()},
 )
 
 PROFILES = {p.name: p for p in (ERVISS, PHES_ODM)}
