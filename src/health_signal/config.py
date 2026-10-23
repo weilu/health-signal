@@ -5,7 +5,8 @@ from typing import Literal
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, PositiveInt, computed_field, field_validator, model_validator
 
-from .profile import PROFILES
+from .methods import METHODS
+from .profile import PATHOGENS, PROFILES, implies_message
 
 
 class Branding(BaseModel):
@@ -66,17 +67,17 @@ class Panel(BaseModel):
         return f"panels.{self.id}"
 
 
-# ASCII slug segments only: dots, "%", "\\", "//", "?", "#" and router patterns could resolve elsewhere, and
-# ASCII never needs decoding, so the nav matcher sees the same pathname as <Routes>.
-_PAGE_PATH = re.compile(r"(/[A-Za-z0-9_-]+)+")
-# Paths a page must not shadow (a reload would hit the server route).
-_RESERVED_PATHS = ("/login", "/logout", "/config", "/api", "/docs", "/redoc", "/openapi.json", "/healthz", "/assets")
+_PAGE_ID = re.compile(r"[a-z0-9_-]+")  # a URL segment as-is: no encoding, no case folding
+
+
+def page_path(target_id: str, page_id: str) -> str:
+    # Derived, never configured (spec §6.1): unique because target ids and page ids are.
+    return f"/{target_id.lower()}/{page_id}"
 
 
 class Page(BaseModel):
     model_config = ConfigDict(extra="forbid")
     id: str
-    path: str
     panels: list[Panel] = Field(default_factory=list)
 
     @computed_field
@@ -84,15 +85,12 @@ class Page(BaseModel):
     def label_key(self) -> str:
         return f"pages.{self.id}"
 
-    @field_validator("path")
+    @field_validator("id")
     @classmethod
-    def _routable(cls, path: str) -> str:
-        # "/" redirects to the first page. Routes ignore a trailing slash, so it may not tell two paths apart.
-        if not _PAGE_PATH.fullmatch(path):
-            raise ValueError(f"page path {path!r} must be '/'-separated segments of letters, digits, '-' or '_'")
-        if any(path.lower() == r or path.lower().startswith(r + "/") for r in _RESERVED_PATHS):
-            raise ValueError(f"page path {path!r} collides with an app route")
-        return path
+    def _url_safe(cls, page_id: str) -> str:
+        if not _PAGE_ID.fullmatch(page_id):
+            raise ValueError(f"page id {page_id!r} must be lower-case letters, digits, '-' or '_'")
+        return page_id
 
     @model_validator(mode="after")
     def _unique_panel_ids(self) -> "Page":
@@ -103,10 +101,17 @@ class Page(BaseModel):
 
 
 class Target(BaseModel):
-    # A surveillance target, e.g. a pathogen.
+    # A surveillance subject: its id is a pathogen registry key, so tabs, phases and tiles share one key.
     model_config = ConfigDict(extra="forbid")
     id: str
     pages: list[Page] = Field(default_factory=list)
+
+    @field_validator("id")
+    @classmethod
+    def _is_pathogen(cls, target_id: str) -> str:
+        if target_id not in PATHOGENS:
+            raise ValueError(f"target id {target_id!r} is not in the pathogen registry {sorted(PATHOGENS)}")
+        return target_id
 
     @computed_field
     @property
@@ -164,6 +169,7 @@ class FeedConfig(BaseModel):
     id: str = Field(min_length=1)  # the client drops empty query params, so "" could never be requested
     profile: str
     dir: str
+    assessments: str | None = None  # Status/Trend tables for this feed's series (spec §6.3)
 
     @field_validator("profile")
     @classmethod
@@ -176,6 +182,7 @@ class FeedConfig(BaseModel):
 class DataConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
     feeds: list[FeedConfig] = Field(min_length=1)
+    phases: str | None = None  # the pathogen-level phase CSV, one per dashboard (spec §6.3)
 
     @model_validator(mode="after")
     def _unique_ids(self) -> "DataConfig":
@@ -195,14 +202,14 @@ def _panel_problem(panel: Panel, profiles: dict) -> str | None:
     for dim, value in q.dimensions.items():
         if dim not in profile.dimension_keys:
             return f"{dim!r} is not a dimension of feed {q.feed!r} ({profile.name})"
-        allowed = profile.dimension_vocab.get(dim)
+        allowed = profile.vocab(dim)
         if allowed is not None and value not in allowed:
             return f"{dim} {value!r} not allowed for feed {q.feed!r} ({profile.name})"
         # e.g. fluA with pathogen RSV: each value is valid, but no row can carry both, so the panel would
         # read as "no data" rather than as a config mistake.
         implied = profile.indicator_implies.get(q.indicator, {}).get(dim)
         if implied is not None and value != implied:
-            return f"indicator {q.indicator!r} implies {dim} {implied!r}, not {value!r}"
+            return f"{implies_message(q.indicator, dim, implied)}, not {value!r}"
     if panel.series_by is not None and panel.series_by not in profile.dimension_keys:
         return f"series_by {panel.series_by!r} is not a dimension of feed {q.feed!r} ({profile.name})"
     return None
@@ -219,14 +226,10 @@ class Config(BaseModel):
 
     @model_validator(mode="after")
     def _unique_pages(self) -> "Config":
-        # Duplicate paths shadow each other as routes (matched case-insensitively), and key tabs and React lists.
+        # Target ids key tabs and derived paths.
         target_ids = [t.id for t in self.targets]
         if len(target_ids) != len(set(target_ids)):
             raise ValueError("duplicate target ids")
-        paths = [page.path.lower() for target in self.targets for page in target.pages]
-        dupes = sorted({p for p in paths if paths.count(p) > 1})
-        if dupes:
-            raise ValueError(f"duplicate path(s) {', '.join(dupes)} across targets")
         return self
 
     @model_validator(mode="after")
@@ -238,6 +241,12 @@ class Config(BaseModel):
                 for panel in page.panels:
                     if (problem := _panel_problem(panel, profiles)) is not None:
                         raise ValueError(f"panel {panel.id!r} on page {page.id!r}: {problem}")
+                    # Explicit, or implied by the indicator (wastewater cov is always SARS-CoV-2).
+                    implied = profiles[panel.query.feed].indicator_implies.get(panel.query.indicator, {})
+                    pathogen = panel.query.dimensions.get("pathogen") or implied.get("pathogen") or None
+                    if pathogen is not None and pathogen != target.id:
+                        raise ValueError(f"panel {panel.id!r} on page {page.id!r} queries pathogen {pathogen!r} "
+                                         f"but sits under target {target.id!r}")
         return self
 
     def bootstrap_config(self) -> dict:
@@ -253,8 +262,13 @@ class Config(BaseModel):
         # Full view-model (authenticated); still excludes server-only fields.
         return {
             **self.bootstrap_config(),
-            "targets": [t.model_dump(mode="json") for t in self.targets],
+            "targets": [
+                {**t.model_dump(mode="json"),
+                 "pages": [{**p.model_dump(mode="json"), "path": page_path(t.id, p.id)} for p in t.pages]}
+                for t in self.targets
+            ],
             "filters": self.filters.model_dump(mode="json"),
+            "methods": {name: m.model_dump(mode="json", exclude={"name"}) for name, m in METHODS.items()},
         }
 
 
