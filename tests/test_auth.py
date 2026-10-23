@@ -295,11 +295,11 @@ def test_api_config_requires_auth():
 
 
 def test_api_config_returns_view_model_when_authed():
-    client = _client(targets=[Target(id="covid-19", pages=[Page(id="ov", path="/covid-19/ov")])])
+    client = _client(targets=[Target(id="SARS-CoV-2", pages=[Page(id="ov")])])
     client.post("/login", data={"email": _EMAIL, "password": _PASSWORD}, follow_redirects=False)
     r = client.get("/api/config")
     assert r.status_code == 200
     body = r.json()
-    assert body["targets"][0]["id"] == "covid-19"
+    assert body["targets"][0]["id"] == "SARS-CoV-2"
     assert "public_paths" not in body  # server-only never exposed
     assert "schema_version" not in body  # server-only never exposed
