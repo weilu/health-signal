@@ -1,21 +1,14 @@
+import pytest
 from pathlib import Path
 from fastapi.testclient import TestClient
 from health_signal.app import create_app
-from health_signal.auth import User
 from health_signal.config import Config, DataConfig, SiteConfig
+from auth_stubs import AllowAll, DenyAll
 
 FIX = Path(__file__).parent / "fixtures"
 
 
-class _AllowAll:
-    def install(self, app):
-        pass
-
-    async def current_user(self, request):
-        return User(email="t@test")
-
-
-def _client(tmp_path, with_assessments=True):
+def _client(tmp_path, with_assessments=True, auth=None):
     (tmp_path / "ww").mkdir()
     (tmp_path / "ww" / "feed.csv").write_text((FIX / "odm_sample.csv").read_text(), encoding="utf-8")
     feed = {"id": "wastewater", "profile": "phes_odm", "dir": str(tmp_path / "ww")}
@@ -24,7 +17,12 @@ def _client(tmp_path, with_assessments=True):
     cfg = Config(schema_version="1", site=SiteConfig(title="T"),
                  data=DataConfig(feeds=[feed], phases=str(FIX / "phase.csv") if with_assessments else None,
                                  phase_streams=str(FIX / "phase_streams.csv") if with_assessments else None))
-    return TestClient(create_app(cfg, auth_provider=_AllowAll()))
+    return TestClient(create_app(cfg, auth_provider=auth or AllowAll()))
+
+
+@pytest.mark.parametrize("path", ["/api/assessments", "/api/thresholds", "/api/phases", "/api/phase-streams"])
+def test_assessment_endpoints_require_auth(tmp_path, path):
+    assert _client(tmp_path, auth=DenyAll()).get(path, params={"feed": "wastewater"}).status_code == 401
 
 
 def test_assessments_filter_like_api_data(tmp_path):
