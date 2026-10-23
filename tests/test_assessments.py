@@ -21,9 +21,14 @@ def _src(tmp_path, assessment=None, thresholds=None):
 
 
 def test_assessments_load_and_filter(tmp_path):
-    rows = _src(tmp_path, _A1).assessments(location="Testville", indicator="fluA", dimensions={"aggregation": "floMean"})
-    r = rows[0]
-    assert (r.period, r.level, r.provisional, r.trend, r.growth_rate, r.phase) == ("2025-W02", "low", False, "increasing", 0.2, "in_season")
+    decoys = (_A1.replace("Testville,", "Otherville,")
+              + _A1.replace(",fluA,", ",fluB,")
+              + _A1.replace(",floMean,", ",pmmovNorm,")
+              + _A1.replace("2025-W02", "2025-W09"))
+    rows = _src(tmp_path, _A1 + decoys).assessments(location="Testville", indicator="fluA", week_to="2025-W05",
+                                                    dimensions={"aggregation": "floMean"})
+    assert [(r.period, r.level, r.provisional, r.trend, r.growth_rate, r.phase) for r in rows] == [
+        ("2025-W02", "low", False, "increasing", 0.2, "in_season")]
 
 
 def test_missing_files_are_empty_tables(tmp_path):
