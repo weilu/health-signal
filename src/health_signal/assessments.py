@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .datasource import PROVENANCE, drop_copies_reject_conflicts, filter_rows, raise_row, read_table, with_provenance
 from .methods import METHODS, TRENDS
-from .profile import PATHOGENS, Profile, first_match
+from .profile import PATHOGENS, Profile, first_match, implies_message
 
 
 class AssessmentRow(BaseModel):
@@ -224,13 +224,16 @@ class PhaseStreamSource:
                 continue
             if dim not in profile.dimension_keys:
                 return f"{dim!r} is not a dimension of feed {feed!r} ({profile.name})"
-            allowed = profile.dimension_vocab.get(dim)
+            allowed = profile.vocab(dim)
             if allowed is not None and value not in allowed:
                 return f"{dim} {value!r} not allowed for feed {feed!r} ({profile.name})"
-        # Explicit, or implied by the indicator (wastewater cov is always SARS-CoV-2), as for panels.
-        implied = params.get("pathogen") or profile.indicator_implies.get(params["indicator"], {}).get("pathogen")
+        # Checked apart from an explicit pathogen, which would otherwise let indicator=cov&pathogen=Influenza
+        # pass as influenza evidence.
+        implied = profile.indicator_implies.get(params["indicator"], {}).get("pathogen")
         if implied is not None and implied != pathogen:
-            return f"indicator {params['indicator']!r} implies pathogen {implied!r}, not {pathogen!r}"
+            return f"{implies_message(params['indicator'], 'pathogen', implied)}, not {pathogen!r}"
+        if params.get("pathogen", pathogen) != pathogen:
+            return f"series names pathogen {params['pathogen']!r}, not {pathogen!r}"
         return None
 
     def _violation(self, df: pd.DataFrame):
