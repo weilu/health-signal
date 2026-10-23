@@ -77,9 +77,12 @@ class AssessmentSource:
             raise ValueError(f"assessments dir {str(directory)!r} is not a directory")
         self.profile = profile
         a = _load(directory, "assessment.csv", _A_COLS, self._assessment_violation)
+        # Compared as numbers, as feeds are: 0.2 and 0.20 are one reading, not a conflict.
+        a[_GROWTH] = a[_GROWTH].replace("", np.nan).astype(float)
         key = ["location", "period", "indicator", "method", *_dims(profile, a)]
         self._a = drop_copies_reject_conflicts(a, key).drop(columns=PROVENANCE)
         t = _load(directory, "thresholds.csv", _T_COLS, self._threshold_violation)
+        t["lower_bound"] = t["lower_bound"].astype(float)
         series = ["location", "indicator", "method", *_dims(profile, t)]
         t = drop_copies_reject_conflicts(t, [*series, "from", "level"])
         _check_spans(t, series)
@@ -127,7 +130,7 @@ class AssessmentSource:
             location=r["location"], period=r["period"], indicator=r["indicator"], method=r["method"],
             dimensions={k: r[k] for k in dims if r[k]}, level=r["level"] or None,
             provisional=r["provisional"] == "true", trend=r["trend"] or None, phase=r["phase"] or None,
-            **{g: float(r[g]) if r[g] else None for g in _GROWTH},
+            **{g: None if pd.isna(r[g]) else r[g] for g in _GROWTH},
         ) for r in df.to_dict("records")]
 
     def thresholds(self, *, location=None, indicator=None, week_from=None, week_to=None, dimensions=None,
@@ -142,7 +145,7 @@ class AssessmentSource:
         dims = _dims(self.profile, df)
         return [ThresholdRow(
             location=r["location"], indicator=r["indicator"], method=r["method"], from_=r["from"], to=r["to"],
-            level=r["level"], lower_bound=float(r["lower_bound"]), dimensions={k: r[k] for k in dims if r[k]},
+            level=r["level"], lower_bound=r["lower_bound"], dimensions={k: r[k] for k in dims if r[k]},
         ) for r in df.to_dict("records")]
 
 
@@ -156,7 +159,7 @@ def _check_spans(t: pd.DataFrame, series: list[str]) -> None:
         for _, span in group.groupby(["from", "to"], sort=False):
             order = METHODS[span["method"].iat[0]].levels
             ranked = span.assign(_rank=span["level"].map(order.index)).sort_values("_rank")
-            bounds = ranked["lower_bound"].astype(float).tolist()
+            bounds = ranked["lower_bound"].tolist()
             for (_, row), lower, upper in zip(ranked.iloc[1:].iterrows(), bounds, bounds[1:]):
                 if upper <= lower:
                     raise ValueError(f"{row['_file']} row {row['_row']}: lower bounds must rise in level order")

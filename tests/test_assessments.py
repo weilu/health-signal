@@ -56,6 +56,19 @@ def test_conflicting_assessments_fail(tmp_path):
         _src(tmp_path, _A1 + _A1.replace(",low,", ",high,"))
 
 
+def test_numerically_equal_rows_are_copies_not_conflicts(tmp_path):
+    # As in the feeds: 0.2 and 0.20 are the same reading.
+    src = _src(tmp_path, _A1 + _A1.replace(",0.2,0.1,0.3,", ",0.20,0.10,0.30,"),
+               _T1 + _T1.splitlines()[0].replace(",10", ",10.0") + "\n")
+    assert [r.growth_rate for r in src.assessments()] == [0.2]
+    assert [t.lower_bound for t in src.thresholds()] == [10.0, 20.0]
+
+
+def test_zero_growth_stays_zero(tmp_path):
+    [r] = _src(tmp_path, _A1.replace(",0.2,0.1,0.3,", ",0,-0.1,0.1,")).assessments()
+    assert (r.growth_rate, r.growth_lower) == (0.0, -0.1)
+
+
 def test_thresholds_load(tmp_path):
     rows = _src(tmp_path, thresholds=_T1).thresholds()
     assert [(r.from_, r.to, r.level, r.lower_bound) for r in rows] == [
