@@ -1,0 +1,55 @@
+// Behind the line: the method's level bands within each span's weeks, clipped to the axis so a high
+// threshold can't rescale it.
+export const thresholdBands = {
+  id: 'thresholdBands',
+  beforeDatasetsDraw(chart, _args, opts) {
+    if (!opts.bands?.length) return
+    const { ctx, chartArea: area, scales: { x, y }, data: { labels } } = chart
+    ctx.save()
+    for (const b of opts.bands) {
+      const i0 = labels.findIndex((p) => p >= b.from)
+      const i1 = labels.findLastIndex((p) => p <= b.to)
+      if (i0 < 0 || i1 < i0) continue
+      const top = Math.max(area.top, y.getPixelForValue(Math.min(b.upper, y.max)))
+      const bottom = Math.min(area.bottom, y.getPixelForValue(Math.max(b.lower, y.min)))
+      if (bottom <= top) continue
+      const left = x.getPixelForValue(i0)
+      const width = x.getPixelForValue(i1) - left
+      ctx.fillStyle = opts.colour(b.level)
+      ctx.fillRect(left, top, width, bottom - top)
+      // A dashed boundary at each threshold, and the level named inside its band: direct labels, no key.
+      if (Number.isFinite(b.lower) && b.lower >= y.min && b.lower <= y.max) {
+        ctx.strokeStyle = opts.lineColour
+        ctx.setLineDash([4, 3])
+        ctx.beginPath()
+        ctx.moveTo(left, bottom)
+        ctx.lineTo(left + width, bottom)
+        ctx.stroke()
+        ctx.setLineDash([])
+      }
+      if (bottom - top >= 14) {
+        ctx.fillStyle = opts.labelColour
+        ctx.font = opts.font
+        ctx.textBaseline = 'middle'
+        ctx.fillText(opts.labelFor(b.level), left + 6, (top + bottom) / 2)
+      }
+    }
+    ctx.restore()
+  },
+}
+
+// Shades the weeks a series (or pathogen) is in season or in a wave.
+export const phaseShading = {
+  id: 'phaseShading',
+  beforeDatasetsDraw(chart, _args, opts) {
+    if (!opts.weeks?.size) return
+    const { ctx, chartArea: area, scales: { x }, data: { labels } } = chart
+    const half = labels.length > 1 ? (x.getPixelForValue(1) - x.getPixelForValue(0)) / 2 : 4
+    ctx.save()
+    ctx.fillStyle = opts.colour
+    labels.forEach((p, i) => {
+      if (opts.weeks.has(p)) ctx.fillRect(x.getPixelForValue(i) - half, area.top, half * 2, area.bottom - area.top)
+    })
+    ctx.restore()
+  },
+}

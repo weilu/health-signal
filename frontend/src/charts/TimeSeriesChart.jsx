@@ -1,10 +1,11 @@
 import { useMemo } from 'react'
 import { Box } from '@mui/material'
-import { useTheme } from '@mui/material/styles'
+import { alpha, useTheme } from '@mui/material/styles'
 import { useTranslation } from 'react-i18next'
 import { CategoryScale, Chart as ChartJS, Legend, LinearScale, LineElement, PointElement, Tooltip } from 'chart.js'
 import { Line } from 'react-chartjs-2'
 import { endLabelsFit, isolated } from '../series.js'
+import { phaseShading, thresholdBands } from './plugins.js'
 
 ChartJS.register(CategoryScale, LinearScale, LineElement, PointElement, Tooltip, Legend)
 
@@ -53,7 +54,7 @@ export function useChartPalette() {
   return theme.palette.chart?.[theme.palette.mode] ?? []
 }
 
-export function TimeSeriesChart({ periods, series, unit }) {
+export function TimeSeriesChart({ periods, series, unit, bands = [], bandColour, bandLabel, shading = null, height = 320 }) {
   const theme = useTheme()
   const { t, i18n } = useTranslation()
   const palette = useChartPalette()
@@ -109,12 +110,14 @@ export function TimeSeriesChart({ periods, series, unit }) {
         },
       },
       crosshair: { color: rule },
+      thresholdBands: { bands, colour: bandColour, labelFor: bandLabel, lineColour: alpha(ink2, 0.5), labelColour: ink2, font: `11px ${theme.typography.fontFamily}` },
+      phaseShading: { weeks: shading, colour: alpha(theme.palette.text.primary, 0.06) },
       endLabels: { enabled: labelled, color: ink2, font: labelFont },
     },
   }
   return (
-    <Box sx={{ height: 320 }}>
-      <Line data={data} options={options} plugins={[crosshair, endLabels]} />
+    <Box sx={{ height }}>
+      <Line data={data} options={options} plugins={[phaseShading, thresholdBands, crosshair, endLabels]} />
     </Box>
   )
 }

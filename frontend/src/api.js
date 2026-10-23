@@ -13,3 +13,7 @@ export async function apiGet(path, params = {}) {
 export const fetchConfig = () => apiGet('/api/config')
 export const fetchData = (query) => apiGet('/api/data', query)
 export const fetchPeriods = () => apiGet('/api/periods')
+export const fetchAssessments = (query) => apiGet('/api/assessments', query)
+export const fetchThresholds = (query) => apiGet('/api/thresholds', query)
+export const fetchPhases = (query) => apiGet('/api/phases', query)
+export const fetchPhaseStreams = (query) => apiGet('/api/phase-streams', query)

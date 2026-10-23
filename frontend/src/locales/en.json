@@ -17,4 +17,11 @@
   "unit": { "per_100k": "per 100,000 population", "per_100_consultations": "per 100 consultations",
     "per_100k_consultations": "per 100,000 consultations", "count": "count", "percent": "%", "rate": "rate",
     "gcL": "gene copies/L", "gcMl": "gene copies/mL", "log10cpL": "log10 gene copies/L", "gCGS": "gene copies/g solids",
-    "gcPpmov": "gene copies per PMMoV copy", "gcDay": "gene copies/day", "gcDay100k": "gene copies/day per 100,000 people" } }
+    "gcPpmov": "gene copies per PMMoV copy", "gcDay": "gene copies/day", "gcDay100k": "gene copies/day per 100,000 people" },
+  "assessment": {"status": "Status", "trend": "Trend", "asOf": "As of {{week}} · {{method}}", "asOfPast": "As of {{week}} · {{method}} · not the latest week", "noneInRange": "No assessment in this range", "provisional": "Provisional", "ungraded": "Not graded", "growth": "{{rate}}/wk ({{lower}} to {{upper}})"},
+  "level": {"very_low": "Very low", "low": "Low", "medium": "Medium", "high": "High", "very_high": "Very high"},
+  "trend": {"increasing": "Increasing", "stable": "Stable", "decreasing": "Decreasing", "inconclusive": "Inconclusive"},
+  "phase": {"in_season": "In season", "in_wave": "In a wave", "out_of_season": "Out of season", "between_waves": "Between waves", "since": "{{phase}} · since {{week}}", "none": "No season or wave status for this pathogen", "title": "Season status"},
+  "role": {"cases": "Community stream", "admissions": "Admissions stream"},
+  "summary": {"indicator": "Indicator", "page": "Page", "asOf": "As of", "none": "No assessed indicators for this pathogen"},
+  "methods": {"aedseo": {"phase_rule": "A pathogen is flagged active — “in season” for influenza and RSV, “in a wave” for year-round COVID — when its community and admissions streams have each onset (crossed the elevated floor while rising) and their runs overlap."}} }

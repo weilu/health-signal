@@ -57,9 +57,18 @@ class PanelQuery(BaseModel):
 class Panel(BaseModel):
     model_config = ConfigDict(extra="forbid")
     id: str
-    type: Literal["timeseries"] = "timeseries"  # other kinds (status, stacked_bar) must be stated
-    query: PanelQuery
+    type: Literal["timeseries", "phase", "summary"] = "timeseries"  # phase and summary build the Overview
+    query: PanelQuery | None = None
     series_by: str | None = None  # one line per value of this dimension
+
+    @model_validator(mode="after")
+    def _fields_fit_the_kind(self) -> "Panel":
+        # phase and summary work from their target and the location filter, not a query.
+        if self.type == "timeseries" and self.query is None:
+            raise ValueError(f"panel {self.id!r}: a timeseries panel needs a query")
+        if self.type != "timeseries" and (self.query is not None or self.series_by is not None):
+            raise ValueError(f"panel {self.id!r}: a {self.type} panel takes no query or series_by")
+        return self
 
     @computed_field
     @property
@@ -183,6 +192,7 @@ class DataConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
     feeds: list[FeedConfig] = Field(min_length=1)
     phases: str | None = None  # the pathogen-level phase CSV, one per dashboard (spec §6.3)
+    phase_streams: str | None = None  # the series behind each computed phase (spec §6.3)
 
     @model_validator(mode="after")
     def _unique_ids(self) -> "DataConfig":
@@ -239,6 +249,8 @@ class Config(BaseModel):
         for target in self.targets:
             for page in target.pages:
                 for panel in page.panels:
+                    if panel.query is None:
+                        continue
                     if (problem := _panel_problem(panel, profiles)) is not None:
                         raise ValueError(f"panel {panel.id!r} on page {page.id!r}: {problem}")
                     # Explicit, or implied by the indicator (wastewater cov is always SARS-CoV-2).

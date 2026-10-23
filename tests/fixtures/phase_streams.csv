@@ -1,0 +1,2 @@
+location,pathogen,method,role,feed,series
+Testville,Influenza,aedseo,cases,wastewater,indicator=fluA&aggregation=floMean

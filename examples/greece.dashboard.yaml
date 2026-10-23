@@ -50,6 +50,10 @@ data:
 targets:
   - id: SARS-CoV-2
     pages:
+      - id: overview
+        panels:
+          - { id: phase, type: phase }
+          - { id: summary, type: summary }
       - id: clinical
         panels:
           - id: hospital_admissions
@@ -75,6 +79,10 @@ targets:
             query: { feed: wastewater, indicator: cov, dimensions: { aggregation: floMean } }
   - id: Influenza
     pages:
+      - id: overview
+        panels:
+          - { id: phase, type: phase }
+          - { id: summary, type: summary }
       - id: clinical
         panels:
           - id: hospital_admissions
@@ -108,6 +116,10 @@ targets:
             query: { feed: wastewater, indicator: fluB, dimensions: { aggregation: floMean } }
   - id: RSV
     pages:
+      - id: overview
+        panels:
+          - { id: phase, type: phase }
+          - { id: summary, type: summary }
       - id: clinical
         panels:
           - id: sari_positivity

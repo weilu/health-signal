@@ -1,4 +1,5 @@
 from pathlib import Path
+from urllib.parse import parse_qsl
 
 import numpy as np
 import pandas as pd
@@ -6,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .datasource import PROVENANCE, drop_copies_reject_conflicts, filter_rows, raise_row, read_table, with_provenance
 from .methods import METHODS, TRENDS
-from .profile import PATHOGENS, Profile, first_match
+from .profile import PATHOGENS, Profile, first_match, implies_message
 
 
 class AssessmentRow(BaseModel):
@@ -193,3 +194,71 @@ class PhaseSource:
         df = filter_rows(self._phases, location=location, week_from=week_from, week_to=week_to,
                          dimensions={"pathogen": pathogen, "method": method})
         return [PhaseRow(**{column: r[column] for column in _PHASE_COLUMNS}) for r in df.to_dict("records")]
+
+
+class PhaseStreamRow(BaseModel):
+    location: str
+    pathogen: str
+    method: str
+    role: str
+    feed: str
+    series: dict[str, str]  # /api/data parameters, so the overview fetches the stream directly
+
+
+_STREAM_COLUMNS = ["location", "pathogen", "method", "role", "feed", "series"]
+
+
+class PhaseStreamSource:
+    def __init__(self, path: str | Path, feeds: dict[str, Profile]) -> None:
+        path = Path(path)
+        if not path.is_file():
+            raise ValueError(f"phase streams file {str(path)!r} does not exist")
+        self._feeds = feeds
+        df = _load(path.parent, path.name, _STREAM_COLUMNS, self._violation)
+        key = ["location", "pathogen", "method", "role"]
+        self._streams = drop_copies_reject_conflicts(df, key).drop(columns=PROVENANCE)
+
+    def _series_problem(self, feed: str, series: str, pathogen: str) -> str | None:
+        profile = self._feeds.get(feed)
+        if profile is None:
+            return f"feed {feed!r} is not configured"
+        params = dict(parse_qsl(series))
+        if params.get("indicator") not in profile.indicators:
+            return f"indicator {params.get('indicator')!r} is not in feed {feed!r} ({profile.name})"
+        for dim, value in params.items():
+            if dim == "indicator":
+                continue
+            if dim not in profile.dimension_keys:
+                return f"{dim!r} is not a dimension of feed {feed!r} ({profile.name})"
+            allowed = profile.vocab(dim)
+            if allowed is not None and value not in allowed:
+                return f"{dim} {value!r} not allowed for feed {feed!r} ({profile.name})"
+        # Checked apart from an explicit pathogen, which would otherwise let indicator=cov&pathogen=Influenza
+        # pass as influenza evidence.
+        implied = profile.indicator_implies.get(params["indicator"], {}).get("pathogen")
+        if implied is not None and implied != pathogen:
+            return f"{implies_message(params['indicator'], 'pathogen', implied)}, not {pathogen!r}"
+        if params.get("pathogen", pathogen) != pathogen:
+            return f"series names pathogen {params['pathogen']!r}, not {pathogen!r}"
+        return None
+
+    def _violation(self, df: pd.DataFrame):
+        roles = df["method"].map(lambda method: METHODS[method].stream_roles if method in METHODS else [])
+        series = pd.Series([self._series_problem(feed, query, pathogen)
+                            for feed, query, pathogen in zip(df["feed"], df["series"], df["pathogen"])],
+                           index=df.index, dtype=object)
+        rules = [
+            (df["location"].eq(""), lambda r: "location is empty"),
+            (~df["pathogen"].isin(PATHOGENS), lambda r: f"pathogen {r['pathogen']!r} is not in the pathogen registry"),
+            (~df["method"].isin(METHODS), lambda r: f"unknown method {r['method']!r}"),
+            (pd.Series([role not in allowed for role, allowed in zip(df["role"], roles)], index=df.index, dtype=bool),
+             lambda r: f"role {r['role']!r} is not a {r['method']} stream role"),
+            (series.notna(), lambda r: series[r.name]),
+        ]
+        return first_match(df, rules)
+
+    def streams(self, *, location=None, pathogen=None, method=None) -> list[PhaseStreamRow]:
+        df = filter_rows(self._streams, location=location, dimensions={"pathogen": pathogen, "method": method})
+        return [PhaseStreamRow(**{column: r[column] for column in _STREAM_COLUMNS if column != "series"},
+                               series=dict(parse_qsl(r["series"])))
+                for r in df.to_dict("records")]
