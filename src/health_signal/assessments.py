@@ -46,9 +46,9 @@ class PhaseRow(BaseModel):
 
 
 _GROWTH = ["growth_rate", "growth_lower", "growth_upper"]
-_A_COLS = ["location", "period", "indicator", "method", "level", "provisional", "trend", *_GROWTH, "phase"]
-_T_COLS = ["location", "indicator", "method", "from", "to", "level", "lower_bound"]
-_P_COLS = ["location", "pathogen", "period", "method", "phase"]
+_ASSESSMENT_COLUMNS = ["location", "period", "indicator", "method", "level", "provisional", "trend", *_GROWTH, "phase"]
+_THRESHOLD_COLUMNS = ["location", "indicator", "method", "from", "to", "level", "lower_bound"]
+_PHASE_COLUMNS = ["location", "pathogen", "period", "method", "phase"]
 
 
 def _outside_method(df: pd.DataFrame, column: str, vocabulary: str) -> pd.Series:
@@ -76,12 +76,12 @@ class AssessmentSource:
         if not directory.is_dir():
             raise ValueError(f"assessments dir {str(directory)!r} is not a directory")
         self.profile = profile
-        a = _load(directory, "assessment.csv", _A_COLS, self._assessment_violation)
+        a = _load(directory, "assessment.csv", _ASSESSMENT_COLUMNS, self._assessment_violation)
         # Compared as numbers, as feeds are: 0.2 and 0.20 are one reading, not a conflict.
         a[_GROWTH] = a[_GROWTH].replace("", np.nan).astype(float)
         key = ["location", "period", "indicator", "method", *_dims(profile, a)]
         self._a = drop_copies_reject_conflicts(a, key).drop(columns=PROVENANCE)
-        t = _load(directory, "thresholds.csv", _T_COLS, self._threshold_violation)
+        t = _load(directory, "thresholds.csv", _THRESHOLD_COLUMNS, self._threshold_violation)
         t["lower_bound"] = t["lower_bound"].astype(float)
         series = ["location", "indicator", "method", *_dims(profile, t)]
         t = drop_copies_reject_conflicts(t, [*series, "from", "level"])
@@ -171,7 +171,7 @@ class PhaseSource:
         if not path.is_file():
             # One file per dashboard, so a configured path that doesn't exist is a typo, not "no phases".
             raise ValueError(f"phases file {str(path)!r} does not exist")
-        df = _load(path.parent, path.name, _P_COLS, self._violation)
+        df = _load(path.parent, path.name, _PHASE_COLUMNS, self._violation)
         self._p = drop_copies_reject_conflicts(df, ["location", "pathogen", "period", "method"]).drop(columns=PROVENANCE)
 
     @staticmethod
@@ -191,7 +191,7 @@ class PhaseSource:
     def phases(self, *, location=None, pathogen=None, method=None, week_from=None, week_to=None) -> list[PhaseRow]:
         df = filter_rows(self._p, location=location, week_from=week_from, week_to=week_to,
                          dimensions={"pathogen": pathogen, "method": method})
-        return [PhaseRow(**{c: r[c] for c in _P_COLS}) for r in df.to_dict("records")]
+        return [PhaseRow(**{c: r[c] for c in _PHASE_COLUMNS}) for r in df.to_dict("records")]
 
 
 class PhaseStreamRow(BaseModel):
@@ -203,7 +203,7 @@ class PhaseStreamRow(BaseModel):
     series: dict[str, str]  # /api/data parameters, so the overview fetches the stream directly
 
 
-_S_COLS = ["location", "pathogen", "method", "role", "feed", "series"]
+_STREAM_COLUMNS = ["location", "pathogen", "method", "role", "feed", "series"]
 
 
 class PhaseStreamSource:
@@ -212,7 +212,7 @@ class PhaseStreamSource:
         if not path.is_file():
             raise ValueError(f"phase streams file {str(path)!r} does not exist")
         self._feeds = feeds
-        df = _load(path.parent, path.name, _S_COLS, self._violation)
+        df = _load(path.parent, path.name, _STREAM_COLUMNS, self._violation)
         self._s = drop_copies_reject_conflicts(df, ["location", "pathogen", "method", "role"]).drop(columns=PROVENANCE)
 
     def _series_problem(self, feed: str, series: str, pathogen: str) -> str | None:
@@ -255,5 +255,5 @@ class PhaseStreamSource:
 
     def streams(self, *, location=None, pathogen=None, method=None) -> list[PhaseStreamRow]:
         df = filter_rows(self._s, location=location, dimensions={"pathogen": pathogen, "method": method})
-        return [PhaseStreamRow(**{c: r[c] for c in _S_COLS if c != "series"}, series=dict(parse_qsl(r["series"])))
+        return [PhaseStreamRow(**{c: r[c] for c in _STREAM_COLUMNS if c != "series"}, series=dict(parse_qsl(r["series"])))
                 for r in df.to_dict("records")]
