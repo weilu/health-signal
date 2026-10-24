@@ -2,6 +2,7 @@ import logging
 import multiprocessing
 from collections.abc import Callable
 from concurrent.futures import ProcessPoolExecutor
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -72,21 +73,20 @@ def assess(config: Config, *, full: bool = False, jobs: int = 1,
                            min_seasons=analytics.min_seasons, waves=s.pathogen in analytics.wave_pathogens,
                            state=store.resume(s, method))
             jobs_to_run.append((s, weeks, options))
-    if jobs > 1 and len(jobs_to_run) > 1:
-        with ProcessPoolExecutor(max_workers=jobs, mp_context=multiprocessing.get_context("spawn")) as pool:
-            results = list(pool.map(_fit_in_worker, [(factory, s, w, o) for s, w, o in jobs_to_run]))
-    else:
-        results = [assess_series(s, w, main_backend, **o) for s, w, o in jobs_to_run]
-
     weeks_done = graded = 0
-    for (s, weeks, _), result in zip(jobs_to_run, results):
-        stores[s.feed].add(s, method, result)
-        weeks_done += len(weeks)
-        graded += result.graded
-        log.info("%s %s %s %s: %d weeks, %d graded", s.feed, s.location, s.indicator, s.dimensions,
-                 len(weeks), result.graded)
-        if not result.graded:
-            warnings.append(f"{s.feed} {s.location} {s.indicator} {s.dimensions}: no week could be graded")
+    with ProcessPoolExecutor(max_workers=jobs, mp_context=multiprocessing.get_context("spawn")) if jobs > 1 \
+            else nullcontext() as pool:
+        # Lazily, so a long backfill reports each series as it finishes rather than all at the end.
+        results = (pool.map(_fit_in_worker, [(factory, s, w, o) for s, w, o in jobs_to_run]) if pool
+                   else (assess_series(s, w, main_backend, **o) for s, w, o in jobs_to_run))
+        for (s, weeks, _), result in zip(jobs_to_run, results):
+            stores[s.feed].add(s, method, result)
+            weeks_done += len(weeks)
+            graded += result.graded
+            log.info("%s %s %s %s: %d weeks, %d graded", s.feed, s.location, s.indicator, s.dimensions,
+                     len(weeks), result.graded)
+            if not result.graded:
+                warnings.append(f"{s.feed} {s.location} {s.indicator} {s.dimensions}: no week could be graded")
     if weeks_done and not graded:
         raise RuntimeError(f"nothing could be graded across {len(jobs_to_run)} series; check the feeds' history "
                            f"(aedseo needs a complete past season)")
