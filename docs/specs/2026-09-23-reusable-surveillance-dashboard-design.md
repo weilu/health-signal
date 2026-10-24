@@ -313,7 +313,8 @@ overrides only policy choices, each in one place:
 - `analytics.min_seasons` (default 3) — completed seasons (≥ 30 weeks each, excluding the current
   one) before a grade stops being provisional.
 - `analytics.wave_pathogens` (default `[SARS-CoV-2]`) — pathogens that circulate in waves rather than
-  one season a year; each must be a configured target. Replaces greece-public-health's "covid in the
+  one season a year; each must be a registry pathogen (not necessarily a target, so the default suits
+  a dashboard without a COVID tab). Replaces greece-public-health's "covid in the
   key" rule.
 - `analytics.phase_streams` — the inputs of a method's pathogen-level phase (below).
 
@@ -340,7 +341,8 @@ on a contiguous weekly calendar where missing weeks are gaps:
    *t* in a wave, else `between_waves`. Otherwise `in_season` from the first onset alarm within a
    run at or above the disease threshold; one week below doesn't end it, a second consecutive one
    does (as-of rows can't bridge with hindsight, so the season ends a week late rather than being
-   bridged); weeks with no data have no row and carry the state over. Blank when the fit fails.
+   bridged); weeks with no data have no row and carry the state over, up to 8 missing weeks in a row; a
+   longer reporting gap ends the season (greece-public-health's `max_missing`). Blank when the fit fails.
 
 An aedseo error for one series-week (thin history) blanks that row's fields, and a week where nothing
 could be computed has no row. A series with no gradeable week is warned by name; R or aedseo missing,

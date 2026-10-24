@@ -1,6 +1,8 @@
 import pytest
 from pydantic import ValidationError
-from health_signal.config import Branding, Config, DataConfig, Filters, Page, Panel, SiteConfig, Target, load_config, page_path
+from health_signal.config import (Branding, Config, DataConfig, Filters, Page, Panel, SiteConfig, Surveillance, Target,
+                                  load_config, page_path)
+from health_signal.methods import METHODS
 from health_signal.profile import PATHOGENS
 
 
@@ -231,20 +233,75 @@ def test_date_range_reaches_the_client_even_when_omitted():
     omitted = Config(schema_version="1", site=SiteConfig(title="T")).client_config()["filters"]["date_range"]
     assert isinstance(omitted, dict)
     configured = Config(schema_version="1", site=SiteConfig(title="T"),
-                        filters=Filters(date_range={"default_weeks": "all", "year_start_week": 21}))
+                        filters=Filters(date_range={"default_weeks": "all"}), surveillance={"year_start_week": 21})
     assert configured.client_config()["filters"]["date_range"] == {"default_weeks": "all", "year_start_week": 21}
 
 
 @pytest.mark.parametrize("bad", [
     {"default_weeks": 0},          # no weeks to show
     {"default_weeks": "forever"},  # only a count or "all"
-    {"year_start_week": 0},
-    {"year_start_week": 53},       # most years have no W53 to start on
-    {"year_start": 21},            # misspelt key
+    {"year_start_week": 21},       # the surveillance year's setting, not the range control's
 ])
 def test_date_range_typos_fail_at_load(bad):
     with pytest.raises(ValidationError):
         Filters(date_range=bad)
+
+
+@pytest.mark.parametrize("week", [0, 53])   # most years have no W53 to start on
+def test_surveillance_year_start_is_a_real_week(week):
+    with pytest.raises(ValidationError):
+        Surveillance(year_start_week=week)
+
+
+def _analytics_cfg(analytics, data=None):
+    feeds = data or DataConfig(feeds=[{"id": "clinical", "profile": "erviss", "dir": "d/c", "assessments": "d/a"}],
+                               phases="p.csv", phase_streams="s.csv")
+    page = {"id": "clinical", "panels": [
+        {"id": "ili", "query": {"feed": "clinical", "indicator": "ILIconsultationrate",
+                                "dimensions": {"survtype": "primary care sentinel", "age": "total"}}},
+        {"id": "split", "series_by": "age", "query": {"feed": "clinical", "indicator": "detections",
+                                                      "dimensions": {"survtype": "non-sentinel", "pathogen": "Influenza"}}},
+        {"id": "sari", "query": {"feed": "clinical", "indicator": "SARIrate",
+                                 "dimensions": {"survtype": "SARI syndromic", "age": "total"}}}]}
+    return Config(schema_version="1", site=SiteConfig(title="T"), data=feeds,
+                  targets=[{"id": "Influenza", "pages": [page]}], analytics=analytics)
+
+
+_STREAMS = {"pathogen": "Influenza", "location": "Greece", "streams": {"cases": "clinical/ili", "admissions": "clinical/sari"}}
+
+
+def test_phase_streams_resolve_to_single_series_panels():
+    cfg = _analytics_cfg({"phase_streams": [_STREAMS]})
+    assert cfg.panel("Influenza", "clinical/sari").id == "sari"
+    assert cfg.panel("Influenza", "clinical/nope") is None and cfg.panel("RSV", "clinical/sari") is None
+
+
+@pytest.mark.parametrize("entry, message", [
+    ({**_STREAMS, "streams": {"cases": "clinical/ili"}}, "roles"),                                   # admissions missing
+    ({**_STREAMS, "streams": {**_STREAMS["streams"], "community": "clinical/ili"}}, "roles"),        # not an aedseo role
+    ({**_STREAMS, "streams": {**_STREAMS["streams"], "cases": "clinical/nope"}}, "no panel"),
+    ({**_STREAMS, "streams": {**_STREAMS["streams"], "cases": "clinical/split"}}, "single series"),  # series_by
+    ({**_STREAMS, "pathogen": "RSV"}, "target"),
+    ({**_STREAMS, "method": "mem"}, "method"),
+])
+def test_bad_phase_streams_fail_at_load(entry, message):
+    with pytest.raises(ValidationError, match=message):
+        _analytics_cfg({"phase_streams": [entry]})
+
+
+def test_phase_streams_need_assessed_feeds_and_output_paths():
+    no_dir = DataConfig(feeds=[{"id": "clinical", "profile": "erviss", "dir": "d/c"}], phases="p.csv", phase_streams="s.csv")
+    with pytest.raises(ValidationError, match="assessments"):
+        _analytics_cfg({"phase_streams": [_STREAMS]}, data=no_dir)
+    no_out = DataConfig(feeds=[{"id": "clinical", "profile": "erviss", "dir": "d/c", "assessments": "d/a"}])
+    with pytest.raises(ValidationError, match="data.phases"):
+        _analytics_cfg({"phase_streams": [_STREAMS]}, data=no_out)
+
+
+def test_wave_pathogens_must_be_registry_pathogens():
+    with pytest.raises(ValidationError, match="wave_pathogens"):
+        _analytics_cfg({"wave_pathogens": ["COVID-19"]})
+    _analytics_cfg({"wave_pathogens": ["RSV"]})   # no RSV tab here, and that's fine
 
 
 def test_label_keys_follow_ids():
@@ -294,9 +351,8 @@ def test_a_panel_must_query_its_targets_pathogen():
 
 def test_methods_reach_the_client():
     methods = Config(schema_version="1", site=SiteConfig(title="T")).client_config()["methods"]
-    assert methods["aedseo"] == {"levels": ["very_low", "low", "medium", "high", "very_high"],
-                                 "phases": ["in_season", "in_wave", "out_of_season"], "trend": True,
-                                 "stream_roles": ["cases", "admissions"], "active_phases": ["in_season", "in_wave"]}
+    # Every registered method, minus its name (the key already says it).
+    assert methods == {name: m.model_dump(mode="json", exclude={"name"}) for name, m in METHODS.items()}
 
 
 def test_feeds_and_phases_take_optional_assessment_dirs():

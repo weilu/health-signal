@@ -22,10 +22,10 @@ class Method(BaseModel):
         return self
 
 
-# SSI's aedseo (spec §6.3): seasonal burden levels, growth-rate trend, season or wave phase.
+# SSI's aedseo (spec §6.3): seasonal burden levels, growth-rate trend; one season a year or year-round waves.
 # SSI's pairing: a community stream and an admissions stream each onset and overlap.
 AEDSEO = Method(name="aedseo", levels=["very_low", "low", "medium", "high", "very_high"],
-                phases=["in_season", "in_wave", "out_of_season"], trend=True,
+                phases=["in_season", "out_of_season", "in_wave", "between_waves"], trend=True,
                 active_phases=["in_season", "in_wave"], stream_roles=["cases", "admissions"])
 
 METHODS = {m.name: m for m in (AEDSEO,)}
