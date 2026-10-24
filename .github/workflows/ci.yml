@@ -34,3 +34,24 @@ jobs:
           assert any("health_signal/_ui/assets/" in n for n in names), "SPA assets missing from wheel"
           print("wheel packages the SPA:", whl)
           PY
+  analytics-r:
+    # The R-backed tests: the main job stays R-free, as the app is.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: any::remotes
+          cache-version: 1
+      - name: Install aedseo (pinned, as assessed_with.csv records it)
+        run: Rscript -e 'remotes::install_version("aedseo", version = "1.1.0", repos = "https://cloud.r-project.org")'
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Sync with the analytics extra
+        run: uv sync --extra analytics
+      - name: R-backed tests
+        run: uv run pytest -q -m r

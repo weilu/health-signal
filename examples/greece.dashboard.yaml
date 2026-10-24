@@ -40,8 +40,26 @@ surveillance:
 # ships no data.
 data:
   feeds:
-    - { id: clinical,   profile: erviss,   dir: data/clinical }
-    - { id: wastewater, profile: phes_odm, dir: data/wastewater }
+    - { id: clinical,   profile: erviss,   dir: data/clinical,   assessments: data/clinical/assessed }
+    - { id: wastewater, profile: phes_odm, dir: data/wastewater, assessments: data/wastewater/assessed }
+  # Written by `health-signal assess` from analytics.phase_streams below.
+  phases: data/phase.csv
+  phase_streams: data/phase_streams.csv
+
+# What `health-signal assess` decides by policy (the statistics' settings stay in the method). The phase
+# pairs follow greece-public-health's: a cases stream and an admissions stream each in season. COVID's
+# cases stream is Attica wastewater; Attica influenza has no local cases stream, and RSV no admissions
+# panel here, so neither gets a phase.
+analytics:
+  min_seasons: 3
+  wave_pathogens: [SARS-CoV-2]
+  phase_streams:
+    - pathogen: SARS-CoV-2
+      location: Attica
+      streams: { cases: wastewater/ww_load, admissions: clinical/hospital_admissions }
+    - pathogen: Influenza
+      location: Greece
+      streams: { cases: clinical/sentinel_positivity, admissions: clinical/hospital_admissions }
 
 # Wastewater pages show the flow- and population-normalised load (floMean, gene copies/day per 100k)
 # per PHES-ODM measure (generic codes until assay targets are pinned). Raw concentration (me) stays in
