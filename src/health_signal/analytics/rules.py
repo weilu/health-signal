@@ -1,5 +1,6 @@
 import math
 from collections import Counter
+from dataclasses import dataclass
 from datetime import date
 
 # A log-growth rate this large is a degenerate fit or R's NA_integer_ sentinel (-2^31, finite), not a
@@ -53,3 +54,35 @@ def exposure_scale(values: list[float]) -> float:
 def weeks_between(a: str, b: str) -> int:
     (year_a, week_a), (year_b, week_b) = _week(a), _week(b)
     return (date.fromisocalendar(year_b, week_b, 1) - date.fromisocalendar(year_a, week_a, 1)).days // 7
+
+
+MAX_DIP = 1      # below-threshold weeks a season survives: a brief lull, not its end
+MAX_MISSING = 8  # missing weeks a season survives: a reporting outage, not its end
+
+
+@dataclass(frozen=True)
+class SeasonState:
+    in_season: bool = False
+    below: int = 0
+    last_period: str | None = None
+
+
+def season_phase(state: SeasonState, period: str, value: float, floor: float,
+                 alarm: bool | None) -> tuple[str | None, SeasonState]:
+    # As of `period`, without hindsight: greece-public-health bridges a one-week dip after the fact; here
+    # the dip week reads in season and the second week below ends it, so a season ends a week late.
+    if not math.isfinite(floor):
+        return None, state
+    gap = weeks_between(state.last_period, period) - 1 if state.last_period else 0
+    in_season = state.in_season and gap <= MAX_MISSING
+    if value >= floor:
+        if in_season or alarm:
+            return "in_season", SeasonState(True, 0, period)
+        return "out_of_season", SeasonState(False, 0, period)
+    if in_season and state.below < MAX_DIP:
+        return "in_season", SeasonState(True, state.below + 1, period)
+    return "out_of_season", SeasonState(False, 0, period)
+
+
+def wave_phase(in_wave: bool | None) -> str | None:
+    return None if in_wave is None else "in_wave" if in_wave else "between_waves"

@@ -2,7 +2,8 @@ import math
 
 import pytest
 
-from health_signal.analytics.rules import completed_seasons, exposure_scale, level_for, season_of, trend_for, weeks_between
+from health_signal.analytics.rules import (SeasonState, completed_seasons, exposure_scale, level_for, season_of,
+                                          season_phase, trend_for, wave_phase, weeks_between)
 
 LEVELS = ["very_low", "low", "medium", "high", "very_high"]
 THR = (10.0, 20.0, 40.0, 80.0)
@@ -55,3 +56,38 @@ def test_exposure_scale_lifts_the_smallest_positive_value_to_100():
 
 def test_weeks_between_crosses_years_and_w53():
     assert weeks_between("2020-W52", "2021-W02") == 3   # 2020 has a W53
+
+
+def _walk(weeks):  # [(period, value, alarm)], floor 10
+    state, out = SeasonState(), []
+    for period, value, alarm in weeks:
+        phase, state = season_phase(state, period, value, 10.0, alarm)
+        out.append(phase)
+    return out
+
+
+def test_a_season_starts_at_the_onset_alarm_not_the_threshold_crossing():
+    # above the floor at W02 but no alarm until W03: the season isn't backdated
+    assert _walk([("2025-W01", 5, False), ("2025-W02", 12, False), ("2025-W03", 15, True), ("2025-W04", 20, False)]) == \
+        ["out_of_season", "out_of_season", "in_season", "in_season"]
+
+
+def test_one_week_below_holds_the_season_two_end_it():
+    weeks = [("2025-W01", 15, True), ("2025-W02", 8, False), ("2025-W03", 12, False),
+             ("2025-W04", 8, False), ("2025-W05", 7, False)]
+    assert _walk(weeks) == ["in_season", "in_season", "in_season", "in_season", "out_of_season"]
+
+
+def test_a_long_reporting_gap_ends_the_season_a_short_one_does_not():
+    assert _walk([("2025-W01", 15, True), ("2025-W10", 15, False)]) == ["in_season", "in_season"]       # 8 missing
+    assert _walk([("2025-W01", 15, True), ("2025-W11", 15, False)]) == ["in_season", "out_of_season"]   # 9 missing
+
+
+def test_an_unfit_week_has_no_phase_and_keeps_the_state():
+    state = SeasonState(in_season=True, last_period="2025-W01")
+    phase, after = season_phase(state, "2025-W02", 15, float("nan"), None)
+    assert phase is None and after == state
+
+
+def test_wave_phase():
+    assert (wave_phase(True), wave_phase(False), wave_phase(None)) == ("in_wave", "between_waves", None)
