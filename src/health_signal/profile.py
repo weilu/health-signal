@@ -17,6 +17,11 @@ class FeedRow(BaseModel):
 def implies_message(indicator: str, dim: str, value: str) -> str:
     return f"indicator {indicator!r} carries no {dim}" if value == "" else f"indicator {indicator!r} implies {dim} {value!r}"
 
+class Denominator(BaseModel):
+    indicator: str  # the series whose value is this rate's exposure, same key otherwise
+    per: float      # the rate's scale: 100 for a percentage of tests
+
+
 class Profile(BaseModel):
     name: str
     version: str
@@ -30,6 +35,10 @@ class Profile(BaseModel):
     # indicator -> {dimension: value} it fixes, e.g. ODM measure fluA -> pathogen Influenza, so feeds join.
     # An empty value means the indicator carries no value for that dimension (PMMoV has no pathogen).
     indicator_implies: dict[str, dict[str, str]] = {}
+    count_units: set[str] = set()  # graded on aedseo's cases path; every other unit is a rate or load
+    # rate indicator -> its own denominator series, aedseo's exposure offset: growth of positivity must be
+    # modelled against tests, not population (greece-public-health's AEDSEO_INPUTS note).
+    denominators: dict[str, Denominator] = {}
 
     def vocab(self, dim: str) -> set[str] | None:
         # Every profile spells pathogens from the one registry, so feeds join on it.
@@ -115,6 +124,8 @@ ERVISS = Profile(
     },
     period_pattern=r"\d{4}-W\d{2}",
     required_dimensions={"survtype", "age"},  # spec §6.2: only the pathogen fields are nullable
+    count_units={"count"},
+    denominators={"positivity": Denominator(indicator="tests", per=100)},
 )
 
 
