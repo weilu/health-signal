@@ -4,7 +4,7 @@ from typing import Literal
 from ..config import Config
 from ..datasource import FileDataSource
 from ..profile import FeedRow
-from .rules import exposure_scale
+from .rules import value_scale
 
 
 @dataclass
@@ -20,6 +20,7 @@ class Series:
     kind: Literal["count", "incidence"]
     exposure: list[float] = field(default_factory=list)
     per: float = 1.0
+    scale: float = 1.0   # fit on values × scale, thresholds divided back (rules.value_scale)
 
     @property
     def key(self) -> tuple[str, str, tuple[tuple[str, str], ...]]:
@@ -79,9 +80,10 @@ def _series(feed: str, pathogen: str, location: str, rows: list[FeedRow], source
                       [values[p] for p in periods], "count")
     denominator = profile.denominators.get(first.indicator)
     if denominator is None:
-        scale = exposure_scale(list(values.values()))
+        # A rate or load with no denominator series: a constant exposure, which cancels in the growth model.
         return Series(feed, pathogen, location, first.indicator, dims, first.unit, periods,
-                      [values[p] for p in periods], "incidence", [scale] * len(periods), 1.0)
+                      [values[p] for p in periods], "incidence", [1.0] * len(periods), 1.0,
+                      value_scale(list(values.values())))
     exposure = {r.period: r.value for r in source.query(location=location, indicator=denominator.indicator, **dims)}
     periods = [p for p in periods if exposure.get(p, 0) > 0]   # a rate without its denominator isn't modelled
     if not periods:

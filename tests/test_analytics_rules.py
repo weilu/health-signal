@@ -2,7 +2,7 @@ import math
 
 import pytest
 
-from health_signal.analytics.rules import (SeasonState, completed_seasons, exposure_scale, level_for, season_of,
+from health_signal.analytics.rules import (SeasonState, completed_seasons, value_scale, level_for, season_of,
                                           season_phase, trend_for, wave_phase, weeks_between)
 
 LEVELS = ["very_low", "low", "medium", "high", "very_high"]
@@ -48,10 +48,10 @@ def test_unestimable_growth_is_inconclusive(rate, lower, upper):
     assert trend_for(rate, lower, upper) == ("inconclusive", None)
 
 
-def test_exposure_scale_lifts_the_smallest_positive_value_to_100():
-    assert exposure_scale([0.0, 0.42, 3.0]) == 1000.0
-    assert exposure_scale([150.0, 1e11]) == 1.0
-    assert exposure_scale([0.0, 0.0]) == 1.0
+def test_value_scale_lifts_the_smallest_positive_value_to_100():
+    assert value_scale([0.0, 0.42, 3.0]) == 1000.0
+    assert value_scale([150.0, 1e11]) == 1.0
+    assert value_scale([0.0, 0.0]) == 1.0
 
 
 def test_weeks_between_crosses_years_and_w53():

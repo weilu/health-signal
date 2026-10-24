@@ -322,11 +322,11 @@ overrides only policy choices, each in one place:
 own denominator series → the incidence path with that series as the exposure offset; the profile
 declares the pairing (ERVISS `positivity → tests`, same series key otherwise), and a week whose
 denominator is missing or zero isn't graded. Every other rate or load (per 100k, `gcDay100k`, `gcL`,
-…) → the incidence path (`incidence_denominator` 1) with a constant exposure per series: the smallest
-power of ten that lifts the series' smallest positive value to ≥ 100. aedseo derives its counts as
-value × exposure, so a constant leaves thresholds unchanged and cancels in the growth model, while
-too small a one rounds rates to zero counts (an offset of 1 turns 45 per 100k into 0 cases); a
-check on a per-100k-like series gave identical thresholds at every scale and identical growth from 100 up.
+…) → the incidence path with a constant exposure (it cancels in the growth model), fitted on the values
+× a per-series scale — the smallest power of ten that lifts the smallest positive value to ≥ 100 — with
+the thresholds divided back. aedseo can't grade values below 1 (its disease threshold bottoms out at 1)
+and rounds the counts it derives; its thresholds scale with the values (checked to within 0.01%) and its
+growth is unchanged from a scale of 100 up.
 
 **Per series, each week *t*, as of *t*.** aedseo runs on the series' data up to and including *t*,
 on a contiguous weekly calendar where missing weeks are gaps:

@@ -29,7 +29,7 @@ def assess_series(series: Series, weeks: list[str], backend: Backend, *, method:
     for week in weeks:
         n = index[week] + 1
         data = FitInput(tuple(_monday(p) for p in series.periods[:n]), tuple(series.values[:n]),
-                        tuple(series.exposure[:n]), series.per, series.kind, start_week, waves)
+                        tuple(series.exposure[:n]), series.per, series.scale, series.kind, start_week, waves)
         try:
             fit = backend.fit(data)
         except FitError:

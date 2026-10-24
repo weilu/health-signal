@@ -42,9 +42,10 @@ def trend_for(rate: float, lower: float, upper: float) -> tuple[str, tuple[float
     return ("increasing" if lower > 0 else "decreasing" if upper < 0 else "stable"), growth
 
 
-def exposure_scale(values: list[float]) -> float:
-    # aedseo derives counts as value × exposure and rounds them; too small a constant rounds rates to zero
-    # counts, while any constant leaves thresholds unchanged and cancels in the growth model.
+def value_scale(values: list[float]) -> float:
+    # aedseo can't grade values below 1 (its disease threshold bottoms out at 1) and rounds the counts it
+    # derives from them, so small rates are scaled up for the fit; its thresholds scale with the values
+    # and its growth doesn't change.
     positive = [v for v in values if v > 0]
     if not positive:
         return 1.0

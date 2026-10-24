@@ -1,3 +1,7 @@
+import math
+from datetime import date
+
+from health_signal.analytics.aedseo_r import RAedseo
 from health_signal.analytics.engine import assess_series
 from health_signal.analytics.rules import SeasonState
 from health_signal.analytics.series import Series
@@ -35,3 +39,27 @@ def test_only_the_requested_weeks_are_computed_resuming_the_state():
 
 def test_wave_pathogens_use_the_wave_pair():
     assert [r["phase"] for r in _run([5, 6, 12, 8], waves=True).rows] == ["in_wave", "between_waves"]
+
+
+def test_a_failed_onset_or_wave_fit_is_unavailable_not_a_negative():
+    # Raising would drop the week's already-computed bands; returning "no alarm" or "between waves" would
+    # publish a false phase. Ported from greece-public-health's bridge test.
+    class RError(Exception):
+        pass
+
+    class Failing:
+        def seasonal_onset(self, *args, **kwargs):
+            raise RError("fit failed")
+
+        def combined_seasonal_output(self, *args, **kwargs):
+            raise RError("can't segment")
+
+    class Base:
+        def as_data_frame(self, frame):
+            return frame
+
+    backend = RAedseo.__new__(RAedseo)   # no R needed: only the error handling is exercised
+    backend._aedseo, backend._base, backend._RError = Failing(), Base(), RError
+    growth, alarm = backend._onset(None, 1.0, {}, date(2025, 1, 6))
+    assert all(math.isnan(g) for g in growth) and alarm is None
+    assert backend._wave(None, 1.0, {}, date(2025, 1, 6)) is None

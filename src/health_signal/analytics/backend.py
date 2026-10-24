@@ -13,6 +13,7 @@ class FitInput:
     values: tuple[float, ...]
     exposure: tuple[float, ...]   # empty for counts
     per: float
+    scale: float                  # values are fitted × scale; thresholds come back in the values' own units
     kind: str                     # "count" or "incidence"
     season_start: int
     waves: bool
