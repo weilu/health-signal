@@ -5,9 +5,9 @@ from health_signal.profile import PROFILES
 from analytics_support import erviss_rows, weeks, write_feed
 
 
-def _setup(tmp_path, body, panels):
+def _setup(tmp_path, body, panels, filters=None):
     feed = write_feed(tmp_path / "c", body)
-    cfg = Config(schema_version="1", site=SiteConfig(title="T"),
+    cfg = Config(schema_version="1", site=SiteConfig(title="T"), filters=filters or {},
                  data={"feeds": [{"id": "clinical", "profile": "erviss", "dir": str(feed),
                                   "assessments": str(tmp_path / "a")}]},
                  targets=[{"id": "Influenza", "pages": [{"id": "clinical", "panels": panels}]}])
@@ -66,3 +66,14 @@ def test_a_series_shown_on_two_panels_is_assessed_once(tmp_path):
                                            _panel("b", "ILIconsultationrate", **query)])
     series, refs, _ = assessed_series(cfg, sources)
     assert len(series) == 1 and refs[("Influenza", "Greece", "clinical/a")] is refs[("Influenza", "Greece", "clinical/b")]
+
+
+def test_only_the_selectable_locations_are_assessed_when_the_filter_lists_them(tmp_path):
+    # A feed covering every EU country shouldn't cost aedseo time on regions the dashboard can't show.
+    body = (erviss_rows("Greece", "ILIconsultationrate", "per_100k", [1, 2, 3])
+            + erviss_rows("Cyprus", "ILIconsultationrate", "per_100k", [4, 5, 6]))
+    location = {"location": {"default": "Greece", "options": [{"value": "Greece"}, {"value": "Attica"}]}}
+    cfg, sources = _setup(tmp_path, body, [_panel("ili", "ILIconsultationrate", survtype="primary care sentinel",
+                                                  age="total")], filters=location)
+    series, _, _ = assessed_series(cfg, sources)
+    assert [s.location for s in series] == ["Greece"]

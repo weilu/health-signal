@@ -302,8 +302,9 @@ Greece, and the code ported from greece-public-health is audited as it moves (be
 keep is fixed here and reported back).
 
 **Which series.** The series panels show: each feed with an `assessments` dir × its single-series
-panels (no `series_by`; tiles, bands and shading appear only on those) × every location in that
-feed's data. No separate list to keep in step with the panels.
+panels (no `series_by`; tiles, bands and shading appear only on those) × every location a viewer can
+select (`filters.location`'s options; every location in the feed's data when there's no location
+filter), so a feed covering all EU countries costs nothing for regions the dashboard can't show. No separate list to keep in step with the panels.
 
 **Settings.** Defaults live with the method in code (SSI's: `k=5`, `n_peak=3`, `decay_factor=0.8`,
 `conf_levels=0.975`, the families, and the wave-segmentation settings tuned on Greek COVID). Config

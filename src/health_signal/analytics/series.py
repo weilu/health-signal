@@ -43,9 +43,11 @@ def _by_location(rows: list[FeedRow]) -> dict[str, list[FeedRow]]:
 
 def assessed_series(config: Config, sources: dict[str, FileDataSource]):
     """The series panels show (spec §6.3.1): each single-series panel of an assessed feed, at every location
-    in its data. Returns the series, each panel reference's series by (pathogen, location, "<page>/<panel>"),
-    and warnings for panels that can't be assessed."""
+    a viewer can select (all in the data when there's no location filter). Returns the series, each panel
+    reference's series by (pathogen, location, "<page>/<panel>"), and warnings for panels that can't be assessed."""
     assessed = {f.id for f in config.data.feeds if f.assessments}
+    location_filter = config.filters.location
+    selectable = {o.value for o in location_filter.options} if location_filter else None
     series: dict[tuple, Series] = {}
     refs: dict[tuple[str, str, str], Series] = {}
     warnings: list[str] = []
@@ -59,6 +61,8 @@ def assessed_series(config: Config, sources: dict[str, FileDataSource]):
                 ref = f"{page.id}/{panel.id}"
                 for location, rows in _by_location(source.query(indicator=query.indicator,
                                                                 **query.dimensions)).items():
+                    if selectable is not None and location not in selectable:
+                        continue
                     if len({r.period for r in rows}) != len(rows):
                         warnings.append(f"{ref} at {location}: the query matches several rows per week; "
                                         f"pin more dimensions to assess it")
