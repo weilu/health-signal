@@ -43,3 +43,24 @@ class FakeBackend:
         return WeekFit(thresholds=self.thresholds, growth=(r, r - 0.1, r + 0.1),
                        alarm=last >= self.thresholds[0] and last > prev,
                        in_wave=(last >= self.thresholds[0]) if data.waves else None)
+
+
+class FlakyBackend(FakeBackend):
+    """Fails on the 5th week only: a mid-season week aedseo can't fit."""
+
+    def fit(self, data: FitInput) -> WeekFit:
+        if len(data.values) == 5:
+            raise FitError("this week only")
+        return super().fit(data)
+
+
+class NeverFitsBackend(FakeBackend):
+    def fit(self, data: FitInput) -> WeekFit:
+        raise FitError("never")
+
+
+class BandsBackend(FakeBackend):
+    """FakeBackend with chosen bands, e.g. partly NaN or not rising."""
+
+    def __init__(self, thresholds):
+        self.thresholds = thresholds

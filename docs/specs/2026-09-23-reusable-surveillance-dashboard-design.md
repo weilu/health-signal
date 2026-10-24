@@ -310,11 +310,14 @@ filter), so a feed covering all EU countries costs nothing for regions the dashb
 `conf_levels=0.975`, the families, and the wave-segmentation settings tuned on Greek COVID). Config
 overrides only policy choices, each in one place:
 - `surveillance.year_start_week` — the season boundary (the season ends the week before), shared
-  with the date-range presets (§6.1).
+  with the date-range presets (§6.1). aedseo has no week 0, so `assess` refuses a season starting in
+  week 1 before fitting anything.
 - `analytics.min_seasons` (default 3) — completed seasons (≥ 30 weeks each, excluding the current
   one) before a grade stops being provisional.
 - `analytics.wave_pathogens` (default `[SARS-CoV-2]`) — pathogens that circulate in waves rather than
-  one season a year; each must be a registry pathogen (not necessarily a target, so the default suits
+  one season a year (a series shown on several tabs is phased in waves only if all of their pathogens
+  are listed, so ILI on the COVID tab doesn't take COVID's waves onto the influenza tab); each must be a
+  registry pathogen (not necessarily a target, so the default suits
   a dashboard without a COVID tab). Replaces greece-public-health's "covid in the
   key" rule.
 - `analytics.phase_streams` — the inputs of a method's pathogen-level phase (below).
@@ -322,7 +325,8 @@ overrides only policy choices, each in one place:
 **Input to aedseo, by the row's `unit`.** Counts → aedseo's cases path (rounded). A rate with its
 own denominator series → the incidence path with that series as the exposure offset; the profile
 declares the pairing (ERVISS `positivity → tests`, same series key otherwise), and a week whose
-denominator is missing or zero isn't graded. Every other rate or load (per 100k, `gcDay100k`, `gcL`,
+denominator is missing or zero isn't graded; a denominator matching several rows per week, or none, skips
+the series with a warning. Every other rate or load (per 100k, `gcDay100k`, `gcL`,
 …) → the incidence path with a constant exposure (it cancels in the growth model), fitted on the values
 × a per-series scale — the smallest power of ten that lifts the smallest positive value to ≥ 100 — with
 the thresholds divided back. aedseo can't grade values below 1 (its disease threshold bottoms out at 1)
@@ -330,7 +334,8 @@ and rounds the counts it derives; its thresholds scale with the values (checked 
 growth is unchanged from a scale of 100 up.
 
 **Per series, each week *t*, as of *t*.** aedseo runs on the series' data up to and including *t*,
-on a contiguous weekly calendar where missing weeks are gaps:
+on a contiguous weekly calendar where missing weeks are NA rows (aedseo's windows are rows, and it skips
+those too sparse to fit, so growth across an outage is inconclusive rather than rescaled):
 1. Thresholds: the disease threshold and burden levels for *t*'s season. Consecutive weeks with
    identical bounds share one `thresholds.csv` span, so a grade and its band always use the same bounds.
 2. Level: *t*'s value against those bounds; blank when they aren't finite, except that a reported

@@ -8,12 +8,23 @@ from .rules import SeasonState, completed_seasons, level_for, season_phase, tren
 from .series import Series
 
 
+_NO_BANDS = (math.nan,) * 4
+
+
 @dataclass
 class SeriesResult:
     rows: list[dict]
     bounds: list[tuple[str, tuple[float, ...]]]   # (week, lower bounds of the levels above the lowest)
     state: SeasonState
     graded: int
+    fitted: int = 0   # weeks aedseo could fit at all; zero across a run means a systemic failure
+
+
+def _usable(thresholds: tuple[float, ...]) -> tuple[float, ...]:
+    # Bands that are partly missing or don't rise can't grade, phase or draw consistently: treat them as none,
+    # so the grade, the phase and the stored bounds always agree (and an incremental resume finds its floor).
+    finite = all(math.isfinite(t) for t in thresholds)
+    return thresholds if finite and all(a < b for a, b in zip(thresholds, thresholds[1:])) else _NO_BANDS
 
 
 def _monday(period: str) -> date:
@@ -25,7 +36,7 @@ def assess_series(series: Series, weeks: list[str], backend: Backend, *, method:
                   min_seasons: int, waves: bool, state: SeasonState) -> SeriesResult:
     """Grade `weeks` of one series, each from its data up to and including that week (spec §6.3.1)."""
     index = {p: i for i, p in enumerate(series.periods)}
-    rows, bounds, graded = [], [], 0
+    rows, bounds, graded, fitted = [], [], 0, 0
     for week in weeks:
         n = index[week] + 1
         data = FitInput(tuple(_monday(p) for p in series.periods[:n]), tuple(series.values[:n]),
@@ -43,18 +54,20 @@ def assess_series(series: Series, weeks: list[str], backend: Backend, *, method:
                          "growth_rate": None, "growth_lower": None, "growth_upper": None, "phase": None})
             graded += level is not None
             continue
-        level = level_for(value, fit.thresholds, method.levels)
+        fitted += 1
+        thresholds = _usable(fit.thresholds)
+        level = level_for(value, thresholds, method.levels)
         trend, growth = trend_for(*fit.growth)
         if waves:
             phase = wave_phase(fit.in_wave)
         else:
-            phase, state = season_phase(state, week, value, fit.thresholds[0], fit.alarm)
+            phase, state = season_phase(state, week, value, thresholds[0], fit.alarm)
         rows.append({"period": week, "level": level,
                      "provisional": provisional,
                      "trend": trend, "growth_rate": growth[0] if growth else None,
                      "growth_lower": growth[1] if growth else None, "growth_upper": growth[2] if growth else None,
                      "phase": phase})
-        if all(math.isfinite(t) for t in fit.thresholds):
-            bounds.append((week, fit.thresholds))
+        if thresholds is not _NO_BANDS:
+            bounds.append((week, thresholds))
         graded += level is not None
-    return SeriesResult(rows, bounds, state, graded)
+    return SeriesResult(rows, bounds, state, graded, fitted)

@@ -101,9 +101,12 @@ class FeedStore:
 
     def resume(self, series: Series, method: str) -> SeasonState:
         key = self._series_key(series, method)
-        last = self.last_week(series, method)
-        if last is None:
+        # Weeks without a phase (unfittable, or no bands) left the season state untouched in the run that wrote
+        # them, so resume from the last week that had one, as a full rebuild would.
+        phased = [p for p, row in self._rows.get(key, {}).items() if row["phase"]]
+        if not phased:
             return SeasonState()
+        last = max(phased)
         if self._rows[key][last]["phase"] != "in_season":
             return SeasonState(last_period=last)
         # A season held over one week below its threshold must end at the next, as in a full rebuild.

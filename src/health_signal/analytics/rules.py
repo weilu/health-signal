@@ -79,6 +79,10 @@ def season_phase(state: SeasonState, period: str, value: float, floor: float,
     if value >= floor:
         if in_season or alarm:
             return "in_season", SeasonState(True, 0, period)
+        if alarm is None:
+            # The onset fit is unavailable, so whether a season started is unknown: no phase, as
+            # greece-public-health suppresses it, rather than a false "out of season".
+            return None, state
         return "out_of_season", SeasonState(False, 0, period)
     if in_season and state.below < MAX_DIP:
         return "in_season", SeasonState(True, state.below + 1, period)

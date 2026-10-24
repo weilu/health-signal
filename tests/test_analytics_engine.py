@@ -1,12 +1,14 @@
 import math
 from datetime import date
 
+import pytest
+
 from health_signal.analytics.aedseo_r import RAedseo
 from health_signal.analytics.engine import assess_series
 from health_signal.analytics.rules import SeasonState
 from health_signal.analytics.series import Series
 from health_signal.methods import AEDSEO
-from analytics_support import FakeBackend, weeks
+from analytics_support import BandsBackend, FakeBackend, weeks
 
 
 def _series(values):
@@ -73,3 +75,12 @@ def test_a_week_aedseo_cannot_fit_grades_only_a_reported_zero():
     assert [(r["level"], r["trend"], r["phase"]) for r in res.rows[:2]] == \
         [("very_low", "inconclusive", None), (None, "inconclusive", None)]
     assert res.graded == 2
+
+
+@pytest.mark.parametrize("bands", [(10.0, math.nan, math.nan, math.nan),   # a disease threshold but no burden levels
+                                   (10.0, 10.0, 40.0, 80.0)])              # bands that don't rise
+def test_unusable_bands_give_no_grade_phase_or_threshold_rows(bands):
+    s = _series([5, 6, 12, 30])
+    res = assess_series(s, s.periods, BandsBackend(bands), method=AEDSEO, start_week=21, min_seasons=3,
+                        waves=False, state=SeasonState())
+    assert [(r["level"], r["phase"]) for r in res.rows] == [(None, None)] * 4 and res.bounds == []

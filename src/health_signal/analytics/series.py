@@ -67,13 +67,14 @@ def assessed_series(config: Config, sources: dict[str, FileDataSource]):
                         warnings.append(f"{ref} at {location}: the query matches several rows per week; "
                                         f"pin more dimensions to assess it")
                         continue
-                    found = _series(query.feed, target.id, location, rows, source)
+                    found = _series(query.feed, target.id, location, rows, source, ref, warnings)
                     if found is not None:
                         refs[(target.id, location, ref)] = series.setdefault((found.feed, found.key), found)
     return list(series.values()), refs, warnings
 
 
-def _series(feed: str, pathogen: str, location: str, rows: list[FeedRow], source: FileDataSource) -> Series | None:
+def _series(feed: str, pathogen: str, location: str, rows: list[FeedRow], source: FileDataSource, ref: str,
+            warnings: list[str]) -> Series | None:
     profile = source.profile
     first = rows[0]
     dims = _common_dimensions(rows)
@@ -88,9 +89,15 @@ def _series(feed: str, pathogen: str, location: str, rows: list[FeedRow], source
         return Series(feed, pathogen, location, first.indicator, dims, first.unit, periods,
                       [values[p] for p in periods], "incidence", [1.0] * len(periods), 1.0,
                       value_scale(list(values.values())))
-    exposure = {r.period: r.value for r in source.query(location=location, indicator=denominator.indicator, **dims)}
+    denominators = source.query(location=location, indicator=denominator.indicator, **dims)
+    if len({r.period for r in denominators}) != len(denominators):
+        warnings.append(f"{ref} at {location}: several {denominator.indicator} rows per week match its rate; "
+                        f"pin more dimensions to assess it")
+        return None
+    exposure = {r.period: r.value for r in denominators}
     periods = [p for p in periods if exposure.get(p, 0) > 0]   # a rate without its denominator isn't modelled
     if not periods:
+        warnings.append(f"{ref} at {location}: no {denominator.indicator} to model its rate against")
         return None
     return Series(feed, pathogen, location, first.indicator, dims, first.unit, periods,
                   [values[p] for p in periods], "incidence", [exposure[p] for p in periods], denominator.per)

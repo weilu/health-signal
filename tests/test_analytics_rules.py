@@ -91,3 +91,11 @@ def test_an_unfit_week_has_no_phase_and_keeps_the_state():
 
 def test_wave_phase():
     assert (wave_phase(True), wave_phase(False), wave_phase(None)) == ("in_wave", "between_waves", None)
+
+
+def test_an_unavailable_onset_alarm_is_no_phase_not_out_of_season():
+    # greece-public-health suppresses the phase when the onset fit is unavailable rather than call it out of season
+    state = SeasonState(last_period="2025-W01")
+    assert season_phase(state, "2025-W02", 15, 10.0, None) == (None, state)
+    in_season = SeasonState(True, 0, "2025-W01")
+    assert season_phase(in_season, "2025-W02", 15, 10.0, None)[0] == "in_season"   # a running season needs no alarm

@@ -1,7 +1,7 @@
 """SSI's aedseo over rpy2: the only module that touches R, entered only to fit (generalised from
 greece-public-health's aedseo_bridge)."""
 import math
-from datetime import date
+from datetime import date, timedelta
 
 import numpy as np
 
@@ -47,13 +47,20 @@ class RAedseo:
     def fit(self, data: FitInput) -> WeekFit:
         ro, aedseo, base = self._ro, self._aedseo, self._base
         season = dict(season_start=data.season_start, season_end=data.season_start - 1)
-        time = base.as_Date(ro.StrVector([d.isoformat() for d in data.dates]))
+        # aedseo's windows are rows, so a reporting gap must be rows of NA (which it skips), not left out: a
+        # window spanning an outage would otherwise report the change across it as weekly growth.
+        weeks = [data.dates[0] + timedelta(weeks=i) for i in range((data.dates[-1] - data.dates[0]).days // 7 + 1)]
+        observed = dict(zip(data.dates, data.values))
+        exposure = dict(zip(data.dates, data.exposure))
+        time = base.as_Date(ro.StrVector([d.isoformat() for d in weeks]))
+        na = ro.NA_Real
         if data.kind == "count":
-            tsd = aedseo.to_time_series(cases=ro.FloatVector([round(v) for v in data.values]), time=time,
-                                        time_interval="weeks")
+            cases = [round(observed[d]) if d in observed else na for d in weeks]
+            tsd = aedseo.to_time_series(cases=ro.FloatVector(cases), time=time, time_interval="weeks")
         else:
-            tsd = aedseo.to_time_series(incidence=ro.FloatVector([v * data.scale for v in data.values]),
-                                        population=ro.FloatVector(data.exposure),
+            incidence = [observed[d] * data.scale if d in observed else na for d in weeks]
+            population = [exposure[d] if d in exposure else na for d in weeks]
+            tsd = aedseo.to_time_series(incidence=ro.FloatVector(incidence), population=ro.FloatVector(population),
                                         incidence_denominator=data.per, time=time, time_interval="weeks")
         try:
             tdis = float(self._numbers(aedseo.estimate_disease_threshold(tsd, **season), "disease_threshold")[0])

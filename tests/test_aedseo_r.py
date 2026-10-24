@@ -4,6 +4,10 @@ from datetime import date, timedelta
 import pytest
 
 from health_signal.analytics.backend import FitError, FitInput
+from health_signal.analytics.engine import assess_series
+from health_signal.analytics.rules import SeasonState
+from health_signal.analytics.series import Series
+from health_signal.methods import AEDSEO
 
 pytest.importorskip("rpy2")
 from health_signal.analytics.aedseo_r import RAedseo  # noqa: E402  (after importorskip: R is optional)
@@ -53,3 +57,24 @@ def test_a_series_too_short_to_fit_raises_fit_error(backend):
     dates, values = _seasons(n_seasons=1)
     with pytest.raises(FitError):
         backend.fit(FitInput(dates[:3], values[:3], (), 1.0, 1.0, "count", 21, False))
+
+
+def test_growth_right_after_a_reporting_outage_is_unavailable_not_rescaled(backend):
+    # aedseo windows are rows: without the missing weeks as gaps, a 5-row window would span the outage and
+    # report its change as weekly growth.
+    dates, values = _seasons()
+    keep = [i for i in range(len(dates)) if not len(dates) - 8 <= i < len(dates) - 2]   # 6 missing, 2 since
+    fit = backend.fit(FitInput(tuple(dates[i] for i in keep), tuple(values[i] for i in keep), (), 1.0, 1.0,
+                               "count", 21, False))
+    assert all(math.isnan(g) for g in fit.growth)
+
+
+def test_a_week_is_graded_the_same_whatever_data_follows_it(backend):
+    # As-of rows (spec §6.3.1): adding later weeks never changes an earlier week's grade.
+    dates, values = _seasons()
+    periods = [f"{d.isocalendar()[0]}-W{d.isocalendar()[1]:02d}" for d in dates]
+    short = Series("f", "Influenza", "L", "x", {}, "count", periods[:-2], list(values[:-2]), "count")
+    long_ = Series("f", "Influenza", "L", "x", {}, "count", periods, list(values), "count")
+    weeks = periods[-5:-2]
+    options = dict(method=AEDSEO, start_week=21, min_seasons=3, waves=False, state=SeasonState())
+    assert assess_series(short, weeks, backend, **options).rows == assess_series(long_, weeks, backend, **options).rows

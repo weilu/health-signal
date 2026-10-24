@@ -48,6 +48,10 @@ def assess(config: Config, *, full: bool = False, jobs: int = 1,
     (spec §6.3.1); only weeks after each series' last assessed one, unless `full`."""
     if config.data is None:
         raise ValueError("the config has no data.feeds to assess")
+    if config.surveillance.year_start_week == 1:
+        # aedseo's season ends the week before it starts, and it has no week 0: every fit would fail.
+        raise RuntimeError("aedseo can't model a season starting in week 1; set surveillance.year_start_week "
+                           "to 2-52 (e.g. 21 for W21-W20 respiratory seasons)")
     factory = backend or RAedseo
     main_backend = factory()
     profiles = {f.id: PROFILES[f.profile] for f in config.data.feeds}
@@ -63,6 +67,11 @@ def assess(config: Config, *, full: bool = False, jobs: int = 1,
     for store in stores.values():
         store.check_settings(settings)   # before any fitting: a mismatch should cost nothing
 
+    # A series shown on several tabs is phased in waves only if every one of those pathogens circulates in waves,
+    # so e.g. ILI on the COVID tab doesn't put COVID's wave shading on the influenza tab's chart.
+    pathogens: dict[int, set[str]] = {}
+    for (pathogen, _, _), s in refs.items():
+        pathogens.setdefault(id(s), set()).add(pathogen)
     jobs_to_run: list[tuple[Series, list[str], dict]] = []
     for s in series:
         store = stores[s.feed]
@@ -70,10 +79,11 @@ def assess(config: Config, *, full: bool = False, jobs: int = 1,
         weeks = [p for p in s.periods if last is None or p > last]
         if weeks:
             options = dict(method=AEDSEO, start_week=config.surveillance.year_start_week,
-                           min_seasons=analytics.min_seasons, waves=s.pathogen in analytics.wave_pathogens,
+                           min_seasons=analytics.min_seasons,
+                           waves=pathogens[id(s)] <= set(analytics.wave_pathogens),
                            state=store.resume(s, method))
             jobs_to_run.append((s, weeks, options))
-    weeks_done = graded = 0
+    weeks_done = graded = fitted = 0
     with ProcessPoolExecutor(max_workers=jobs, mp_context=multiprocessing.get_context("spawn")) if jobs > 1 \
             else nullcontext() as pool:
         # Lazily, so a long backfill reports each series as it finishes rather than all at the end.
@@ -83,13 +93,15 @@ def assess(config: Config, *, full: bool = False, jobs: int = 1,
             stores[s.feed].add(s, method, result)
             weeks_done += len(weeks)
             graded += result.graded
+            fitted += result.fitted
             log.info("%s %s %s %s: %d weeks, %d graded", s.feed, s.location, s.indicator, s.dimensions,
                      len(weeks), result.graded)
             if not result.graded:
                 warnings.append(f"{s.feed} {s.location} {s.indicator} {s.dimensions}: no week could be graded")
-    if weeks_done and not graded:
-        raise RuntimeError(f"nothing could be graded across {len(jobs_to_run)} series; check the feeds' history "
-                           f"(aedseo needs a complete past season)")
+    if weeks_done and not fitted:
+        # Reported zeros still grade without a fit, so count fits: none at all is a systemic failure, not thin data.
+        raise RuntimeError(f"no week could be fitted across {len(jobs_to_run)} series; check R/aedseo and the feeds' "
+                           f"history (aedseo needs a complete past season)")
     for store in stores.values():
         store.write(settings)
     if analytics.phase_streams:

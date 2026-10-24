@@ -77,3 +77,18 @@ def test_only_the_selectable_locations_are_assessed_when_the_filter_lists_them(t
                                                   age="total")], filters=location)
     series, _, _ = assessed_series(cfg, sources)
     assert [s.location for s in series] == ["Greece"]
+
+
+def test_a_denominator_matching_several_rows_or_none_is_skipped_with_a_warning(tmp_path):
+    p = weeks(2021, 3)
+    positivity = erviss_rows("Greece", "positivity", "percent", [10, 20, 30], survtype="non-sentinel",
+                             pathogen="Influenza", periods=p)
+    # tests split by a dimension the rate doesn't pin (type A and B), so two rows match each week
+    split_tests = "".join(f"Greece,{w},non-sentinel,Influenza,Influenza {t},,total,tests,100,count\n"
+                          for w in p for t in ("A", "B"))
+    panel = [{"id": "pos", "query": {"feed": "clinical", "indicator": "positivity",
+                                     "dimensions": {"survtype": "non-sentinel", "pathogen": "Influenza"}}}]
+    for body, message in ((positivity + split_tests, "several"), (positivity, "no tests")):
+        cfg, sources = _setup(tmp_path / message, body, panel)
+        series, _, warnings = assessed_series(cfg, sources)
+        assert series == [] and "clinical/pos" in warnings[0] and message in warnings[0]
