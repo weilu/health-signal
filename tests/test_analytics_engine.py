@@ -63,3 +63,12 @@ def test_a_failed_onset_or_wave_fit_is_unavailable_not_a_negative():
     growth, alarm = backend._onset(None, 1.0, {}, date(2025, 1, 6))
     assert all(math.isnan(g) for g in growth) and alarm is None
     assert backend._wave(None, 1.0, {}, date(2025, 1, 6)) is None
+
+
+def test_a_reported_zero_grades_very_low_even_when_aedseo_cannot_fit():
+    # greece-public-health grades a zero without bands too: it's the lowest burden by definition. A positive
+    # value aedseo can't place stays without a row.
+    res = _run([0, 5, 12])   # the fake can't fit the first two weeks
+    assert [(r["period"], r["level"], r["trend"], r["phase"]) for r in res.rows][:1] == \
+        [(weeks(2021, 3)[0], "very_low", "inconclusive", None)]
+    assert [r["period"] for r in res.rows] == [weeks(2021, 3)[0], weeks(2021, 3)[2]] and res.graded == 2

@@ -30,11 +30,19 @@ def assess_series(series: Series, weeks: list[str], backend: Backend, *, method:
         n = index[week] + 1
         data = FitInput(tuple(_monday(p) for p in series.periods[:n]), tuple(series.values[:n]),
                         tuple(series.exposure[:n]), series.per, series.scale, series.kind, start_week, waves)
+        value = series.values[n - 1]
+        provisional = completed_seasons(series.periods[:n], start_week) < min_seasons
         try:
             fit = backend.fit(data)
         except FitError:
+            if value == 0:
+                # A reported zero is the lowest burden even where aedseo can't fit (greece-public-health
+                # grades it so); a positive value it can't place gets no row.
+                rows.append({"period": week, "level": method.levels[0], "provisional": provisional,
+                             "trend": "inconclusive", "growth_rate": None, "growth_lower": None,
+                             "growth_upper": None, "phase": None})
+                graded += 1
             continue
-        value = series.values[n - 1]
         level = level_for(value, fit.thresholds, method.levels)
         trend, growth = trend_for(*fit.growth)
         if waves:
@@ -42,7 +50,7 @@ def assess_series(series: Series, weeks: list[str], backend: Backend, *, method:
         else:
             phase, state = season_phase(state, week, value, fit.thresholds[0], fit.alarm)
         rows.append({"period": week, "level": level,
-                     "provisional": completed_seasons(series.periods[:n], start_week) < min_seasons,
+                     "provisional": provisional,
                      "trend": trend, "growth_rate": growth[0] if growth else None,
                      "growth_lower": growth[1] if growth else None, "growth_upper": growth[2] if growth else None,
                      "phase": phase})
