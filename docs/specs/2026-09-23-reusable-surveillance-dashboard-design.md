@@ -153,8 +153,9 @@ validated at load against its feed's profile, so a typo fails before the app ser
 `filters.location` lists the selectable locations and a default, and every panel is queried for the
 selected one; a panel with no rows for it shows a "no data for {location}" message rather than being
 hidden or falling back to another level. `filters.date_range` (optional) sets `default_weeks` (a count
-or `"all"`, default 52) and `year_start_week` (1–52, default 1), which only shapes the yearly presets
-(e.g. 21 for a W21→W20 respiratory year). The range control offers "Last N weeks", "All history", one
+or `"all"`, default 52). The yearly presets begin at `surveillance.year_start_week` (1–52, default 1;
+e.g. 21 for a W21→W20 respiratory year), the dashboard's surveillance year, which the analytics
+component (§6.3.1) also uses as its season boundary, so the two can't disagree. The range control offers "Last N weeks", "All history", one
 preset per year and custom from/to weeks, all bounded by `GET /api/periods` (the first and latest
 week across all feeds). Defaults count back from the latest week in the data, not from today, so a lagging feed
 doesn't draw empty weeks; the header's Reporting week shows the lag. Every chart's axis spans the
@@ -226,8 +227,9 @@ and sequencing files have a different shape and belong to the variant track.
 
   **Methods** are a registry in code, like profiles, read by both the app and the analytics
   component. Each declares its **ordered** `levels`, its `phases`, and whether it produces a `trend`;
-  e.g. aedseo: levels `very_low` < `low` < `medium` < `high` < `very_high`, phases `in_season`,
-  `in_wave`, `out_of_season`, trend yes. Vocabularies are per method because other domains grade
+  e.g. aedseo: levels `very_low` < `low` < `medium` < `high` < `very_high`, phases `in_season` /
+  `out_of_season` (one season a year) and `in_wave` / `between_waves` (year-round circulation in
+  waves), trend yes. Vocabularies are per method because other domains grade
   differently: IDSR-style surveillance of epidemic-prone diseases uses *normal / alert / epidemic*
   against fixed or week-of-year thresholds; polio AFP surveillance and HIV 95-95-95 monitoring grade
   attainment against fixed targets, with outbreak status as the useful phase and no season. The UI
@@ -254,7 +256,7 @@ and sequencing files have a different shape and belong to the variant track.
     one row per level boundary, so methods may have any number of bands and thresholds may be fixed
     (one span) or change per season or per week. Draws the chart bands.
   - **`phase.csv`** — `location` × `pathogen` × `period` × `method` → `phase` (e.g. `in_season`,
-    `in_wave`, `out_of_season`): the pathogen-level status behind the "in season since W48" badge,
+    `out_of_season`, `in_wave`, `between_waves`): the pathogen-level status behind the "in season since W48" badge,
     e.g. greece-public-health's cross-stream rule (community and admissions streams have each onset
     and their runs overlap). **Precomputed, not derived in the app:** the rule is a policy choice that
     belongs with the analysis, and a country may write its officially declared season here instead.
@@ -286,13 +288,122 @@ and sequencing files have a different shape and belong to the variant track.
 #### 6.3.1 Analytics component
 
 The methods are standard, so they are computed once, generically, rather than in each country's
-ETL: `health_signal.analytics` reads feeds (a series is location + dimensions + indicator, with its
-periods and values) and writes the tables above, via a CLI (`health-signal assess --config
-dashboard.yaml`) run as a batch step after the feeds refresh. aedseo first (Status, Trend, onset and
-phase), generalised from greece-public-health's aedseo bridge; MEM and others as further registry
-entries. aedseo and MEM are R packages (via rpy2), so the component installs as an optional extra
-(`health-signal[analytics]`) and the app itself stays free of R. Countries may still supply their own
-tables in the same format.
+ETL: `health_signal.analytics` reads the feeds and writes the tables above. aedseo first (Status,
+Trend, onset, waves and phase), generalised from greece-public-health's aedseo bridge, reusing its
+reviewed code and tests where they fit; MEM and others as further registry entries. aedseo and MEM
+are R packages (via rpy2, in-process), so the component installs as an optional extra
+(`health-signal[analytics]`) and the app itself stays free of R and never imports it. Countries may
+still supply their own tables in the same format.
+
+greece-public-health will later migrate onto this package (the app, and the aedseo part of its
+pipeline), so the component is a library first and a CLI second: `assess(config, full=False, jobs=1)`
+and the per-series step it is built from are public and importable, nothing in it is specific to
+Greece, and the code ported from greece-public-health is audited as it moves (behaviour it should not
+keep is fixed here and reported back).
+
+**Which series.** The series panels show: each feed with an `assessments` dir × its single-series
+panels (no `series_by`; tiles, bands and shading appear only on those) × every location a viewer can
+select (`filters.location`'s options; every location in the feed's data when there's no location
+filter), so a feed covering all EU countries costs nothing for regions the dashboard can't show. No separate list to keep in step with the panels.
+
+**Settings.** Defaults live with the method in code (SSI's: `k=5`, `n_peak=3`, `decay_factor=0.8`,
+`conf_levels=0.975`, the families, and the wave-segmentation settings tuned on Greek COVID). Config
+overrides only policy choices, each in one place:
+- `surveillance.year_start_week` — the season boundary (the season ends the week before), shared
+  with the date-range presets (§6.1). aedseo has no week 0, so `assess` refuses a season starting in
+  week 1 before fitting anything.
+- `analytics.min_seasons` (default 3) — completed seasons (≥ 30 weeks each, excluding the current
+  one) before a grade stops being provisional.
+- `analytics.wave_pathogens` (default `[SARS-CoV-2]`) — pathogens that circulate in waves rather than
+  one season a year (a series shown on several tabs is phased in waves only if all of their pathogens
+  are listed, so ILI on the COVID tab doesn't take COVID's waves onto the influenza tab); each must be a
+  registry pathogen (not necessarily a target, so the default suits
+  a dashboard without a COVID tab). Replaces greece-public-health's "covid in the
+  key" rule.
+- `analytics.phase_streams` — the inputs of a method's pathogen-level phase (below).
+
+**Input to aedseo, by the row's `unit`.** Counts → aedseo's cases path (rounded). A rate with its
+own denominator series → the incidence path with that series as the exposure offset; the profile
+declares the pairing (ERVISS `positivity → tests`, same series key otherwise), and a week whose
+denominator is missing or zero isn't graded; a denominator matching several rows per week, or none, skips
+the series with a warning. Every other rate or load (per 100k, `gcDay100k`, `gcL`,
+…) → the incidence path with a constant exposure (it cancels in the growth model), fitted on the values
+× a per-series scale — the smallest power of ten that lifts the smallest positive value to ≥ 100 — with
+the thresholds divided back. aedseo can't grade values below 1 (its disease threshold bottoms out at 1)
+and rounds the counts it derives; its thresholds scale with the values (checked to within 0.01%) and its
+growth is unchanged from a scale of 100 up.
+
+**Per series, each week *t*, as of *t*.** aedseo runs on the series' data up to and including *t*,
+on a contiguous weekly calendar where missing weeks are NA rows (aedseo's windows are rows, and it skips
+those too sparse to fit, so growth across an outage is inconclusive rather than rescaled):
+1. Thresholds: the disease threshold and burden levels for *t*'s season. Consecutive weeks with
+   identical bounds share one `thresholds.csv` span, so a grade and its band always use the same bounds.
+2. Level: *t*'s value against those bounds; blank when they aren't finite, except that a reported
+   zero grades `very_low`. `provisional` when completed seasons < `analytics.min_seasons`.
+3. Trend: `seasonal_onset`'s current-season growth, written as `exp(r) − 1`; `increasing` if the
+   lower bound > 0, `decreasing` if the upper < 0, else `stable`; `inconclusive` with blank growth
+   when aedseo returns NA (including R's NA-integer sentinel, rejected by magnitude).
+4. The series' phase: for a wave pathogen, `in_wave` when aedseo's multiple-wave segmentation puts
+   *t* in a wave, else `between_waves`. Otherwise `in_season` from the first onset alarm within a
+   run at or above the disease threshold; one week below doesn't end it, a second consecutive one
+   does (as-of rows can't bridge with hindsight, so the season ends a week late rather than being
+   bridged); weeks with no data have no row and carry the state over, up to 8 missing weeks in a row; a
+   longer reporting gap ends the season (greece-public-health's `max_missing`). Blank when the fit fails.
+
+A week aedseo can't fit at all (thin or degenerate history) still gets a row — an `inconclusive` trend,
+no phase, and a blank level, except that a reported zero grades `very_low` as greece-public-health does —
+so a tile describes the data's latest week rather than an older graded one. A series with no gradeable week is warned by name; R or aedseo missing,
+or nothing graded at all, stops the run with an actionable error.
+
+**Pathogen phase.** `analytics.phase_streams` entries name, per pathogen × location × method, the
+series for each of the method's `stream_roles`, as `<page>/<panel>` under that pathogen's target:
+
+```yaml
+analytics:
+  phase_streams:
+    - {pathogen: Influenza, location: Greece, method: aedseo,
+       streams: {cases: clinical/ili, admissions: clinical/sari}}
+```
+
+Roles are checked against the method's `stream_roles`, each panel must exist, show a single series
+and belong to a feed with an `assessments` dir; a method without stream roles can't appear. The
+method owns the rule that combines the streams' own phases: aedseo's (SSI's) is "every role in season
+(or in a wave)", else `out_of_season` (`between_waves`). A `phase.csv` row for *t* is written only when
+every stream has a phase at *t*, so a lagging stream yields no row rather than a false
+"out of season" — the UI shows the latest row as of its week. `phase_streams.csv` records each role's
+feed and series straight from the panel's query. Pathogens or locations without an entry get no phase
+(e.g. Attica influenza, which has no cases stream). Both tables are rebuilt in full every run from the
+assessment rows: no R is involved, and they stay consistent after a rebuild.
+
+**CLI.** `health-signal assess --config dashboard.yaml [--full] [--jobs N]`; `health-signal serve`
+runs the app, and a bare `health-signal --config …` still serves. Each assessed feed's dir gets
+`assessment.csv`, `thresholds.csv` and `assessed_with.csv`; `data.phases` and `data.phase_streams`
+get the pathogen tables (required by config when `phase_streams` is set).
+
+**Incremental runs.** The existing tables are the state: per series and method, only weeks after the
+last assessed one are computed, up to the series' latest data week; the season-run state (in a run, or
+one week below the threshold) resumes from the stored rows and thresholds, so an incremental week
+matches what a full rebuild writes; a new series (a new panel or location) is backfilled automatically; new weeks extend the last threshold span when its bounds are
+unchanged. `assessed_with.csv` (`method`, `setting`, `value`; one row per list item) records the
+settings the rows were computed with — `year_start_week`, `min_seasons`, each `wave_pathogen`, and the
+method's package version — and a run whose settings differ stops and asks for `--full` rather than
+mixing rows from different rules. Long-form like the other tables, it maps onto a database table
+(plus the feed) unchanged. Revisions to older data aren't detected: run `--full` after one. Rows of
+series no panel shows any more are kept (the contract allows them) and logged; `--full` starts
+afresh. `--jobs N` (default 1) assesses series in parallel processes, each with its own embedded R.
+
+**Writing.** New tables go to temporary files, are loaded through the app's own loaders
+(`AssessmentSource`, `PhaseSource`, `PhaseStreamSource`) — one contract check shared by producer and
+app — and only then replace the old files by rename, so a failed run leaves the served tables intact.
+Progress is logged per series (weeks computed, weeks graded) with a closing summary; a systemic
+failure (no R, nothing graded, a settings mismatch without `--full`) exits non-zero so a scheduled
+job fails visibly.
+
+**Verification on real data.** Beyond the synthetic tests, `assess` runs locally on the Greek feeds
+(ERVISS and the Attica wastewater in `phes_odm`) from a scratch directory outside the repo, and its
+latest-week grades, thresholds, growth and phases are compared with greece-public-health's
+`data.json` for the same weeks; differences are explained (as-of vs full-history fits, the season
+run's end rule) or fixed. The output is never committed, and the 4c-4 UI is iterated against it before either merges.
 
 ### 6.4 Future profiles (post-MVP)
 
@@ -548,6 +659,13 @@ outside the repo; that output is never committed, and screenshots of it stay out
   frontend helpers.
 - **Frontend:** Vitest + React Testing Library for component/config-driven rendering where an E2E is
   overkill.
+- **Analytics (§6.3.1):** most tests run without R against a fake aedseo backend returning set
+  thresholds and growth per week — series derivation, input paths and denominators, grading and
+  trend rules, the as-of phase rules, the cross-stream rule, incremental merge, `assessed_with.csv`
+  and safe writing. A few tests run real aedseo on a synthetic series and assert invariants, not
+  numbers: bounds rise, growth lies within its interval, and earlier weeks' as-of rows don't change
+  when later weeks are added. They're skipped without R, and a separate CI job installs R and a
+  pinned aedseo to run them, keeping the main job R-free.
 - **ETL (consumer side):** existing suite stays; add a test that the Greek ETL output validates
   against the contract.
 
@@ -573,7 +691,9 @@ Stage 4c (Status/Trend, z-score severity, wastewater) exceeds the cap, so it shi
 parameters, duplicate and conflicting-row handling, wastewater pages); **4c-2** the assessment
 contract (§6.3: the three tables, method and pathogen registries, target ids as pathogen keys,
 derived page paths, loading, validation and the three endpoints), no UI; **4c-3** the analytics
-component (§6.3.1) with aedseo; **4c-4** Status/Trend tiles, threshold bands, per-series phase shading, and the Overview's phase and
+component (§6.3.1) with aedseo, as one PR over the cap by agreement, stacked on 4c-4 so the
+pipeline is verified end to end on Greek data while the UI that consumes it is iterated on that data;
+**4c-4** Status/Trend tiles, threshold bands, per-series phase shading, and the Overview's phase and
 summary panels (with `phase_streams` and method `stream_roles`);
 **4c-5** the EuroMOMO-style mortality z-score strip.
 
@@ -581,8 +701,6 @@ summary panels (with `phase_streams` and method `stream_roles`);
 
 ## 14. Open questions / assumptions
 
-- Which series the analytics component assesses (every series in a feed, or those panels show) and
-  where method settings live (minimum seasons, season start) — decided in Stage 4c-3.
 - Non-organism surveillance subjects (e.g. AMR) as targets — decided when an AMR profile arrives.
 - Exact per-country config schema (`dashboard.yaml`) fields — to be pinned in the implementation plan.
 - Whether the generic repo is a true monorepo (frontend + package together) or split — assume

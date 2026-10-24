@@ -61,6 +61,28 @@ locales), translation overrides, and a data feed adhering to the contract. See
 `branding.theme` is a [MUI theme-options](https://mui.com/material-ui/customization/theming/) object
 merged over the library's neutral default, so a government restyles with no rebuild.
 
+### Status, Trend and phase (`health-signal assess`)
+
+The dashboard shows Status and Trend tiles, threshold bands and season or wave phases from tables it
+loads at startup (spec §6.3). `health-signal assess` writes them from the feeds with SSI's
+[aedseo](https://cran.r-project.org/package=aedseo), grading every single-series panel at every location
+week by week, each week from the data available up to it. It needs R, which the app itself doesn't:
+
+```bash
+# once: R (https://cran.r-project.org) with aedseo, and the analytics extra
+Rscript -e 'install.packages("aedseo")'
+pip install "health-signal[analytics]"        # or: uv sync --extra analytics
+
+health-signal assess --config dashboard.yaml --full --jobs 8   # first run: every week of history
+health-signal assess --config dashboard.yaml                   # then after each feed refresh: new weeks only
+```
+
+It writes each feed's `assessments` dir and `data.phases` / `data.phase_streams`, and records the
+settings it used in `assessed_with.csv`: when `surveillance.year_start_week`, `analytics` or the aedseo
+version change, it stops and asks for `--full`. Run `--full` too after a feed revises past weeks. The
+policy settings live under `analytics:` (see the example config); countries may also write the tables
+themselves in the same format, with or without aedseo.
+
 ### Authentication & access
 
 The dashboard is gated by an app-managed local auth provider (fastapi-login + argon2, no database),

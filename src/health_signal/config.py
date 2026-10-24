@@ -162,8 +162,12 @@ class DateRangeFilter(BaseModel):
     # The header's Date range control; always on, since every feed is weekly.
     model_config = ConfigDict(extra="forbid")
     default_weeks: PositiveInt | Literal["all"] = 52  # counted back from the feed's latest week
-    # Where each yearly preset begins, e.g. 21 for a W21-W20 respiratory year. W53 is excluded because
-    # most years don't have one.
+
+
+class Surveillance(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    # The surveillance year, e.g. 21 for W21-W20 respiratory seasons: the date presets and the analytics'
+    # season boundary read this one field, so they can't disagree. W53 is excluded because most years lack one.
     year_start_week: int = Field(default=1, ge=1, le=52)
 
 
@@ -186,6 +190,22 @@ class FeedConfig(BaseModel):
         if name not in PROFILES:
             raise ValueError(f"unknown profile {name!r}; one of {sorted(PROFILES)}")
         return name
+
+
+class PhaseStreamsEntry(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    pathogen: str
+    location: str = Field(min_length=1)
+    method: str = "aedseo"
+    streams: dict[str, str]  # role -> "<page>/<panel>" under the pathogen's target
+
+
+class AnalyticsConfig(BaseModel):
+    # Policy choices of the analytics component (spec §6.3.1); the method's statistical settings stay in code.
+    model_config = ConfigDict(extra="forbid")
+    min_seasons: PositiveInt = 3
+    wave_pathogens: list[str] = Field(default_factory=lambda: ["SARS-CoV-2"])
+    phase_streams: list[PhaseStreamsEntry] = Field(default_factory=list)
 
 
 class DataConfig(BaseModel):
@@ -231,6 +251,8 @@ class Config(BaseModel):
     branding: Branding = Field(default_factory=Branding)
     targets: list[Target] = Field(default_factory=list)
     filters: Filters = Field(default_factory=Filters)
+    surveillance: Surveillance = Field(default_factory=Surveillance)
+    analytics: AnalyticsConfig = Field(default_factory=AnalyticsConfig)
     # Server-only: neither projection below references it, so it never reaches the client.
     data: DataConfig | None = None
 
@@ -261,6 +283,42 @@ class Config(BaseModel):
                                          f"but sits under target {target.id!r}")
         return self
 
+    @model_validator(mode="after")
+    def _analytics_refs(self) -> "Config":
+        # Checked against the registry, not the targets: the default names SARS-CoV-2, which a dashboard
+        # without a COVID tab must still accept.
+        if stray := set(self.analytics.wave_pathogens) - PATHOGENS:
+            raise ValueError(f"analytics.wave_pathogens {sorted(stray)} are not in the pathogen registry")
+        targets = {t.id for t in self.targets}
+        assessed = {f.id for f in self.data.feeds if f.assessments} if self.data else set()
+        for entry in self.analytics.phase_streams:
+            where = f"analytics.phase_streams {entry.pathogen}/{entry.location}"
+            if entry.pathogen not in targets:
+                raise ValueError(f"{where}: {entry.pathogen!r} is not a configured target")
+            method = METHODS.get(entry.method)
+            if method is None or not method.stream_roles:
+                raise ValueError(f"{where}: method {entry.method!r} derives no phase from streams")
+            if set(entry.streams) != set(method.stream_roles):
+                raise ValueError(f"{where}: roles {sorted(entry.streams)} must be {entry.method}'s {method.stream_roles}")
+            for role, ref in entry.streams.items():
+                panel = self.panel(entry.pathogen, ref)
+                if panel is None:
+                    raise ValueError(f"{where}: {role} names no panel {ref!r} under target {entry.pathogen!r}")
+                if panel.query is None or panel.series_by is not None:
+                    raise ValueError(f"{where}: {role} panel {ref!r} must show a single series")
+                if panel.query.feed not in assessed:
+                    raise ValueError(f"{where}: {role} panel {ref!r} reads feed {panel.query.feed!r}, "
+                                     f"which has no assessments dir")
+        if self.analytics.phase_streams and not (self.data and self.data.phases and self.data.phase_streams):
+            raise ValueError("analytics.phase_streams writes data.phases and data.phase_streams; set both")
+        return self
+
+    def panel(self, target_id: str, ref: str) -> Panel | None:
+        page_id, _, panel_id = ref.partition("/")
+        target = next((t for t in self.targets if t.id == target_id), None)
+        page = next((p for p in target.pages if p.id == page_id), None) if target else None
+        return next((x for x in page.panels if x.id == panel_id), None) if page else None
+
     def bootstrap_config(self) -> dict:
         # Whitelisted slice injected pre-login: only what the shell + login page need.
         return {
@@ -279,7 +337,10 @@ class Config(BaseModel):
                  "pages": [{**p.model_dump(mode="json"), "path": page_path(t.id, p.id)} for p in t.pages]}
                 for t in self.targets
             ],
-            "filters": self.filters.model_dump(mode="json"),
+            # The client keeps reading the year start beside the range settings it shapes.
+            "filters": {**self.filters.model_dump(mode="json"),
+                        "date_range": {**self.filters.date_range.model_dump(mode="json"),
+                                       "year_start_week": self.surveillance.year_start_week}},
             "methods": {name: m.model_dump(mode="json", exclude={"name"}) for name, m in METHODS.items()},
         }
 
