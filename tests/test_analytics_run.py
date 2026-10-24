@@ -27,7 +27,7 @@ def _config(tmp_path, streams=True):
 def test_assess_writes_tables_the_app_loads(tmp_path):
     summary = assess(_config(tmp_path), backend=FakeBackend)
     assert (summary.series, summary.weeks, summary.graded) == (2, 12, 8)   # 4 fittable weeks each
-    assert len(AssessmentSource(tmp_path / "a", ERVISS).assessments(indicator="SARIrate")) == 4
+    assert len(AssessmentSource(tmp_path / "a", ERVISS).assessments(indicator="SARIrate")) == 6   # every week
     phases = PhaseSource(tmp_path / "phase.csv").phases()
     assert len(phases) == 4 and {p.phase for p in phases} <= {"in_season", "out_of_season"}
     streams = sorted(PhaseStreamSource(tmp_path / "streams.csv", {"clinical": ERVISS}).streams(), key=lambda s: s.role)

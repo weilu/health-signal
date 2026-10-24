@@ -345,8 +345,9 @@ on a contiguous weekly calendar where missing weeks are gaps:
    bridged); weeks with no data have no row and carry the state over, up to 8 missing weeks in a row; a
    longer reporting gap ends the season (greece-public-health's `max_missing`). Blank when the fit fails.
 
-A week aedseo can't fit at all (thin or degenerate history) has no row, except that a reported zero
-still grades `very_low` (with an `inconclusive` trend and no phase), as greece-public-health does. A series with no gradeable week is warned by name; R or aedseo missing,
+A week aedseo can't fit at all (thin or degenerate history) still gets a row — an `inconclusive` trend,
+no phase, and a blank level, except that a reported zero grades `very_low` as greece-public-health does —
+so a tile describes the data's latest week rather than an older graded one. A series with no gradeable week is warned by name; R or aedseo missing,
 or nothing graded at all, stops the run with an actionable error.
 
 **Pathogen phase.** `analytics.phase_streams` entries name, per pathogen × location × method, the

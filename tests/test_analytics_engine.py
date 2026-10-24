@@ -23,10 +23,11 @@ def _run(values, weeks_to_do=None, waves=False, state=SeasonState()):
 
 def test_each_week_is_graded_from_data_up_to_it():
     res = _run([5, 6, 12, 30, 25])
-    assert [r["period"] for r in res.rows] == weeks(2021, 5)[2:]   # first two weeks too thin to fit
-    assert [r["level"] for r in res.rows] == ["low", "medium", "medium"]
-    assert [r["trend"] for r in res.rows] == ["increasing", "increasing", "decreasing"]
-    assert [r["phase"] for r in res.rows] == ["in_season", "in_season", "in_season"]
+    assert [r["period"] for r in res.rows] == weeks(2021, 5)
+    # the first two weeks are too thin to fit: rows saying so, so a tile never shows an older week instead
+    assert [r["level"] for r in res.rows] == [None, None, "low", "medium", "medium"]
+    assert [r["trend"] for r in res.rows] == ["inconclusive", "inconclusive", "increasing", "increasing", "decreasing"]
+    assert [r["phase"] for r in res.rows] == [None, None, "in_season", "in_season", "in_season"]
     assert all(r["provisional"] for r in res.rows) and res.graded == 3
     assert res.bounds[0] == (weeks(2021, 5)[2], FakeBackend.thresholds)
 
@@ -34,11 +35,11 @@ def test_each_week_is_graded_from_data_up_to_it():
 def test_only_the_requested_weeks_are_computed_resuming_the_state():
     full = _run([5, 6, 12, 8, 7])
     tail = _run([5, 6, 12, 8, 7], weeks_to_do=weeks(2021, 5)[3:], state=SeasonState(True, 0, weeks(2021, 5)[2]))
-    assert tail.rows == full.rows[1:] and tail.state == full.state
+    assert tail.rows == full.rows[3:] and tail.state == full.state
 
 
 def test_wave_pathogens_use_the_wave_pair():
-    assert [r["phase"] for r in _run([5, 6, 12, 8], waves=True).rows] == ["in_wave", "between_waves"]
+    assert [r["phase"] for r in _run([5, 6, 12, 8], waves=True).rows][2:] == ["in_wave", "between_waves"]
 
 
 def test_a_failed_onset_or_wave_fit_is_unavailable_not_a_negative():
@@ -65,10 +66,10 @@ def test_a_failed_onset_or_wave_fit_is_unavailable_not_a_negative():
     assert backend._wave(None, 1.0, {}, date(2025, 1, 6)) is None
 
 
-def test_a_reported_zero_grades_very_low_even_when_aedseo_cannot_fit():
+def test_a_week_aedseo_cannot_fit_grades_only_a_reported_zero():
     # greece-public-health grades a zero without bands too: it's the lowest burden by definition. A positive
-    # value aedseo can't place stays without a row.
+    # value aedseo can't place is "not graded", never left to an older week's grade.
     res = _run([0, 5, 12])   # the fake can't fit the first two weeks
-    assert [(r["period"], r["level"], r["trend"], r["phase"]) for r in res.rows][:1] == \
-        [(weeks(2021, 3)[0], "very_low", "inconclusive", None)]
-    assert [r["period"] for r in res.rows] == [weeks(2021, 3)[0], weeks(2021, 3)[2]] and res.graded == 2
+    assert [(r["level"], r["trend"], r["phase"]) for r in res.rows[:2]] == \
+        [("very_low", "inconclusive", None), (None, "inconclusive", None)]
+    assert res.graded == 2

@@ -35,13 +35,13 @@ def assess_series(series: Series, weeks: list[str], backend: Backend, *, method:
         try:
             fit = backend.fit(data)
         except FitError:
-            if value == 0:
-                # A reported zero is the lowest burden even where aedseo can't fit (greece-public-health
-                # grades it so); a positive value it can't place gets no row.
-                rows.append({"period": week, "level": method.levels[0], "provisional": provisional,
-                             "trend": "inconclusive", "growth_rate": None, "growth_lower": None,
-                             "growth_upper": None, "phase": None})
-                graded += 1
+            # Still a row, so a tile describes this week rather than an older graded one. A reported zero is
+            # the lowest burden even where aedseo can't fit (greece-public-health grades it so); a positive
+            # value it can't place is left ungraded.
+            level = method.levels[0] if value == 0 else None
+            rows.append({"period": week, "level": level, "provisional": provisional, "trend": "inconclusive",
+                         "growth_rate": None, "growth_lower": None, "growth_upper": None, "phase": None})
+            graded += level is not None
             continue
         level = level_for(value, fit.thresholds, method.levels)
         trend, growth = trend_for(*fit.growth)
