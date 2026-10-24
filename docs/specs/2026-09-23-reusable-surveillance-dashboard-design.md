@@ -295,6 +295,12 @@ are R packages (via rpy2, in-process), so the component installs as an optional 
 (`health-signal[analytics]`) and the app itself stays free of R and never imports it. Countries may
 still supply their own tables in the same format.
 
+greece-public-health will later migrate onto this package (the app, and the aedseo part of its
+pipeline), so the component is a library first and a CLI second: `assess(config, full=False, jobs=1)`
+and the per-series step it is built from are public and importable, nothing in it is specific to
+Greece, and the code ported from greece-public-health is audited as it moves (behaviour it should not
+keep is fixed here and reported back).
+
 **Which series.** The series panels show: each feed with an `assessments` dir × its single-series
 panels (no `series_by`; tiles, bands and shading appear only on those) × every location in that
 feed's data. No separate list to keep in step with the panels.
