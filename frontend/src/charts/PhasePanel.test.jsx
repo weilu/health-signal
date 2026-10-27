@@ -45,7 +45,7 @@ describe('PhasePanel', () => {
     fetchPhases.mockResolvedValue(PHASES)
     fetchPhaseStreams.mockReturnValue(new Promise(() => {}))
     renderPanel()
-    await screen.findByText('phase.title')   // the phases have loaded; only the streams are pending
+    await screen.findByText('phase.title.season')   // the phases have loaded; only the streams are pending
     expect(screen.getByRole('progressbar')).toBeTruthy()
   })
 
@@ -120,7 +120,7 @@ describe('PhasePanel', () => {
     fetchPhases.mockResolvedValue(PHASES)
     fetchPhaseStreams.mockResolvedValue([])
     renderPanel({ value: 'Greece' }, null)
-    expect(await screen.findByText('phase.title')).toBeTruthy()
+    expect(await screen.findByText('phase.title.season')).toBeTruthy()
   })
 
 })
