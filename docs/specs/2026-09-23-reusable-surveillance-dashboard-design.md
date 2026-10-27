@@ -337,8 +337,9 @@ growth is unchanged from a scale of 100 up.
 below the limit of detection) is fitted as a gap — aedseo's growth model would otherwise read a
 non-detect's 0 as a −100% fall and back — but its own week is still graded and phased from the value
 (a non-detect is very low and below the season threshold), and still counts as an observed week toward
-completed seasons. Fitted this way, Attica's influenza B and RSV wastewater reproduce greece-public-health's
-aedseo output, which leaves non-detects out.
+completed seasons. On Attica's wastewater this reproduces greece-public-health's growth and trend exactly;
+its disease thresholds differ by a few percent, because greece-public-health drops non-detect weeks and so
+closes up the calendar aedseo's windows run over, where these stay as gaps.
 
 **Per series, each week *t*, as of *t*.** aedseo runs on the series' data up to and including *t*,
 on a contiguous weekly calendar where missing weeks are NA rows (aedseo's windows are rows, and it skips
