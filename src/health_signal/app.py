@@ -54,10 +54,12 @@ def _require_one_location(data_sources: dict, phase_source: PhaseSource | None) 
     held = {f"feed {fid!r}": source.locations() for fid, source in data_sources.items()}
     if phase_source is not None:
         held["data.phases"] = {r.location for r in phase_source.phases()}
-    for where, locations in held.items():
-        if len(locations) > 1:
-            raise ValueError(f"{where} holds several locations ({', '.join(sorted(locations))}) but no "
-                             f"filters.location is configured; add one so each view shows one region")
+    # Across sources too: one region's clinical feed beside another's wastewater would mix them on the overview.
+    every = set().union(*held.values())
+    if len(every) > 1:
+        sources = "; ".join(f"{where}: {', '.join(sorted(locations))}" for where, locations in held.items() if locations)
+        raise ValueError(f"the data hold several locations ({', '.join(sorted(every))}) but no filters.location is "
+                         f"configured; add one so each view shows one region ({sources})")
 
 
 def create_app(

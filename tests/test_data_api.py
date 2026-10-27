@@ -16,7 +16,9 @@ def _app(tmp_path, provider, feed=None, ww=None):
         d.mkdir()
         (d / "feed.csv").write_text(text, encoding="utf-8")
         feeds.append({"id": fid, "profile": profile, "dir": str(d)})
-    cfg = Config(schema_version="1.0.0", site=SiteConfig(title="T"), data=DataConfig(feeds=feeds))
+    # The clinical and wastewater fixtures hold different places, which a dashboard may serve only with a filter.
+    places = {"default": "Greece", "options": [{"value": "Greece"}, {"value": "Testville"}]}
+    cfg = Config(schema_version="1.0.0", site=SiteConfig(title="T"), data=DataConfig(feeds=feeds), filters={"location": places})
     return create_app(cfg, auth_provider=provider)
 
 

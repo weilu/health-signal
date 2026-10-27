@@ -65,3 +65,18 @@ def test_one_location_needs_no_filter_and_several_need_one(tmp_path):
                auth_provider=LocalAccountsProvider(accounts={}, secret_key="s"))
     create_app(_dashboard(tmp_path / "two", ["Greece", "Attica"], location_filter=True),
                auth_provider=LocalAccountsProvider(accounts={}, secret_key="s"))
+
+
+def test_one_location_per_source_still_fails_when_the_sources_differ(tmp_path):
+    # Greece's clinical feed beside Attica's wastewater: the overview would set one region's phase beside
+    # the other's statuses.
+    config = _dashboard(tmp_path / "c", ["Greece"], location_filter=False)
+    ww = tmp_path / "w"
+    ww.mkdir()
+    (ww / "feed.csv").write_text("location,period,pathogen,aggregation,indicator,value,unit,quality\n"
+                                 "Attica,2025-W01,Influenza,floMean,fluA,5,gcDay100k,\n", encoding="utf-8")
+    data = {**config.data.model_dump(), "feeds": [*config.data.model_dump()["feeds"],
+                                                  {"id": "wastewater", "profile": "phes_odm", "dir": str(ww)}]}
+    with pytest.raises(ValueError, match="Attica.*Greece"):
+        create_app(Config.model_validate({**config.model_dump(exclude={"data"}, exclude_computed_fields=True), "data": data}),
+                   auth_provider=LocalAccountsProvider(accounts={}, secret_key="s"))
