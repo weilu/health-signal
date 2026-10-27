@@ -57,6 +57,10 @@ def assess(config: Config, *, full: bool = False, jobs: int = 1,
     profiles = {f.id: PROFILES[f.profile] for f in config.data.feeds}
     sources = {f.id: FileDataSource(f.dir, profiles[f.id]) for f in config.data.feeds}
     series, refs, warnings = assessed_series(config, sources)
+    if not series:
+        # An emptied or mis-mounted feed dir looks like this; writing would replace good tables with empty ones.
+        raise RuntimeError("no series to assess: no single-series panel of a feed with an assessments dir has rows "
+                           "at a selectable location; check the feeds' dirs" + "".join(f"\n  {w}" for w in warnings))
     method = AEDSEO.name
     analytics = config.analytics
     settings = [(method, "year_start_week", str(config.surveillance.year_start_week)),

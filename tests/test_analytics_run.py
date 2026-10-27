@@ -110,3 +110,14 @@ def test_a_series_shared_with_a_season_pathogen_is_phased_as_a_season(tmp_path):
     assess(_config(tmp_path, streams=False, covid_too=True), backend=FakeBackend)   # SARS-CoV-2 waves by default
     phases = {r.phase for r in AssessmentSource(tmp_path / "a", ERVISS).assessments()}
     assert "in_season" in phases and not phases & {"in_wave", "between_waves"}
+
+
+def test_no_series_at_all_fails_before_replacing_good_tables(tmp_path):
+    # An emptied or mis-mounted feed dir must not wipe the served assessments on a --full run.
+    cfg = _config(tmp_path, streams=False)
+    assess(cfg, backend=FakeBackend)
+    before = (tmp_path / "a" / "assessment.csv").read_bytes()
+    (tmp_path / "c" / "feed.csv").unlink()
+    with pytest.raises(RuntimeError, match="no series"):
+        assess(cfg, full=True, backend=FakeBackend)
+    assert (tmp_path / "a" / "assessment.csv").read_bytes() == before
