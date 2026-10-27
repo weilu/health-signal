@@ -11,11 +11,11 @@ import { PhasePanel } from './PhasePanel.jsx'
 vi.mock('../api.js', () => ({ fetchConfig: vi.fn(), fetchData: vi.fn(), fetchPhases: vi.fn(), fetchPhaseStreams: vi.fn() }))
 afterEach(() => { cleanup(); vi.resetAllMocks() })
 
-it("states the method's phase rule in the status tile, after its as-of line", async () => {
+async function tileText(phase) {
   initI18n({ defaultLocale: 'en', locales: ['en'] })
-  fetchConfig.mockResolvedValue({ methods: { aedseo: { levels: ['very_low'], phases: ['in_season', 'out_of_season'],
-    active_phases: ['in_season'], stream_roles: ['cases'], trend: true } } })
-  fetchPhases.mockResolvedValue([{ location: 'Greece', pathogen: 'Influenza', period: '2026-W10', method: 'aedseo', phase: 'in_season' }])
+  fetchConfig.mockResolvedValue({ methods: { aedseo: { levels: ['very_low'], trend: true, stream_roles: ['cases'],
+    phases: ['in_season', 'out_of_season', 'in_wave', 'between_waves'], active_phases: ['in_season', 'in_wave'] } } })
+  fetchPhases.mockResolvedValue([{ location: 'Greece', pathogen: 'Influenza', period: '2026-W10', method: 'aedseo', phase }])
   fetchPhaseStreams.mockResolvedValue([])
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
@@ -25,7 +25,19 @@ it("states the method's phase rule in the status tile, after its as-of line", as
       </MemoryRouter>
     </QueryClientProvider>,
   )
-  const tile = (await screen.findByText(/^Season status$/i)).closest('section').textContent
-  expect(tile.indexOf('As of')).toBeGreaterThan(-1)
-  expect(tile.indexOf('A pathogen is in season')).toBeGreaterThan(tile.indexOf('As of'))
+  return (await screen.findByText(/^(Season|Wave) status$/i)).closest('section').textContent
+}
+
+it("states a seasonal pathogen's rule in the status tile, after its as-of line, in season terms only", async () => {
+  const tile = await tileText('in_season')
+  expect(tile.indexOf('In season while')).toBeGreaterThan(tile.indexOf('As of'))
+  expect(tile).not.toMatch(/wave/i)
+})
+
+it("states a year-round pathogen's rule in wave terms only", async () => {
+  const tile = await tileText('between_waves')
+  expect(tile).toContain('Wave status')
+  expect(tile).toContain('aedseo wave detection')
+  expect(tile).toContain('In a wave while')
+  expect(tile).not.toMatch(/season/i)
 })

@@ -73,14 +73,16 @@ export function PhasePanel({ panel, target, location, range, latest }) {
   const span = range ?? (rows.length ? { from: rows.reduce((m, r) => (r.period < m ? r.period : m), rows[0].period),
                                           to: rows.reduce((m, r) => (r.period > m ? r.period : m), rows[0].period) } : null)
   const pick = rows.length && span ? pickInRange(rows, span, latest ?? span.to) : null
-  const rule = method && t(`methods.${method.name}.phase_rule`, { defaultValue: '' })
+  // The rule in the terms of the pathogen's own pattern: seasons or year-round waves, read off its phase codes.
+  const pattern = rows.some((r) => r.phase === 'in_wave' || r.phase === 'between_waves') ? 'waves' : 'season'
+  const rule = method && t(`methods.${method.name}.phase_rule.${pattern}`, { defaultValue: '' })
   // Without a location filter, several locations' phases can share a week; none of them is "the" phase.
   const tile = pick && (pick.ambiguous ? (
-    <Tile title={t('phase.title')} current>
+    <Tile title={t(`phase.title.${pattern}`)} current>
       <Typography variant="body1" component="p">{t('phase.ambiguous')}</Typography>
     </Tile>
   ) : pick.row ? (
-    <Tile title={t('phase.title')} current={pick.current} footer={asOfFooter(t, pick, pick.row.method, 'phase')} note={rule}>
+    <Tile title={t(`phase.title.${pattern}`)} current={pick.current} footer={asOfFooter(t, pick, pick.row.method, `phase.${pattern}`)} note={rule}>
       <Typography variant="h5" component="p">{phaseLabel(t, pick.row, rows, method)}</Typography>
     </Tile>
   ) : <NoneInRange />)
