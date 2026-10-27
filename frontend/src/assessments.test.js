@@ -73,3 +73,11 @@ describe('bandAlpha', () => {
     expect(new Set(alphas.map((a, i) => `${levelTone(LEVELS, LEVELS[i])}:${a}`)).size).toBe(5)
   })
 })
+
+
+describe('pickInRange with several series', () => {
+  it('reports rows of several series as ambiguous rather than picking one', () => {
+    const rows = [{ period: '2026-W10', level: 'low' }, { period: '2026-W10', level: 'high' }]
+    expect(pickInRange(rows, { from: '2026-W01', to: '2026-W20' }, '2026-W20')).toEqual({ ambiguous: true })
+  })
+})

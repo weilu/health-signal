@@ -261,6 +261,14 @@ class Config(BaseModel):
                                          f"but sits under target {target.id!r}")
         return self
 
+    def _client_panel(self, panel: Panel) -> dict:
+        out = panel.model_dump(mode="json")
+        feed = next((f for f in self.data.feeds if panel.query and f.id == panel.query.feed), None) if self.data else None
+        if feed is not None:
+            # Canonical, as phase streams are, so the summary compares a panel with a stream like for like.
+            out["query"]["dimensions"] = PROFILES[feed.profile].canonical(panel.query.indicator, panel.query.dimensions)
+        return out
+
     def bootstrap_config(self) -> dict:
         # Whitelisted slice injected pre-login: only what the shell + login page need.
         return {
@@ -276,7 +284,8 @@ class Config(BaseModel):
             **self.bootstrap_config(),
             "targets": [
                 {**t.model_dump(mode="json"),
-                 "pages": [{**p.model_dump(mode="json"), "path": page_path(t.id, p.id)} for p in t.pages]}
+                 "pages": [{**p.model_dump(mode="json"), "path": page_path(t.id, p.id),
+                            "panels": [self._client_panel(x) for x in p.panels]} for p in t.pages]}
                 for t in self.targets
             ],
             "filters": self.filters.model_dump(mode="json"),

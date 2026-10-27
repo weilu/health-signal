@@ -240,6 +240,8 @@ class PhaseStreamSource:
             return f"{implies_message(params['indicator'], 'pathogen', implied)}, not {pathogen!r}"
         if params.get("pathogen", pathogen) != pathogen:
             return f"series names pathogen {params['pathogen']!r}, not {pathogen!r}"
+        if implied is None and "pathogen" not in params and params["indicator"] in profile.pathogen_specific:
+            return f"indicator {params['indicator']!r} is pathogen-specific; the series must name its pathogen"
         return None
 
     def _violation(self, df: pd.DataFrame):
@@ -257,8 +259,13 @@ class PhaseStreamSource:
         ]
         return first_match(df, rules)
 
+    def _canonical(self, feed: str, series: dict[str, str]) -> dict[str, str]:
+        # The same form as the client's panel queries, so the summary can match a stream to its panel.
+        dims = self._feeds[feed].canonical(series["indicator"], {k: v for k, v in series.items() if k != "indicator"})
+        return {"indicator": series["indicator"], **dims}
+
     def streams(self, *, location=None, pathogen=None, method=None) -> list[PhaseStreamRow]:
         df = filter_rows(self._streams, location=location, dimensions={"pathogen": pathogen, "method": method})
         return [PhaseStreamRow(**{column: r[column] for column in _STREAM_COLUMNS if column != "series"},
-                               series=dict(parse_qsl(r["series"])))
+                               series=self._canonical(r["feed"], dict(parse_qsl(r["series"]))))
                 for r in df.to_dict("records")]

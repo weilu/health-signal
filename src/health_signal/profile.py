@@ -30,6 +30,13 @@ class Profile(BaseModel):
     # indicator -> {dimension: value} it fixes, e.g. ODM measure fluA -> pathogen Influenza, so feeds join.
     # An empty value means the indicator carries no value for that dimension (PMMoV has no pathogen).
     indicator_implies: dict[str, dict[str, str]] = {}
+    # Indicators reported per pathogen: a series of one without a pathogen mixes every pathogen's figures.
+    pathogen_specific: set[str] = set()
+
+    def canonical(self, indicator: str, dimensions: dict[str, str]) -> dict[str, str]:
+        """The dimensions minus those the indicator implies, so equal series compare equal however written."""
+        implied = self.indicator_implies.get(indicator, {})
+        return {k: v for k, v in dimensions.items() if implied.get(k) != v}
 
     def vocab(self, dim: str) -> set[str] | None:
         # Every profile spells pathogens from the one registry, so feeds join on it.
@@ -115,6 +122,9 @@ ERVISS = Profile(
     },
     period_pattern=r"\d{4}-W\d{2}",
     required_dimensions={"survtype", "age"},  # spec §6.2: only the pathogen fields are nullable
+    # ILI, ARI and SARI rates are syndromic (no pathogen); everything else is reported per pathogen.
+    pathogen_specific={"tests", "detections", "positivity", "hospitaladmissions", "ICUadmissions",
+                       "ICUinpatients", "deaths"},
 )
 
 

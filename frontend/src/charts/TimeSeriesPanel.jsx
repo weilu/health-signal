@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { Navigate } from 'react-router-dom'
 import { Alert, Button, Paper, Stack, Typography } from '@mui/material'
 import { alpha, useTheme } from '@mui/material/styles'
 import { useTranslation } from 'react-i18next'
 import { fetchAssessments, fetchData, fetchThresholds } from '../api.js'
-import { activeWeeks, assessmentParams, bandAlpha, bandsFor, levelTone, pickInRange } from '../assessments.js'
+import { activeWeeks, assessmentParams, bandAlpha, bandsFor, combinedState, levelTone, pickInRange } from '../assessments.js'
 import { useMethod } from '../useMethod.js'
 import { StatusTrendTiles, TileGrid } from './StatusTrendTiles.jsx'
 import { ResourceBoundary } from '../ResourceBoundary.jsx'
@@ -29,6 +30,8 @@ export function TimeSeriesPanel({ panel, location, range, latest }) {
   const tParams = { ...params, method: method?.name }
   const thresholds = useQuery({ queryKey: ['thresholds', tParams], queryFn: () => fetchThresholds(tParams), enabled: single })
   const pick = single && range && assessed.data ? pickInRange(assessed.data, range, latest) : null
+  // Cached rows keep serving through a failed refetch; only a lookup that never loaded counts as failed.
+  const lookups = single ? combinedState([assessed, thresholds]) : 'ok'
   const chartExtras = single ? {
     bands: bandsFor(thresholds.data ?? [], method.levels),
     bandColour: (level) => alpha(theme.palette[levelTone(method.levels, level)].main, bandAlpha(method.levels, level)),
@@ -60,5 +63,9 @@ export function TimeSeriesPanel({ panel, location, range, latest }) {
       </ResourceBoundary>
     </Paper>
   )
-  return <TileGrid card={card} tiles={pick && <StatusTrendTiles pick={pick} method={method} />} />
+  if (lookups === 'unauth') return <Navigate to="/login" replace />
+  // A failed lookup must not read as "never assessed"; an ambiguous one leaves the chart's own warning to explain.
+  const tiles = lookups === 'error' ? <Alert severity="warning">{t('assessment.unavailable')}</Alert>
+    : pick && !pick.ambiguous && <StatusTrendTiles pick={pick} method={method} />
+  return <TileGrid card={card} tiles={tiles} />
 }
