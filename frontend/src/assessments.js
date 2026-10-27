@@ -2,9 +2,9 @@
 // never one from before it. null = the series is never assessed, so the panel shows no tiles.
 export function pickInRange(rows, range, latest) {
   if (!rows.length) return null
-  // Two rows for one week, or rows of several locations (no location filter), are several series: no row
-  // describes this panel's one, and one location's weeks aren't another's history.
-  if (new Set(rows.map((r) => r.period)).size !== rows.length || new Set(rows.map((r) => r.location)).size > 1) {
+  // Two rows for one week, or rows of several locations or dimension values (even in disjoint weeks), are several
+  // series: no row describes this panel's one, and one series' weeks aren't another's history.
+  if (new Set(rows.map((r) => r.period)).size !== rows.length || !singleSeries(rows)) {
     return { ambiguous: true }
   }
   const row = rows
@@ -21,16 +21,19 @@ export function plottedSeries(rows) {
   return { location: rows[0].location, dimensions: Object.fromEntries(dims) }
 }
 
-// Whether a lookup row (assessment, threshold) belongs to the plotted series: same location, and no dimension
-// the two both carry set differently.
+// Whether a lookup row (assessment, threshold) belongs to the plotted series: same location and the same value of
+// every dimension either carries. Blank equals missing, but missing is never a wildcard: fraction=liq isn't a
+// series with no fraction.
 export function ofSeries(row, series) {
+  const mine = row.dimensions ?? {}
   return row.location === series.location
-    && Object.entries(row.dimensions ?? {}).every(([k, v]) => !(k in series.dimensions) || series.dimensions[k] === v)
+    && [...new Set([...Object.keys(mine), ...Object.keys(series.dimensions)])]
+      .every((k) => (mine[k] ?? '') === (series.dimensions[k] ?? ''))
 }
 
 // Whether rows (assessments, thresholds) all belong to one series: one location, one set of dimensions.
 export function singleSeries(rows) {
-  const key = (r) => `${r.location}|${JSON.stringify(Object.entries(r.dimensions ?? {}).sort())}`
+  const key = (r) => `${r.location}|${JSON.stringify(Object.entries(r.dimensions ?? {}).filter(([, v]) => v !== '').sort())}`
   return new Set(rows.map(key)).size <= 1
 }
 

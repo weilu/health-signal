@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { activeWeeks, bandAlpha, bandsFor, levelTone, phaseSince, pickInRange, sameSeries } from './assessments.js'
+import { activeWeeks, bandAlpha, ofSeries, bandsFor, levelTone, phaseSince, pickInRange, sameSeries } from './assessments.js'
 
 const a = (period, extra = {}) => ({ period, level: 'low', ...extra })
 const LEVELS = ['very_low', 'low', 'medium', 'high', 'very_high']
@@ -82,5 +82,20 @@ describe('pickInRange across locations', () => {
     // Without a location filter, Greece's W10 and Attica's W09 aren't one series' history.
     const rows = [{ location: 'Greece', period: '2026-W10' }, { location: 'Attica', period: '2026-W09' }]
     expect(pickInRange(rows, { from: '2026-W01', to: '2026-W20' }, '2026-W20')).toEqual({ ambiguous: true })
+  })
+})
+
+describe('series identity', () => {
+  it('treats rows of different dimensions as ambiguous even in disjoint weeks', () => {
+    const rows = [{ location: 'Greece', period: '2026-W09', dimensions: { age: '0-4' } },
+                  { location: 'Greece', period: '2026-W10', dimensions: { age: '65+' } }]
+    expect(pickInRange(rows, { from: '2026-W01', to: '2026-W20' }, '2026-W20')).toEqual({ ambiguous: true })
+  })
+
+  it('never lets a missing dimension match a set one', () => {
+    const plotted = { location: 'Attica', dimensions: { aggregation: 'floMean' } }
+    expect(ofSeries({ location: 'Attica', dimensions: { aggregation: 'floMean', fraction: 'liq' } }, plotted)).toBe(false)
+    expect(ofSeries({ location: 'Attica', dimensions: { aggregation: 'floMean', fraction: '' } }, plotted)).toBe(true)
+    expect(ofSeries({ location: 'Attica', dimensions: {} }, plotted)).toBe(false)
   })
 })
