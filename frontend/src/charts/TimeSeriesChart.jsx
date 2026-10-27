@@ -54,7 +54,8 @@ export function useChartPalette() {
   return theme.palette.chart?.[theme.palette.mode] ?? []
 }
 
-export function TimeSeriesChart({ periods, series, unit, bands = [], bandColour, bandLabel, shading = null, height = 320 }) {
+export function TimeSeriesChart({ periods, series, unit, bands = [], bandColour, bandLabel, shading = null, height = 320,
+  axisWidth = 0, onAxisWidth }) {
   const theme = useTheme()
   const { t, i18n } = useTranslation()
   const palette = useChartPalette()
@@ -90,6 +91,11 @@ export function TimeSeriesChart({ periods, series, unit, bands = [], bandColour,
         title: { display: true, text: unit, color: ink2, font },
         grid: { color: rule, lineWidth: 1 }, border: { display: false },
         ticks: { color: ink2, font, callback: (v) => fmt.format(v) },
+        // Stacked charts share the widest y-axis, so their plots start at the same x and weeks line up.
+        afterFit: (scale) => {
+          onAxisWidth?.(scale.width)
+          scale.width = Math.max(scale.width, axisWidth)
+        },
       },
     },
     plugins: {
