@@ -21,6 +21,7 @@ class Series:
     exposure: list[float] = field(default_factory=list)
     per: float = 1.0
     scale: float = 1.0   # fit on values × scale, thresholds divided back (rules.value_scale)
+    censored: list[bool] = field(default_factory=list)   # value is a stand-in (e.g. below LOD): fitted as a gap
 
     @property
     def key(self) -> tuple[str, str, tuple[tuple[str, str], ...]]:
@@ -79,16 +80,17 @@ def _series(feed: str, pathogen: str, location: str, rows: list[FeedRow], source
     first = rows[0]
     dims = _common_dimensions(rows)
     values = {r.period: r.value for r in rows}
+    censored = {r.period for r in rows if r.quality in profile.censored_qualities}
     periods = list(values)
     if first.unit in profile.count_units:
         return Series(feed, pathogen, location, first.indicator, dims, first.unit, periods,
-                      [values[p] for p in periods], "count")
+                      [values[p] for p in periods], "count", censored=[p in censored for p in periods])
     denominator = profile.denominators.get(first.indicator)
     if denominator is None:
         # A rate or load with no denominator series: a constant exposure, which cancels in the growth model.
         return Series(feed, pathogen, location, first.indicator, dims, first.unit, periods,
                       [values[p] for p in periods], "incidence", [1.0] * len(periods), 1.0,
-                      value_scale(list(values.values())))
+                      value_scale(list(values.values())), [p in censored for p in periods])
     denominators = source.query(location=location, indicator=denominator.indicator, **dims)
     if len({r.period for r in denominators}) != len(denominators):
         warnings.append(f"{ref} at {location}: several {denominator.indicator} rows per week match its rate; "
@@ -100,4 +102,5 @@ def _series(feed: str, pathogen: str, location: str, rows: list[FeedRow], source
         warnings.append(f"{ref} at {location}: no {denominator.indicator} to model its rate against")
         return None
     return Series(feed, pathogen, location, first.indicator, dims, first.unit, periods,
-                  [values[p] for p in periods], "incidence", [exposure[p] for p in periods], denominator.per)
+                  [values[p] for p in periods], "incidence", [exposure[p] for p in periods], denominator.per,
+                  censored=[p in censored for p in periods])

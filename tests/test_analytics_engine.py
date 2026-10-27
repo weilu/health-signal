@@ -8,7 +8,7 @@ from health_signal.analytics.engine import assess_series
 from health_signal.analytics.rules import SeasonState
 from health_signal.analytics.series import Series
 from health_signal.methods import AEDSEO
-from analytics_support import BandsBackend, FakeBackend, weeks
+from analytics_support import BandsBackend, FakeBackend, RecordingBackend, weeks
 
 
 def _series(values):
@@ -84,3 +84,15 @@ def test_unusable_bands_give_no_grade_phase_or_threshold_rows(bands):
     res = assess_series(s, s.periods, BandsBackend(bands), method=AEDSEO, start_week=21, min_seasons=3,
                         waves=False, state=SeasonState())
     assert [(r["level"], r["phase"]) for r in res.rows] == [(None, None)] * 4 and res.bounds == []
+
+
+def test_a_censored_week_reaches_aedseo_as_a_gap_but_is_still_graded():
+    # A non-detect isn't a measured 0: fitted as one it reads as a -100% fall and unbounded regrowth. Its own
+    # week is still very low and below the season threshold.
+    s = _series([12, 30, 0, 25])
+    s.censored = [False, False, True, False]
+    backend = RecordingBackend()
+    res = assess_series(s, s.periods, backend, method=AEDSEO, start_week=21, min_seasons=3, waves=False,
+                        state=SeasonState())
+    assert math.isnan(backend.inputs[-1].values[2]) and backend.inputs[-1].values[3] == 25
+    assert [r["level"] for r in res.rows[2:]] == ["very_low", "medium"]

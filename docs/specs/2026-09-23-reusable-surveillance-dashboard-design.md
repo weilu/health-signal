@@ -333,6 +333,13 @@ the thresholds divided back. aedseo can't grade values below 1 (its disease thre
 and rounds the counts it derives; its thresholds scale with the values (checked to within 0.01%) and its
 growth is unchanged from a scale of 100 up.
 
+**Censored values.** A value the profile flags as a stand-in rather than a measurement (PHES-ODM `beLOD`,
+below the limit of detection) is fitted as a gap — aedseo's growth model would otherwise read a
+non-detect's 0 as a −100% fall and back — but its own week is still graded and phased from the value
+(a non-detect is very low and below the season threshold), and still counts as an observed week toward
+completed seasons. Fitted this way, Attica's influenza B and RSV wastewater reproduce greece-public-health's
+aedseo output, which leaves non-detects out.
+
 **Per series, each week *t*, as of *t*.** aedseo runs on the series' data up to and including *t*,
 on a contiguous weekly calendar where missing weeks are NA rows (aedseo's windows are rows, and it skips
 those too sparse to fit, so growth across an outage is inconclusive rather than rescaled):

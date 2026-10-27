@@ -92,3 +92,18 @@ def test_a_denominator_matching_several_rows_or_none_is_skipped_with_a_warning(t
         cfg, sources = _setup(tmp_path / message, body, panel)
         series, _, warnings = assessed_series(cfg, sources)
         assert series == [] and "clinical/pos" in warnings[0] and message in warnings[0]
+
+
+def test_below_detection_rows_are_marked_censored(tmp_path):
+    feed = tmp_path / "w"
+    feed.mkdir()
+    (feed / "feed.csv").write_text("location,period,pathogen,aggregation,indicator,value,unit,quality\n"
+                                   "Attica,2021-W01,Influenza,floMean,fluA,1200,gcDay100k,\n"
+                                   "Attica,2021-W02,Influenza,floMean,fluA,0,gcDay100k,beLOD\n"
+                                   "Attica,2021-W03,Influenza,floMean,fluA,900,gcDay100k,\n", encoding="utf-8")
+    cfg = Config(schema_version="1", site=SiteConfig(title="T"),
+                 data={"feeds": [{"id": "ww", "profile": "phes_odm", "dir": str(feed), "assessments": str(tmp_path / "a")}]},
+                 targets=[{"id": "Influenza", "pages": [{"id": "ww", "panels": [
+                     {"id": "flu", "query": {"feed": "ww", "indicator": "fluA", "dimensions": {"aggregation": "floMean"}}}]}]}])
+    [s], _, _ = assessed_series(cfg, {"ww": FileDataSource(feed, PROFILES["phes_odm"])})
+    assert s.censored == [False, True, False] and s.values == [1200.0, 0.0, 900.0]

@@ -50,7 +50,8 @@ class RAedseo:
         # aedseo's windows are rows, so a reporting gap must be rows of NA (which it skips), not left out: a
         # window spanning an outage would otherwise report the change across it as weekly growth.
         weeks = [data.dates[0] + timedelta(weeks=i) for i in range((data.dates[-1] - data.dates[0]).days // 7 + 1)]
-        observed = dict(zip(data.dates, data.values))
+        # A NaN value (censored) is a gap like a missing week.
+        observed = {d: v for d, v in zip(data.dates, data.values) if not math.isnan(v)}
         exposure = dict(zip(data.dates, data.exposure))
         time = base.as_Date(ro.StrVector([d.isoformat() for d in weeks]))
         na = ro.NA_Real

@@ -64,3 +64,14 @@ class BandsBackend(FakeBackend):
 
     def __init__(self, thresholds):
         self.thresholds = thresholds
+
+
+class RecordingBackend(FakeBackend):
+    """FakeBackend that keeps every FitInput it was given."""
+
+    def __init__(self):
+        self.inputs: list[FitInput] = []
+
+    def fit(self, data: FitInput) -> WeekFit:
+        self.inputs.append(data)
+        return super().fit(data)

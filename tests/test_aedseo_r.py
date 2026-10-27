@@ -78,3 +78,12 @@ def test_a_week_is_graded_the_same_whatever_data_follows_it(backend):
     weeks = periods[-5:-2]
     options = dict(method=AEDSEO, start_week=21, min_seasons=3, waves=False, state=SeasonState())
     assert assess_series(short, weeks, backend, **options).rows == assess_series(long_, weeks, backend, **options).rows
+
+
+@pytest.mark.parametrize("kind, exposure", [("count", ()), ("incidence", None)])
+def test_censored_weeks_are_fitted_as_gaps(backend, kind, exposure):
+    dates, values = _seasons()
+    values = tuple(math.nan if i % 13 == 7 else v for i, v in enumerate(values))   # scattered non-detects
+    exposure = (1.0,) * len(values) if exposure is None else exposure
+    fit = backend.fit(FitInput(dates, values, exposure, 1.0, 1.0, kind, 21, False))
+    assert all(math.isfinite(t) for t in fit.thresholds)

@@ -36,10 +36,12 @@ def assess_series(series: Series, weeks: list[str], backend: Backend, *, method:
                   min_seasons: int, waves: bool, state: SeasonState) -> SeriesResult:
     """Grade `weeks` of one series, each from its data up to and including that week (spec §6.3.1)."""
     index = {p: i for i, p in enumerate(series.periods)}
+    fitted_values = [math.nan if c else v
+                     for v, c in zip(series.values, series.censored or [False] * len(series.values))]
     rows, bounds, graded, fitted = [], [], 0, 0
     for week in weeks:
         n = index[week] + 1
-        data = FitInput(tuple(_monday(p) for p in series.periods[:n]), tuple(series.values[:n]),
+        data = FitInput(tuple(_monday(p) for p in series.periods[:n]), tuple(fitted_values[:n]),
                         tuple(series.exposure[:n]), series.per, series.scale, series.kind, start_week, waves)
         value = series.values[n - 1]
         provisional = completed_seasons(series.periods[:n], start_week) < min_seasons

@@ -32,6 +32,9 @@ class Profile(BaseModel):
     period_pattern: str  # granularity: week_range filters compare periods as strings, so format must be fixed
     required_dimensions: set[str] = set()
     qualities: set[str] = set()  # allowed `quality` values
+    # Qualities whose value is a stand-in, not a measurement (e.g. below the limit of detection): graded as the
+    # value, but fitted as a gap, so a non-detect's 0 doesn't read as a -100% fall and back (spec §6.3.1).
+    censored_qualities: set[str] = set()
     # indicator -> {dimension: value} it fixes, e.g. ODM measure fluA -> pathogen Influenza, so feeds join.
     # An empty value means the indicator carries no value for that dimension (PMMoV has no pathogen).
     indicator_implies: dict[str, dict[str, str]] = {}
@@ -149,6 +152,7 @@ PHES_ODM = Profile(
     period_pattern=r"\d{4}-W\d{2}",
     required_dimensions={"aggregation"},
     qualities={"beLOD"},  # below LOD: the value is the producer's stand-in (0, LOD/2, …), not a measurement
+    censored_qualities={"beLOD"},
     indicator_implies={measure: {"pathogen": p} for measure, p in {**_ODM_PATHOGEN, "ppmv": ""}.items()},
 )
 
