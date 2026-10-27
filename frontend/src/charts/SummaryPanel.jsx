@@ -27,6 +27,7 @@ export function SummaryPanel({ panel, target, location, range, latest }) {
     .map((e, i) => ({ ...e, data: results[i].data }))
     .filter((e) => e.data?.length)
   const title = configLabel(t, panel.label_key, panel.id)
+  const groups = groupRows(t, rows)
   if (state === 'unauth') return <Navigate to="/login" replace />
   return (
     <Paper component="section" variant="outlined" aria-label={title} sx={{ p: 2 }}>
@@ -39,14 +40,19 @@ export function SummaryPanel({ panel, target, location, range, latest }) {
             <TableHead>
               <TableRow>
                 <TableCell>{t('summary.indicator')}</TableCell>
-                <TableCell>{t('summary.page')}</TableCell>
                 <TableCell>{t('assessment.status')}</TableCell>
                 <TableCell>{t('assessment.trend')}</TableCell>
                 <TableCell>{t('summary.asOf')}</TableCell>
               </TableRow>
             </TableHead>
-            <TableBody>
-              {rows.map(({ page, panel: p, data }) => {
+            {groups.map(({ key, label, rows: members }) => (
+            <TableBody key={key}>
+              <TableRow>
+                <TableCell component="th" scope="rowgroup" colSpan={4} sx={{ fontWeight: 600, color: 'text.secondary' }}>
+                  {label}
+                </TableCell>
+              </TableRow>
+              {members.map(({ page, panel: p, data }) => {
                 const pick = range ? pickInRange(data, range, latest) : null
                 const row = pick?.row
                 // The stream's own location too: without a location filter, another region's row has the same selector.
@@ -64,7 +70,6 @@ export function SummaryPanel({ panel, target, location, range, latest }) {
                         {stream && <Chip size="small" variant="outlined" label={t(`role.${stream.role}`, { defaultValue: stream.role })} />}
                       </Stack>
                     </TableCell>
-                    <TableCell>{configLabel(t, page.label_key, page.id)}</TableCell>
                     <TableCell>
                       {pick?.ambiguous ? t('assessment.ambiguous') : row ? (
                         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
@@ -81,9 +86,34 @@ export function SummaryPanel({ panel, target, location, range, latest }) {
                 )
               })}
             </TableBody>
+            ))}
           </Table>
         </TableContainer>
       )}
     </Paper>
   )
+}
+
+// Subheadings as in greece-public-health's overview: the feed, then its kind only where the feed has both
+// (pathogen-specific vs syndromic clinical), and the tabs a series is shared across.
+function groupRows(t, rows) {
+  const kinds = new Map()
+  for (const { panel: p } of rows) {
+    const feed = p.group?.feed ?? p.query.feed
+    kinds.set(feed, (kinds.get(feed) ?? new Set()).add(p.group?.kind))
+  }
+  const groups = new Map()
+  for (const r of rows) {
+    const g = r.panel.group ?? { feed: r.panel.query.feed, targets: [] }
+    const key = `${g.feed}.${g.kind}.${g.targets.join('/')}`
+    if (!groups.has(key)) {
+      const shared = g.targets.length > 1
+        && t('summary.sharedAcross', { targets: g.targets.map((id) => configLabel(t, `targets.${id}`, id)).join(' / ') })
+      const label = [t(`feeds.${g.feed}`, { defaultValue: g.feed }), kinds.get(g.feed).size > 1 && t(`summary.group.${g.kind}`), shared]
+        .filter(Boolean).join(' · ')
+      groups.set(key, { key, label, rows: [] })
+    }
+    groups.get(key).rows.push(r)
+  }
+  return [...groups.values()]
 }

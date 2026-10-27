@@ -23,5 +23,6 @@
   "trend": {"increasing": "Increasing", "stable": "Stable", "decreasing": "Decreasing", "inconclusive": "Inconclusive"},
   "phase": {"in_season": "In season", "in_wave": "In a wave", "out_of_season": "Out of season", "between_waves": "Between waves", "ambiguous": "Phases differ by location; choose a region", "since": "{{phase}} · since {{week}}", "none": "No season or wave status for this pathogen", "title": "Season status"},
   "role": {"cases": "Community stream", "admissions": "Admissions stream"},
-  "summary": {"indicator": "Indicator", "page": "Page", "asOf": "As of", "none": "No assessed indicators for this pathogen"},
+  "feeds": {"clinical": "Clinical", "wastewater": "Wastewater"},
+  "summary": {"group": {"pathogen_specific": "pathogen-specific", "syndromic": "syndromic respiratory surveillance"}, "sharedAcross": "shared across {{targets}}", "indicator": "Indicator", "asOf": "As of", "none": "No assessed indicators for this pathogen"},
   "methods": {"aedseo": {"sources": {"status": "SSI aedseo burden levels", "trend": "aedseo growth rate", "phase": "aedseo seasonal onset"}, "phase_rule": "A pathogen is flagged active — “in season” for influenza and RSV, “in a wave” for year-round COVID — when its community and admissions streams have each onset (crossed the elevated floor while rising) and their runs overlap."}} }

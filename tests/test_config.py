@@ -343,3 +343,20 @@ def test_client_panel_queries_drop_the_pathogen_their_indicator_implies():
                      "feed": "wastewater", "indicator": "cov", "dimensions": {"aggregation": "floMean", "pathogen": "SARS-CoV-2"}}})])])])
     query = cfg.client_config()["targets"][0]["pages"][0]["panels"][0]["query"]
     assert query["dimensions"] == {"aggregation": "floMean"}
+
+
+def test_client_panels_carry_their_summary_group():
+    # Grouped as greece-public-health's overview is: pathogen-specific vs syndromic clinical, and which tabs
+    # share a syndromic series.
+    ili = {"feed": "clinical", "indicator": "ILIconsultationrate", "dimensions": {"survtype": "primary care sentinel", "age": "total"}}
+    adm = {"feed": "clinical", "indicator": "hospitaladmissions",
+           "dimensions": {"survtype": "non-sentinel", "pathogen": "Influenza", "age": "total"}}
+    ww = {"feed": "wastewater", "indicator": "fluA", "dimensions": {"aggregation": "floMean"}}
+    cfg = Config(schema_version="1", site=SiteConfig(title="T"), data=_FEEDS, targets=[
+        Target(id="Influenza", pages=[Page(id="c", panels=[Panel(id="ili", query=ili), Panel(id="adm", query=adm),
+                                                           Panel(id="ww", query=ww)])]),
+        Target(id="RSV", pages=[Page(id="c", panels=[Panel(id="ili", query=ili)])])])
+    groups = {p["id"]: p["group"] for p in cfg.client_config()["targets"][0]["pages"][0]["panels"]}
+    assert groups == {"ili": {"feed": "clinical", "kind": "syndromic", "targets": ["Influenza", "RSV"]},
+                      "adm": {"feed": "clinical", "kind": "pathogen_specific", "targets": ["Influenza"]},
+                      "ww": {"feed": "wastewater", "kind": "pathogen_specific", "targets": ["Influenza"]}}
