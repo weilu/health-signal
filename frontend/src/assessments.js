@@ -13,6 +13,12 @@ export function pickInRange(rows, range, latest) {
   return row ? { row, asOf: row.period, current: row.period === latest } : { row: undefined }
 }
 
+// Whether rows (assessments, thresholds) all belong to one series: one location, one set of dimensions.
+export function singleSeries(rows) {
+  const key = (r) => `${r.location}|${JSON.stringify(Object.entries(r.dimensions ?? {}).sort())}`
+  return new Set(rows.map(key)).size <= 1
+}
+
 // Ordered levels onto three tones by position, so any method's scale reads the same way. An ungraded
 // week is neutral: the lowest tone would read as "all clear".
 export function levelTone(levels, level) {

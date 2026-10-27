@@ -49,7 +49,9 @@ export function SummaryPanel({ panel, target, location, range, latest }) {
               {rows.map(({ page, panel: p, data }) => {
                 const pick = range ? pickInRange(data, range, latest) : null
                 const row = pick?.row
-                const stream = (streams.data ?? []).find((s) => sameSeries(p.query.feed, { indicator: p.query.indicator, ...p.query.dimensions }, s))
+                // The stream's own location too: without a location filter, another region's row has the same selector.
+                const stream = !pick?.ambiguous && (streams.data ?? []).find((s) => s.location === data[0].location
+                  && sameSeries(p.query.feed, { indicator: p.query.indicator, ...p.query.dimensions }, s))
                 return (
                   // A real row with a real link, stretched over the row so the whole row is clickable.
                   <TableRow key={`${page.id}/${p.id}`} hover selected={!!stream} sx={{ position: 'relative' }}>

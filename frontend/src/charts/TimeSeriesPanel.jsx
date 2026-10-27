@@ -5,7 +5,7 @@ import { Alert, Button, Paper, Stack, Typography } from '@mui/material'
 import { alpha, useTheme } from '@mui/material/styles'
 import { useTranslation } from 'react-i18next'
 import { fetchAssessments, fetchData, fetchThresholds } from '../api.js'
-import { activeWeeks, bandAlpha, bandsFor, combinedState, levelTone, pickInRange } from '../assessments.js'
+import { activeWeeks, bandAlpha, bandsFor, combinedState, levelTone, pickInRange, singleSeries } from '../assessments.js'
 import { useMethod } from '../useMethod.js'
 import { StatusTrendTiles, TileGrid } from './StatusTrendTiles.jsx'
 import { ResourceBoundary } from '../ResourceBoundary.jsx'
@@ -33,7 +33,10 @@ export function TimeSeriesPanel({ panel, location, range, latest }) {
   const pick = single && range && assessed.data ? pickInRange(assessed.data, range, latest) : null
   // Cached rows keep serving through a failed refetch; only a lookup that never loaded counts as failed.
   const lookups = single ? combinedState([assessed, thresholds]) : 'ok'
-  const chartExtras = single ? {
+  // Without a location filter the lookups can hold other series than the one plotted: their bands and phase
+  // weeks would merge across populations, so overlays need one series behind both.
+  const overlays = single && pick && !pick.ambiguous && singleSeries([...assessed.data, ...(thresholds.data ?? [])])
+  const chartExtras = overlays ? {
     bands: bandsFor(thresholds.data ?? [], method.levels),
     bandColour: (level) => alpha(theme.palette[levelTone(method.levels, level)].main, bandAlpha(method.levels, level)),
     bandLabel: (level) => t(`level.${level}`),
@@ -67,6 +70,7 @@ export function TimeSeriesPanel({ panel, location, range, latest }) {
   if (lookups === 'unauth') return <Navigate to="/login" replace />
   // A failed lookup must not read as "never assessed"; an ambiguous one leaves the chart's own warning to explain.
   const tiles = lookups === 'error' ? <Alert severity="warning">{t('assessment.unavailable')}</Alert>
-    : pick && !pick.ambiguous && <StatusTrendTiles pick={pick} method={method} />
+    : pick?.ambiguous ? <Alert severity="info">{t('assessment.ambiguous')}</Alert>
+    : pick && <StatusTrendTiles pick={pick} method={method} />
   return <TileGrid card={card} tiles={tiles} />
 }
