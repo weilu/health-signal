@@ -76,3 +76,11 @@ describe('pickInRange with several series', () => {
     expect(pickInRange(rows, { from: '2026-W01', to: '2026-W20' }, '2026-W20')).toEqual({ ambiguous: true })
   })
 })
+
+describe('pickInRange across locations', () => {
+  it('treats rows of several locations as ambiguous even when their weeks differ', () => {
+    // Without a location filter, Greece's W10 and Attica's W09 aren't one series' history.
+    const rows = [{ location: 'Greece', period: '2026-W10' }, { location: 'Attica', period: '2026-W09' }]
+    expect(pickInRange(rows, { from: '2026-W01', to: '2026-W20' }, '2026-W20')).toEqual({ ambiguous: true })
+  })
+})

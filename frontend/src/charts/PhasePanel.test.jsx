@@ -81,4 +81,15 @@ describe('PhasePanel', () => {
     expect(fetchData.mock.calls[0][0].location).toBe('Greece')
     expect([...charted.at(-1).shading]).toEqual(['2026-W10'])   // not Attica's W09
   })
+
+  it('reports why a stream cannot be charted rather than calling it missing', async () => {
+    fetchConfig.mockResolvedValue({ methods: METHOD })
+    fetchPhases.mockResolvedValue(PHASES)
+    fetchPhaseStreams.mockResolvedValue([STREAM])
+    fetchData.mockResolvedValue([
+      { location: 'Greece', period: '2026-W09', indicator: 'fluA', value: 4, unit: 'gcL', dimensions: {} },
+      { location: 'Greece', period: '2026-W10', indicator: 'fluA', value: 5, unit: 'gcMl', dimensions: {} }])
+    renderPanel()
+    expect(await screen.findByText('chart.mixedUnits')).toBeTruthy()
+  })
 })

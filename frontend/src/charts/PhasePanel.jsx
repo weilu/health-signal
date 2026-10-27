@@ -33,7 +33,10 @@ function StreamChart({ stream, range, shading }) {
       <ResourceBoundary query={query}>
         {(rows) => {
           const model = toChartModel(rows, null, 1, range)
-          if (model.status !== 'ok') return <Alert severity="info">{t('chart.empty')}</Alert>
+          // As the time-series panel does: e.g. mixed units is the producer's to fix, not "no data".
+          if (model.status !== 'ok') {
+            return <Alert severity={model.status === 'empty' ? 'info' : 'warning'}>{t(`chart.${model.status}`, model)}</Alert>
+          }
           const unit = t(`unit.${model.unit}`, { defaultValue: model.unit })
           const series = [{ ...model.series[0], label }]
           return asTable

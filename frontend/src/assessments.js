@@ -2,8 +2,11 @@
 // never one from before it. null = the series is never assessed, so the panel shows no tiles.
 export function pickInRange(rows, range, latest) {
   if (!rows.length) return null
-  // Two rows for one week means the query matched several series: no row describes this panel's one.
-  if (new Set(rows.map((r) => r.period)).size !== rows.length) return { ambiguous: true }
+  // Two rows for one week, or rows of several locations (no location filter), are several series: no row
+  // describes this panel's one, and one location's weeks aren't another's history.
+  if (new Set(rows.map((r) => r.period)).size !== rows.length || new Set(rows.map((r) => r.location)).size > 1) {
+    return { ambiguous: true }
+  }
   const row = rows
     .filter((r) => r.period >= range.from && r.period <= range.to)
     .reduce((best, r) => (!best || r.period > best.period ? r : best), undefined)
