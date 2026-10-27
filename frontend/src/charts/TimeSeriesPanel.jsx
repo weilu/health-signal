@@ -33,7 +33,7 @@ export function TimeSeriesPanel({ panel, location, range, latest }) {
   // Without a location filter the lookups can hold other populations than the one plotted (e.g. Attica's
   // history beside Greece's chart): keep only the plotted series' rows for tiles, bands and shading.
   const plotted = plottedSeries(query.data)
-  const own = (rows) => (plotted ? (rows ?? []).filter((r) => ofSeries(r, plotted)) : rows ?? [])
+  const own = (rows) => (plotted?.mixed ? [] : plotted ? (rows ?? []).filter((r) => ofSeries(r, plotted)) : rows ?? [])
   const assessedRows = own(assessed.data)
   const thresholdRows = own(thresholds.data)
   const pick = single && range && assessed.data && assessedRows.length ? pickInRange(assessedRows, range, latest) : null

@@ -13,10 +13,12 @@ export function pickInRange(rows, range, latest) {
   return row ? { row, asOf: row.period, current: row.period === latest } : { row: undefined }
 }
 
-// The one series a panel's data rows plot (its location and shared dimensions), or null when they mix several
-// or are empty: the chart warns about a mix itself.
+// The one series a panel's data rows plot (its location and dimensions); { mixed: true } when they mix several
+// (the chart warns about that itself), null when there are none.
 export function plottedSeries(rows) {
-  if (!rows?.length || new Set(rows.map((r) => r.location)).size > 1) return null
+  if (!rows?.length) return null
+  // Data mixing several series has no one series' status or bands to show.
+  if (!singleSeries(rows)) return { mixed: true }
   const dims = Object.entries(rows[0].dimensions ?? {}).filter(([k, v]) => rows.every((r) => r.dimensions?.[k] === v))
   return { location: rows[0].location, dimensions: Object.fromEntries(dims) }
 }
