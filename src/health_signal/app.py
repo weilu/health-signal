@@ -48,6 +48,18 @@ def _serve_spa(config: Config, request: Request) -> Response:
     return HTMLResponse(render_index(index.read_text(encoding="utf-8"), config.bootstrap_config(), base_href))
 
 
+def _require_one_location(data_sources: dict, phase_source: PhaseSource | None) -> None:
+    # With no location filter nothing selects a region, so every chart, tile and summary row would blend the
+    # regions' rows: a dashboard without one shows a single population, or refuses to start.
+    held = {f"feed {fid!r}": source.locations() for fid, source in data_sources.items()}
+    if phase_source is not None:
+        held["data.phases"] = {r.location for r in phase_source.phases()}
+    for where, locations in held.items():
+        if len(locations) > 1:
+            raise ValueError(f"{where} holds several locations ({', '.join(sorted(locations))}) but no "
+                             f"filters.location is configured; add one so each view shows one region")
+
+
 def create_app(
     config: Config, auth_provider: AuthProvider | None = None,
     data_sources: dict[str, DataSource] | None = None,
@@ -62,6 +74,8 @@ def create_app(
     phase_source = PhaseSource(config.data.phases) if config.data and config.data.phases else None
     stream_source = (PhaseStreamSource(config.data.phase_streams, {f.id: PROFILES[f.profile] for f in feeds})
                      if config.data and config.data.phase_streams else None)
+    if config.filters.location is None:
+        _require_one_location(data_sources, phase_source)
 
     _ALWAYS_PUBLIC = ("/healthz", "/login", "/logout")
 
