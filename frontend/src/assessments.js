@@ -13,6 +13,21 @@ export function pickInRange(rows, range, latest) {
   return row ? { row, asOf: row.period, current: row.period === latest } : { row: undefined }
 }
 
+// The one series a panel's data rows plot (its location and shared dimensions), or null when they mix several
+// or are empty: the chart warns about a mix itself.
+export function plottedSeries(rows) {
+  if (!rows?.length || new Set(rows.map((r) => r.location)).size > 1) return null
+  const dims = Object.entries(rows[0].dimensions ?? {}).filter(([k, v]) => rows.every((r) => r.dimensions?.[k] === v))
+  return { location: rows[0].location, dimensions: Object.fromEntries(dims) }
+}
+
+// Whether a lookup row (assessment, threshold) belongs to the plotted series: same location, and no dimension
+// the two both carry set differently.
+export function ofSeries(row, series) {
+  return row.location === series.location
+    && Object.entries(row.dimensions ?? {}).every(([k, v]) => !(k in series.dimensions) || series.dimensions[k] === v)
+}
+
 // Whether rows (assessments, thresholds) all belong to one series: one location, one set of dimensions.
 export function singleSeries(rows) {
   const key = (r) => `${r.location}|${JSON.stringify(Object.entries(r.dimensions ?? {}).sort())}`
