@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { activeWeeks, assessmentParams, bandAlpha, bandsFor, levelTone, phaseSince, pickInRange, sameSeries } from './assessments.js'
+import { activeWeeks, bandAlpha, bandsFor, levelTone, phaseSince, pickInRange, sameSeries } from './assessments.js'
 
 const a = (period, extra = {}) => ({ period, level: 'low', ...extra })
 const LEVELS = ['very_low', 'low', 'medium', 'high', 'very_high']
@@ -51,11 +51,6 @@ describe('sameSeries', () => {
     expect(sameSeries('clinical', { indicator: 'cov', aggregation: 'floMean' }, stream)).toBe(false)
     expect(sameSeries('wastewater', { indicator: 'cov' }, stream)).toBe(false)
   })
-})
-
-describe('assessmentParams', () => {
-  it('drops the date range so the whole history is fetched once', () =>
-    expect(assessmentParams({ feed: 'w', indicator: 'cov', week_from: 'a', week_to: 'b' })).toEqual({ feed: 'w', indicator: 'cov' }))
 })
 
 describe('levelTone for ungraded weeks', () => {

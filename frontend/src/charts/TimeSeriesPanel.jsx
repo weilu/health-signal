@@ -5,7 +5,7 @@ import { Alert, Button, Paper, Stack, Typography } from '@mui/material'
 import { alpha, useTheme } from '@mui/material/styles'
 import { useTranslation } from 'react-i18next'
 import { fetchAssessments, fetchData, fetchThresholds } from '../api.js'
-import { activeWeeks, assessmentParams, bandAlpha, bandsFor, combinedState, levelTone, pickInRange } from '../assessments.js'
+import { activeWeeks, bandAlpha, bandsFor, combinedState, levelTone, pickInRange } from '../assessments.js'
 import { useMethod } from '../useMethod.js'
 import { StatusTrendTiles, TileGrid } from './StatusTrendTiles.jsx'
 import { ResourceBoundary } from '../ResourceBoundary.jsx'
@@ -25,7 +25,8 @@ export function TimeSeriesPanel({ panel, location, range, latest }) {
   const query = useQuery({ queryKey: ['data', params], queryFn: () => fetchData(params) })
   // Tiles describe one series, so panels split into several lines get none.
   const single = !panel.series_by && !!method
-  const aParams = { ...assessmentParams(params), method: method?.name }
+  // Over the whole history, so the range only re-picks a row; the summary builds the same key and shares the cache.
+  const aParams = { ...panelParams(panel.query, location?.value), method: method?.name }
   const assessed = useQuery({ queryKey: ['assessments', aParams], queryFn: () => fetchAssessments(aParams), enabled: single })
   const tParams = { ...params, method: method?.name }
   const thresholds = useQuery({ queryKey: ['thresholds', tParams], queryFn: () => fetchThresholds(tParams), enabled: single })

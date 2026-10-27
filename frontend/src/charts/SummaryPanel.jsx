@@ -3,7 +3,7 @@ import { Navigate, Link as RouterLink, useLocation } from 'react-router-dom'
 import { Alert, Box, Chip, CircularProgress, Link, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { fetchAssessments, fetchPhaseStreams } from '../api.js'
-import { assessmentParams, combinedState, levelTone, pickInRange, sameSeries, toneColor } from '../assessments.js'
+import { combinedState, levelTone, pickInRange, sameSeries, toneColor } from '../assessments.js'
 import { panelParams, withFilters } from '../filters.js'
 import { configLabel, weekStamp } from '../labels.js'
 import { useMethod } from '../useMethod.js'
@@ -17,7 +17,7 @@ export function SummaryPanel({ panel, target, location, range, latest }) {
   const streams = useQuery({ queryKey: ['phase-streams', base], queryFn: () => fetchPhaseStreams(base), enabled: !!method })
   const entries = target.pages.flatMap((page) => page.panels
     .filter((p) => p.type === 'timeseries' && !p.series_by)
-    .map((p) => ({ page, panel: p, params: { ...assessmentParams(panelParams(p.query, location?.value, range)), method: method?.name } })))
+    .map((p) => ({ page, panel: p, params: { ...panelParams(p.query, location?.value), method: method?.name } })))
   // Same query keys as the panels' own tile lookups, so these share their cache.
   const results = useQueries({
     queries: entries.map((e) => ({ queryKey: ['assessments', e.params], queryFn: () => fetchAssessments(e.params), enabled: !!method })),

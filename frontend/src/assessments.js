@@ -1,8 +1,3 @@
-// Assessments are fetched over the whole history once; the range then only re-picks a row.
-export function assessmentParams({ week_from, week_to, ...rest }) {
-  return rest
-}
-
 // The tile describes the range's last week (spec §9): the latest assessment within the range,
 // never one from before it. null = the series is never assessed, so the panel shows no tiles.
 export function pickInRange(rows, range, latest) {

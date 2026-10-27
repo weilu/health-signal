@@ -17,9 +17,10 @@ export function phaseQuery(target, location, method) {
 }
 
 // One compact chart per stream on the same weeks: the streams' units differ, so they can't share an axis.
-function StreamChart({ stream, location, range, shading }) {
+function StreamChart({ stream, range, shading }) {
   const { t } = useTranslation()
-  const params = { feed: stream.feed, ...stream.series, location: location?.value, week_from: range?.from, week_to: range?.to }
+  // The stream's own location, as the producer recorded it: without a location filter, the feed may hold others.
+  const params = { feed: stream.feed, ...stream.series, location: stream.location, week_from: range?.from, week_to: range?.to }
   const query = useQuery({ queryKey: ['data', params], queryFn: () => fetchData(params) })
   const label = t(`role.${stream.role}`, { defaultValue: stream.role })
   const [asTable, setAsTable] = useState(false)
@@ -62,7 +63,12 @@ export function PhasePanel({ panel, target, location, range, latest }) {
   const title = configLabel(t, panel.label_key, panel.id)
   const rows = phases.data ?? []
   const pick = rows.length && range ? pickInRange(rows, range, latest) : null
-  const tile = pick && (pick.row ? (
+  // Without a location filter, several locations' phases can share a week; none of them is "the" phase.
+  const tile = pick && (pick.ambiguous ? (
+    <Tile title={t('phase.title')} current>
+      <Typography variant="body1" component="p">{t('phase.ambiguous')}</Typography>
+    </Tile>
+  ) : pick.row ? (
     <Tile title={t('phase.title')} current={pick.current} footer={asOfFooter(t, pick, pick.row.method)}>
       <Typography variant="h5" component="p">{phaseLabel(t, pick.row, rows, method)}</Typography>
     </Tile>
@@ -73,14 +79,14 @@ export function PhasePanel({ panel, target, location, range, latest }) {
       <ResourceBoundary query={phases}>
         {(loaded) => {
           if (!loaded.length) return <Typography color="text.secondary">{t('phase.none')}</Typography>
-          const shading = activeWeeks(loaded, method.active_phases)
           // A declared or stream-less phase has no evidence to chart; the card keeps just the rule text.
           return (
             <ResourceBoundary query={streams}>
               {(list) => (
                 <Stack spacing={2}>
                   {list.map((s) => (
-                    <StreamChart key={s.role} stream={s} location={location} range={range} shading={shading} />
+                    <StreamChart key={`${s.location}/${s.role}`} stream={s} range={range}
+                      shading={activeWeeks(loaded.filter((r) => r.location === s.location), method.active_phases)} />
                   ))}
                 </Stack>
               )}
