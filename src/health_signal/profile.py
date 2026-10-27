@@ -42,6 +42,13 @@ class Profile(BaseModel):
     # rate indicator -> its own denominator series, aedseo's exposure offset: growth of positivity must be
     # modelled against tests, not population (greece-public-health's AEDSEO_INPUTS note).
     denominators: dict[str, Denominator] = {}
+    # Indicators reported per pathogen: a series of one without a pathogen mixes every pathogen's figures.
+    pathogen_specific: set[str] = set()
+
+    def canonical(self, indicator: str, dimensions: dict[str, str]) -> dict[str, str]:
+        """The dimensions minus those the indicator implies, so equal series compare equal however written."""
+        implied = self.indicator_implies.get(indicator, {})
+        return {k: v for k, v in dimensions.items() if implied.get(k) != v}
 
     def vocab(self, dim: str) -> set[str] | None:
         # Every profile spells pathogens from the one registry, so feeds join on it.
@@ -129,6 +136,9 @@ ERVISS = Profile(
     required_dimensions={"survtype", "age"},  # spec §6.2: only the pathogen fields are nullable
     count_units={"count"},
     denominators={"positivity": Denominator(indicator="tests", per=100)},
+    # ILI, ARI and SARI rates are syndromic (no pathogen); everything else is reported per pathogen.
+    pathogen_specific={"tests", "detections", "positivity", "hospitaladmissions", "ICUadmissions",
+                       "ICUinpatients", "deaths"},
 )
 
 

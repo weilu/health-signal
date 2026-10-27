@@ -54,4 +54,23 @@ describe('SummaryPanel', () => {
     expect(link.getAttribute('href')).toBe('/influenza/ww')
     expect(link.closest('tr')).toBeTruthy()
   })
+
+  it('reports a failed phase-stream lookup instead of dropping the highlights', async () => {
+    fetchConfig.mockResolvedValue({ methods: METHOD })
+    fetchPhaseStreams.mockRejectedValue(Object.assign(new Error('HTTP 500'), { status: 500 }))
+    fetchAssessments.mockResolvedValue([{ period: '2026-W10', level: 'low', trend: 'stable', method: 'aedseo' }])
+    renderPanel()
+    expect(await screen.findByRole('alert')).toBeTruthy()
+  })
+
+  it("says when a panel's query matches several assessed series", async () => {
+    fetchConfig.mockResolvedValue({ methods: METHOD })
+    fetchPhaseStreams.mockResolvedValue([])
+    fetchAssessments.mockResolvedValue([{ period: '2026-W10', level: 'low', method: 'aedseo' },
+                                        { period: '2026-W10', level: 'high', method: 'aedseo' }])
+    renderPanel()
+    expect(await screen.findByText('assessment.ambiguous')).toBeTruthy()
+    expect(screen.queryByText('level.high')).toBeNull()
+    expect(screen.queryByText('assessment.noneInRange')).toBeNull()
+  })
 })

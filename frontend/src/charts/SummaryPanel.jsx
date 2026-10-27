@@ -22,7 +22,7 @@ export function SummaryPanel({ panel, target, location, range, latest }) {
   const results = useQueries({
     queries: entries.map((e) => ({ queryKey: ['assessments', e.params], queryFn: () => fetchAssessments(e.params), enabled: !!method })),
   })
-  const state = method ? combinedState(results) : 'loading'
+  const state = method ? combinedState([...results, streams]) : 'loading'
   const rows = entries
     .map((e, i) => ({ ...e, data: results[i].data }))
     .filter((e) => e.data?.length)
@@ -64,7 +64,7 @@ export function SummaryPanel({ panel, target, location, range, latest }) {
                     </TableCell>
                     <TableCell>{configLabel(t, page.label_key, page.id)}</TableCell>
                     <TableCell>
-                      {row ? (
+                      {pick?.ambiguous ? t('assessment.ambiguous') : row ? (
                         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                           <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: toneColor(levelTone(method.levels, row.level)) }} />
                           <span>{row.level ? t(`level.${row.level}`) : t('assessment.ungraded')}</span>
@@ -73,7 +73,7 @@ export function SummaryPanel({ panel, target, location, range, latest }) {
                     </TableCell>
                     <TableCell>{row?.trend ? t(`trend.${row.trend}`) : '—'}</TableCell>
                     <TableCell sx={{ color: pick?.current ? 'text.primary' : 'text.secondary' }}>
-                      {row ? weekStamp(t, pick.asOf) : t('assessment.noneInRange')}
+                      {pick?.ambiguous ? '—' : row ? weekStamp(t, pick.asOf) : t('assessment.noneInRange')}
                     </TableCell>
                   </TableRow>
                 )

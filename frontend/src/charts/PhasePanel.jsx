@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Alert, Box, Paper, Stack, Typography } from '@mui/material'
+import { Alert, Box, Button, Paper, Stack, Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { fetchData, fetchPhases, fetchPhaseStreams } from '../api.js'
 import { activeWeeks, phaseSince, pickInRange } from '../assessments.js'
@@ -7,6 +8,7 @@ import { configLabel, weekStamp } from '../labels.js'
 import { ResourceBoundary } from '../ResourceBoundary.jsx'
 import { toChartModel } from '../series.js'
 import { useMethod } from '../useMethod.js'
+import { SeriesTable } from './SeriesTable.jsx'
 import { NoneInRange, Tile, TileGrid, asOfFooter } from './StatusTrendTiles.jsx'
 import { TimeSeriesChart } from './TimeSeriesChart.jsx'
 
@@ -20,15 +22,22 @@ function StreamChart({ stream, location, range, shading }) {
   const params = { feed: stream.feed, ...stream.series, location: location?.value, week_from: range?.from, week_to: range?.to }
   const query = useQuery({ queryKey: ['data', params], queryFn: () => fetchData(params) })
   const label = t(`role.${stream.role}`, { defaultValue: stream.role })
+  const [asTable, setAsTable] = useState(false)
   return (
     <Box>
-      <Typography variant="subtitle2" component="h3">{label}</Typography>
+      <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
+        <Typography variant="subtitle2" component="h3">{label}</Typography>
+        <Button size="small" onClick={() => setAsTable((v) => !v)}>{t(asTable ? 'chart.showChart' : 'chart.showTable')}</Button>
+      </Stack>
       <ResourceBoundary query={query}>
         {(rows) => {
           const model = toChartModel(rows, null, 1, range)
           if (model.status !== 'ok') return <Alert severity="info">{t('chart.empty')}</Alert>
           const unit = t(`unit.${model.unit}`, { defaultValue: model.unit })
-          return <TimeSeriesChart periods={model.periods} series={[{ ...model.series[0], label }]} unit={unit} shading={shading} height={180} />
+          const series = [{ ...model.series[0], label }]
+          return asTable
+            ? <SeriesTable periods={model.periods} series={series} unit={unit} />
+            : <TimeSeriesChart periods={model.periods} series={series} unit={unit} shading={shading} height={180} />
         }}
       </ResourceBoundary>
     </Box>
@@ -65,11 +74,15 @@ export function PhasePanel({ panel, target, location, range, latest }) {
           const shading = activeWeeks(loaded, method.active_phases)
           // A declared or stream-less phase has no evidence to chart; the card keeps just the rule text.
           return (
-            <Stack spacing={2}>
-              {(streams.data ?? []).map((s) => (
-                <StreamChart key={s.role} stream={s} location={location} range={range} shading={shading} />
-              ))}
-            </Stack>
+            <ResourceBoundary query={streams}>
+              {(list) => (
+                <Stack spacing={2}>
+                  {list.map((s) => (
+                    <StreamChart key={s.role} stream={s} location={location} range={range} shading={shading} />
+                  ))}
+                </Stack>
+              )}
+            </ResourceBoundary>
           )
         }}
       </ResourceBoundary>

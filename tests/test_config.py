@@ -390,3 +390,12 @@ def test_overview_panels_take_no_query():
 def test_panel_kinds_check_their_fields(bad):
     with pytest.raises(ValidationError):
         _with_panel(bad)
+
+
+def test_client_panel_queries_drop_the_pathogen_their_indicator_implies():
+    # The same canonical form as phase streams, so the two compare equal in the summary.
+    cfg = Config(schema_version="1", site=SiteConfig(title="T"), data=_FEEDS,
+                 targets=[Target(id="SARS-CoV-2", pages=[Page(id="w", panels=[Panel(**{"id": "cov", "query": {
+                     "feed": "wastewater", "indicator": "cov", "dimensions": {"aggregation": "floMean", "pathogen": "SARS-CoV-2"}}})])])])
+    query = cfg.client_config()["targets"][0]["pages"][0]["panels"][0]["query"]
+    assert query["dimensions"] == {"aggregation": "floMean"}

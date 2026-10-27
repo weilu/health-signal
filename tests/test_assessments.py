@@ -138,7 +138,24 @@ def test_phase_streams_load(tmp_path):
     (_S1.replace("indicator=fluA&aggregation=floMean", "indicator=ppmv&aggregation=me"), "carries no pathogen"),
     (_S1.replace(",wastewater,indicator=fluA&aggregation=floMean", ",clinical,indicator=detections&pathogen=RSV"),
      "names pathogen 'RSV'"),
+    # admissions of every pathogen at once: the overview would chart a mixture as influenza's evidence
+    (_S1.replace(",wastewater,indicator=fluA&aggregation=floMean",
+                 ",clinical,indicator=hospitaladmissions&survtype=non-sentinel&age=total"), "pathogen-specific"),
 ])
 def test_bad_phase_streams_fail(tmp_path, bad, message):
     with pytest.raises(ValueError, match=rf"phase_streams\.csv row 1: .*{message}"):
         _streams(tmp_path, bad)
+
+
+def test_a_pathogen_neutral_stream_needs_no_pathogen(tmp_path):
+    ili = _S1.replace(",wastewater,indicator=fluA&aggregation=floMean",
+                      ",clinical,indicator=ILIconsultationrate&survtype=primary+care+sentinel&age=total")
+    [s] = _streams(tmp_path, ili).streams()
+    assert s.series["indicator"] == "ILIconsultationrate"
+
+
+def test_streams_drop_the_pathogen_their_indicator_implies(tmp_path):
+    # So the summary matches a stream to its panel whether either spells out the implied pathogen.
+    named = _S1.replace("indicator=fluA&", "indicator=fluA&pathogen=Influenza&")
+    [s] = _streams(tmp_path, named).streams()
+    assert s.series == {"indicator": "fluA", "aggregation": "floMean"}
