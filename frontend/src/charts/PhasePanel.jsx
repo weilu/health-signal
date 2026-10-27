@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Alert, Box, Button, Paper, Stack, Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { fetchData, fetchPhases, fetchPhaseStreams } from '../api.js'
-import { activeWeeks, phaseSince, pickInRange } from '../assessments.js'
+import { activeWeeks, phaseRuns, phaseSince, pickInRange } from '../assessments.js'
 import { configLabel, weekStamp } from '../labels.js'
 import { ResourceBoundary } from '../ResourceBoundary.jsx'
 import { toChartModel } from '../series.js'
@@ -108,5 +108,25 @@ export function PhasePanel({ panel, target, location, range, latest }) {
       </ResourceBoundary>
     </Paper>
   )
-  return <TileGrid card={card} tiles={tile} />
+  const runs = pick?.row ? phaseRuns(rows, span, method.active_phases) : null
+  const runsTitle = t(`phase.runs.${pattern}`)
+  // The shaded bands as text: their weeks, readable without the charts (and by screen readers).
+  const runsTile = runs && (
+    <Paper component="section" variant="outlined" aria-label={runsTitle} sx={{ px: 3, py: 2.75 }}>
+      <Typography variant="overline" color="text.secondary" component="p">{runsTitle}</Typography>
+      {runs.length ? (
+        <Box component="ul" sx={{ m: 0, p: 0, listStyle: 'none' }}>
+          {runs.map((r) => (
+            <Typography key={r.from} component="li" variant="body2" sx={{ py: 0.25 }}>
+              {[`${weekStamp(t, r.from)} – ${r.ongoing ? t('phase.ongoing') : weekStamp(t, r.to)}`,
+                t('phase.weeks', { count: r.weeks }),
+                r.startsBefore && t('phase.startedBefore'),
+                r.endsAfter && !r.ongoing && t('phase.endsAfter')].filter(Boolean).join(' · ')}
+            </Typography>
+          ))}
+        </Box>
+      ) : <Typography variant="body2" color="text.secondary">{t(`phase.noRuns.${pattern}`)}</Typography>}
+    </Paper>
+  )
+  return <TileGrid card={card} tiles={tile && <Stack spacing={2.25}>{tile}{runsTile}</Stack>} />
 }

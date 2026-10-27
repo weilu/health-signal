@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { activeWeeks, bandAlpha, ofSeries, bandsFor, levelTone, phaseSince, pickInRange, sameSeries } from './assessments.js'
+import { activeWeeks, bandAlpha, ofSeries, phaseRuns, bandsFor, levelTone, phaseSince, pickInRange, sameSeries } from './assessments.js'
 
 const a = (period, extra = {}) => ({ period, level: 'low', ...extra })
 const LEVELS = ['very_low', 'low', 'medium', 'high', 'very_high']
@@ -97,5 +97,23 @@ describe('series identity', () => {
     expect(ofSeries({ location: 'Attica', dimensions: { aggregation: 'floMean', fraction: 'liq' } }, plotted)).toBe(false)
     expect(ofSeries({ location: 'Attica', dimensions: { aggregation: 'floMean', fraction: '' } }, plotted)).toBe(true)
     expect(ofSeries({ location: 'Attica', dimensions: {} }, plotted)).toBe(false)
+  })
+})
+
+describe('phaseRuns', () => {
+  const ACTIVE = ['in_wave']
+  const rows = ['2023-W48:between_waves', '2023-W49:in_wave', '2023-W50:in_wave', '2024-W01:in_wave', '2024-W02:between_waves',
+                '2024-W20:in_wave', '2024-W21:in_wave']
+    .map((x) => ({ period: x.split(':')[0], phase: x.split(':')[1] }))
+
+  it('lists each run of active weeks overlapping the range, flagging clipped and ongoing runs', () => {
+    expect(phaseRuns(rows, { from: '2023-W50', to: '2024-W20' }, ACTIVE)).toEqual([
+      { from: '2023-W49', to: '2024-W01', weeks: 3, startsBefore: true, endsAfter: false, ongoing: false },
+      { from: '2024-W20', to: '2024-W21', weeks: 2, startsBefore: false, endsAfter: true, ongoing: true },
+    ])
+  })
+
+  it('lists none when no run touches the range', () => {
+    expect(phaseRuns(rows, { from: '2024-W05', to: '2024-W10' }, ACTIVE)).toEqual([])
   })
 })
