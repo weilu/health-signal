@@ -27,13 +27,13 @@ const PHASES = [{ location: 'Greece', pathogen: 'Influenza', period: '2026-W10',
 const STREAM = { location: 'Greece', pathogen: 'Influenza', method: 'aedseo', role: 'cases', feed: 'clinical',
   series: { indicator: 'ILIconsultationrate' } }
 
-function renderPanel(location = { value: 'Greece' }) {
+function renderPanel(location = { value: 'Greece' }, range = { from: '2026-W09', to: '2026-W10' }) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={client}>
       <MemoryRouter>
         <PhasePanel panel={{ id: 'phase', label_key: 'panels.phase' }} target={{ id: 'Influenza', pages: [] }}
-          location={location} range={{ from: '2026-W09', to: '2026-W10' }} latest="2026-W10" />
+          location={location} range={range} latest={range ? '2026-W10' : null} />
       </MemoryRouter>
     </QueryClientProvider>,
   )
@@ -114,4 +114,13 @@ describe('PhasePanel', () => {
       expect(last).toEqual({ cases: 110, admissions: 110 })
     })
   })
+
+  it('shows a declared phase even with no observation feeds to set the range', async () => {
+    fetchConfig.mockResolvedValue({ methods: METHOD })
+    fetchPhases.mockResolvedValue(PHASES)
+    fetchPhaseStreams.mockResolvedValue([])
+    renderPanel({ value: 'Greece' }, null)
+    expect(await screen.findByText('phase.title')).toBeTruthy()
+  })
+
 })

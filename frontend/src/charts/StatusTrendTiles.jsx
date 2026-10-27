@@ -18,13 +18,14 @@ export function TileGrid({ card, tiles }) {
 }
 
 // Not-current tiles are dashed and muted so a past state isn't read as now (spec §9).
-export function Tile({ title, current, footer, children }) {
+export function Tile({ title, current, footer, note, children }) {
   return (
     <Paper component="section" variant="outlined" aria-label={title}
       sx={{ px: 3, py: 2.75, opacity: current ? 1 : 0.75, borderStyle: current ? 'solid' : 'dashed' }}>
       <Typography variant="overline" color="text.secondary" component="p">{title}</Typography>
       {children}
       <Typography variant="caption" color="text.secondary" component="p" sx={{ mt: 1 }}>{footer}</Typography>
+      {note && <Typography variant="body2" color="text.secondary" component="p" sx={{ mt: 1.5 }}>{note}</Typography>}
     </Paper>
   )
 }

@@ -88,4 +88,18 @@ describe('TimeSeriesPanel assessments', () => {
     await vi.waitFor(() => expect((charted.at(-1)?.bands ?? []).length).toBeGreaterThan(0))
   })
 
+
+  it('shows no tile or overlay when its own data mixes series', async () => {
+    // W09 has no fraction, W10 has fraction=liq: the chart reports a mix, so no one series' status applies.
+    fetchConfig.mockResolvedValue({ methods: METHOD })
+    fetchData.mockResolvedValue([{ ...GREECE_W10, period: '2026-W09' }, { ...GREECE_W10, dimensions: { fraction: 'liq' } }])
+    fetchAssessments.mockResolvedValue([{ location: 'Greece', period: '2026-W09', level: 'low', phase: 'in_season', method: 'aedseo', dimensions: {} }])
+    fetchThresholds.mockResolvedValue([{ location: 'Greece', dimensions: {}, from: '2025-W21', to: '2026-W20', level: 'low', lower_bound: 1 }])
+    renderPanel({ value: 'Greece' })
+    await screen.findByText('chart.mixedSeries')
+    // Let the assessment lookups land: a tile would appear only after them.
+    await vi.waitFor(() => expect(fetchAssessments).toHaveBeenCalled())
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    expect(screen.queryByText('level.low')).toBeNull()
+  })
 })

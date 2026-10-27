@@ -69,14 +69,18 @@ export function PhasePanel({ panel, target, location, range, latest }) {
   // Only ever grows, so the charts settle after one pass instead of re-fitting each other.
   const reportAxis = useCallback((width) => setAxisWidth((widest) => Math.max(widest, Math.ceil(width))), [])
   const rows = phases.data ?? []
-  const pick = rows.length && range ? pickInRange(rows, range, latest) : null
+  // A declared phase can stand without observation feeds, so no dashboard range: its own weeks bound it then.
+  const span = range ?? (rows.length ? { from: rows.reduce((m, r) => (r.period < m ? r.period : m), rows[0].period),
+                                          to: rows.reduce((m, r) => (r.period > m ? r.period : m), rows[0].period) } : null)
+  const pick = rows.length && span ? pickInRange(rows, span, latest ?? span.to) : null
+  const rule = method && t(`methods.${method.name}.phase_rule`, { defaultValue: '' })
   // Without a location filter, several locations' phases can share a week; none of them is "the" phase.
   const tile = pick && (pick.ambiguous ? (
     <Tile title={t('phase.title')} current>
       <Typography variant="body1" component="p">{t('phase.ambiguous')}</Typography>
     </Tile>
   ) : pick.row ? (
-    <Tile title={t('phase.title')} current={pick.current} footer={asOfFooter(t, pick, pick.row.method, 'phase')}>
+    <Tile title={t('phase.title')} current={pick.current} footer={asOfFooter(t, pick, pick.row.method, 'phase')} note={rule}>
       <Typography variant="h5" component="p">{phaseLabel(t, pick.row, rows, method)}</Typography>
     </Tile>
   ) : <NoneInRange />)
@@ -102,11 +106,6 @@ export function PhasePanel({ panel, target, location, range, latest }) {
           )
         }}
       </ResourceBoundary>
-      {method && (
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-          {t(`methods.${method.name}.phase_rule`, { defaultValue: '' })}
-        </Typography>
-      )}
     </Paper>
   )
   return <TileGrid card={card} tiles={tile} />
