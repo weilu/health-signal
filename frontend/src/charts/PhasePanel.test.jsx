@@ -9,7 +9,16 @@ import { PhasePanel } from './PhasePanel.jsx'
 vi.mock('../api.js', () => ({ fetchConfig: vi.fn(), fetchData: vi.fn(), fetchPhases: vi.fn(), fetchPhaseStreams: vi.fn() }))
 // The chart draws on a canvas; its props are what the panel decides.
 const charted = []
-vi.mock('./TimeSeriesChart.jsx', () => ({ TimeSeriesChart: (props) => { charted.push(props); return null } }))
+// Each mock chart reports a y-axis width by its label, as a real one reports its fitted axis.
+const AXIS = { cases: 60, admissions: 110 }
+vi.mock('./TimeSeriesChart.jsx', async () => {
+  const { useEffect } = await import('react')
+  return { TimeSeriesChart: (props) => {
+    charted.push(props)
+    useEffect(() => { props.onAxisWidth?.(AXIS[props.series[0].label] ?? 50) })
+    return null
+  } }
+})
 afterEach(() => { cleanup(); vi.resetAllMocks(); charted.length = 0 })
 
 const METHOD = { aedseo: { levels: ['very_low', 'low'], phases: ['in_season', 'out_of_season'],
@@ -91,5 +100,18 @@ describe('PhasePanel', () => {
       { location: 'Greece', period: '2026-W10', indicator: 'fluA', value: 5, unit: 'gcMl', dimensions: {} }])
     renderPanel()
     expect(await screen.findByText('chart.mixedUnits')).toBeTruthy()
+  })
+
+  it('gives every stream chart the widest y-axis, so the same week lines up across them', async () => {
+    fetchConfig.mockResolvedValue({ methods: METHOD })
+    fetchPhases.mockResolvedValue(PHASES)
+    fetchPhaseStreams.mockResolvedValue([STREAM, { ...STREAM, role: 'admissions', series: { indicator: 'SARIrate' } }])
+    fetchData.mockImplementation(async (params) => [
+      { location: 'Greece', period: '2026-W10', indicator: params.indicator, value: 5, unit: 'per_100k', dimensions: {} }])
+    renderPanel()
+    await vi.waitFor(() => {
+      const last = Object.fromEntries(charted.map((p) => [p.series[0].label, p.axisWidth]))
+      expect(last).toEqual({ cases: 110, admissions: 110 })
+    })
   })
 })

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Alert, Box, Button, Paper, Stack, Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
@@ -17,7 +17,7 @@ export function phaseQuery(target, location, method) {
 }
 
 // One compact chart per stream on the same weeks: the streams' units differ, so they can't share an axis.
-function StreamChart({ stream, range, shading }) {
+function StreamChart({ stream, range, shading, axisWidth, onAxisWidth }) {
   const { t } = useTranslation()
   // The stream's own location, as the producer recorded it: without a location filter, the feed may hold others.
   const params = { feed: stream.feed, ...stream.series, location: stream.location, week_from: range?.from, week_to: range?.to }
@@ -41,7 +41,8 @@ function StreamChart({ stream, range, shading }) {
           const series = [{ ...model.series[0], label }]
           return asTable
             ? <SeriesTable periods={model.periods} series={series} unit={unit} />
-            : <TimeSeriesChart periods={model.periods} series={series} unit={unit} shading={shading} height={180} />
+            : <TimeSeriesChart periods={model.periods} series={series} unit={unit} shading={shading} height={180}
+                axisWidth={axisWidth} onAxisWidth={onAxisWidth} />
         }}
       </ResourceBoundary>
     </Box>
@@ -64,6 +65,9 @@ export function PhasePanel({ panel, target, location, range, latest }) {
   const phases = useQuery({ queryKey: ['phases', base], queryFn: () => fetchPhases(base), enabled: !!method })
   const streams = useQuery({ queryKey: ['phase-streams', base], queryFn: () => fetchPhaseStreams(base), enabled: !!method })
   const title = configLabel(t, panel.label_key, panel.id)
+  const [axisWidth, setAxisWidth] = useState(0)
+  // Only ever grows, so the charts settle after one pass instead of re-fitting each other.
+  const reportAxis = useCallback((width) => setAxisWidth((widest) => Math.max(widest, Math.ceil(width))), [])
   const rows = phases.data ?? []
   const pick = rows.length && range ? pickInRange(rows, range, latest) : null
   // Without a location filter, several locations' phases can share a week; none of them is "the" phase.
@@ -88,7 +92,8 @@ export function PhasePanel({ panel, target, location, range, latest }) {
               {(list) => (
                 <Stack spacing={2}>
                   {list.map((s) => (
-                    <StreamChart key={`${s.location}/${s.role}`} stream={s} range={range}
+                    <StreamChart key={`${s.location}/${s.role}`} stream={s} range={range} axisWidth={axisWidth}
+                      onAxisWidth={reportAxis}
                       shading={activeWeeks(loaded.filter((r) => r.location === s.location), method.active_phases)} />
                   ))}
                 </Stack>
