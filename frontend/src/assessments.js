@@ -1,18 +1,37 @@
-// Assessments are fetched over the whole history once; the range then only re-picks a row.
-export function assessmentParams({ week_from, week_to, ...rest }) {
-  return rest
-}
-
 // The tile describes the range's last week (spec §9): the latest assessment within the range,
 // never one from before it. null = the series is never assessed, so the panel shows no tiles.
 export function pickInRange(rows, range, latest) {
   if (!rows.length) return null
-  // Two rows for one week means the query matched several series: no row describes this panel's one.
-  if (new Set(rows.map((r) => r.period)).size !== rows.length) return { ambiguous: true }
+  // Two rows for one week, or rows of several locations (no location filter), are several series: no row
+  // describes this panel's one, and one location's weeks aren't another's history.
+  if (new Set(rows.map((r) => r.period)).size !== rows.length || new Set(rows.map((r) => r.location)).size > 1) {
+    return { ambiguous: true }
+  }
   const row = rows
     .filter((r) => r.period >= range.from && r.period <= range.to)
     .reduce((best, r) => (!best || r.period > best.period ? r : best), undefined)
   return row ? { row, asOf: row.period, current: row.period === latest } : { row: undefined }
+}
+
+// The one series a panel's data rows plot (its location and shared dimensions), or null when they mix several
+// or are empty: the chart warns about a mix itself.
+export function plottedSeries(rows) {
+  if (!rows?.length || new Set(rows.map((r) => r.location)).size > 1) return null
+  const dims = Object.entries(rows[0].dimensions ?? {}).filter(([k, v]) => rows.every((r) => r.dimensions?.[k] === v))
+  return { location: rows[0].location, dimensions: Object.fromEntries(dims) }
+}
+
+// Whether a lookup row (assessment, threshold) belongs to the plotted series: same location, and no dimension
+// the two both carry set differently.
+export function ofSeries(row, series) {
+  return row.location === series.location
+    && Object.entries(row.dimensions ?? {}).every(([k, v]) => !(k in series.dimensions) || series.dimensions[k] === v)
+}
+
+// Whether rows (assessments, thresholds) all belong to one series: one location, one set of dimensions.
+export function singleSeries(rows) {
+  const key = (r) => `${r.location}|${JSON.stringify(Object.entries(r.dimensions ?? {}).sort())}`
+  return new Set(rows.map(key)).size <= 1
 }
 
 // Ordered levels onto three tones by position, so any method's scale reads the same way. An ungraded

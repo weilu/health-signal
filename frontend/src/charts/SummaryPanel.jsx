@@ -3,7 +3,7 @@ import { Navigate, Link as RouterLink, useLocation } from 'react-router-dom'
 import { Alert, Box, Chip, CircularProgress, Link, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { fetchAssessments, fetchPhaseStreams } from '../api.js'
-import { assessmentParams, combinedState, levelTone, pickInRange, sameSeries, toneColor } from '../assessments.js'
+import { combinedState, levelTone, pickInRange, sameSeries, toneColor } from '../assessments.js'
 import { panelParams, withFilters } from '../filters.js'
 import { configLabel, weekStamp } from '../labels.js'
 import { useMethod } from '../useMethod.js'
@@ -17,7 +17,7 @@ export function SummaryPanel({ panel, target, location, range, latest }) {
   const streams = useQuery({ queryKey: ['phase-streams', base], queryFn: () => fetchPhaseStreams(base), enabled: !!method })
   const entries = target.pages.flatMap((page) => page.panels
     .filter((p) => p.type === 'timeseries' && !p.series_by)
-    .map((p) => ({ page, panel: p, params: { ...assessmentParams(panelParams(p.query, location?.value, range)), method: method?.name } })))
+    .map((p) => ({ page, panel: p, params: { ...panelParams(p.query, location?.value), method: method?.name } })))
   // Same query keys as the panels' own tile lookups, so these share their cache.
   const results = useQueries({
     queries: entries.map((e) => ({ queryKey: ['assessments', e.params], queryFn: () => fetchAssessments(e.params), enabled: !!method })),
@@ -49,7 +49,9 @@ export function SummaryPanel({ panel, target, location, range, latest }) {
               {rows.map(({ page, panel: p, data }) => {
                 const pick = range ? pickInRange(data, range, latest) : null
                 const row = pick?.row
-                const stream = (streams.data ?? []).find((s) => sameSeries(p.query.feed, { indicator: p.query.indicator, ...p.query.dimensions }, s))
+                // The stream's own location too: without a location filter, another region's row has the same selector.
+                const stream = !pick?.ambiguous && (streams.data ?? []).find((s) => s.location === data[0].location
+                  && sameSeries(p.query.feed, { indicator: p.query.indicator, ...p.query.dimensions }, s))
                 return (
                   // A real row with a real link, stretched over the row so the whole row is clickable.
                   <TableRow key={`${page.id}/${p.id}`} hover selected={!!stream} sx={{ position: 'relative' }}>

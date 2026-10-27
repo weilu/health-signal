@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { activeWeeks, assessmentParams, bandAlpha, bandsFor, levelTone, phaseSince, pickInRange, sameSeries } from './assessments.js'
+import { activeWeeks, bandAlpha, bandsFor, levelTone, phaseSince, pickInRange, sameSeries } from './assessments.js'
 
 const a = (period, extra = {}) => ({ period, level: 'low', ...extra })
 const LEVELS = ['very_low', 'low', 'medium', 'high', 'very_high']
@@ -53,11 +53,6 @@ describe('sameSeries', () => {
   })
 })
 
-describe('assessmentParams', () => {
-  it('drops the date range so the whole history is fetched once', () =>
-    expect(assessmentParams({ feed: 'w', indicator: 'cov', week_from: 'a', week_to: 'b' })).toEqual({ feed: 'w', indicator: 'cov' }))
-})
-
 describe('levelTone for ungraded weeks', () => {
   it('is neutral, never the all-clear tone', () => {
     expect(levelTone(LEVELS, null)).toBe('neutral')
@@ -78,6 +73,14 @@ describe('bandAlpha', () => {
 describe('pickInRange with several series', () => {
   it('reports rows of several series as ambiguous rather than picking one', () => {
     const rows = [{ period: '2026-W10', level: 'low' }, { period: '2026-W10', level: 'high' }]
+    expect(pickInRange(rows, { from: '2026-W01', to: '2026-W20' }, '2026-W20')).toEqual({ ambiguous: true })
+  })
+})
+
+describe('pickInRange across locations', () => {
+  it('treats rows of several locations as ambiguous even when their weeks differ', () => {
+    // Without a location filter, Greece's W10 and Attica's W09 aren't one series' history.
+    const rows = [{ location: 'Greece', period: '2026-W10' }, { location: 'Attica', period: '2026-W09' }]
     expect(pickInRange(rows, { from: '2026-W01', to: '2026-W20' }, '2026-W20')).toEqual({ ambiguous: true })
   })
 })

@@ -14,13 +14,13 @@ const target = { id: 'Influenza', pages: [{ id: 'ww', path: '/influenza/ww', lab
   { id: 'load', type: 'timeseries', label_key: 'panels.load', query: { feed: 'wastewater', indicator: 'fluA', dimensions: {} } },
 ] }] }
 
-function renderPanel() {
+function renderPanel(location = { value: 'Attica' }) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={client}>
       <MemoryRouter>
         <SummaryPanel panel={{ id: 'summary', label_key: 'panels.summary' }} target={target}
-          location={{ value: 'Attica' }} range={{ from: '2026-W01', to: '2026-W20' }} latest="2026-W20" />
+          location={location} range={{ from: '2026-W01', to: '2026-W20' }} latest="2026-W20" />
       </MemoryRouter>
     </QueryClientProvider>,
   )
@@ -72,5 +72,15 @@ describe('SummaryPanel', () => {
     expect(await screen.findByText('assessment.ambiguous')).toBeTruthy()
     expect(screen.queryByText('level.high')).toBeNull()
     expect(screen.queryByText('assessment.noneInRange')).toBeNull()
+  })
+
+  it("highlights a row as a stream only at the stream's own location", async () => {
+    fetchConfig.mockResolvedValue({ methods: METHOD })
+    fetchPhaseStreams.mockResolvedValue([{ location: 'Greece', pathogen: 'Influenza', method: 'aedseo', role: 'cases',
+                                           feed: 'wastewater', series: { indicator: 'fluA' } }])
+    fetchAssessments.mockResolvedValue([{ location: 'Attica', period: '2026-W10', level: 'low', method: 'aedseo' }])
+    renderPanel(null)
+    await screen.findByRole('link', { name: 'load' })
+    expect(screen.queryByText('cases')).toBeNull()   // the role chip (its defaultValue: no locale loaded)
   })
 })

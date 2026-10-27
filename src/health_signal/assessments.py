@@ -242,6 +242,9 @@ class PhaseStreamSource:
             return f"series names pathogen {params['pathogen']!r}, not {pathogen!r}"
         if implied is None and "pathogen" not in params and params["indicator"] in profile.pathogen_specific:
             return f"indicator {params['indicator']!r} is pathogen-specific; the series must name its pathogen"
+        # parse_qsl drops blank values, so "aggregation=" reads as left out, as it should.
+        if missing := sorted(d for d in profile.required_dimensions if d not in params):
+            return f"series lacks {profile.name}'s required dimension {missing[0]!r}, so it would match several series"
         return None
 
     def _violation(self, df: pd.DataFrame):

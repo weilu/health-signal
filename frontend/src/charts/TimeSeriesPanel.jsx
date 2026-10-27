@@ -5,7 +5,7 @@ import { Alert, Button, Paper, Stack, Typography } from '@mui/material'
 import { alpha, useTheme } from '@mui/material/styles'
 import { useTranslation } from 'react-i18next'
 import { fetchAssessments, fetchData, fetchThresholds } from '../api.js'
-import { activeWeeks, assessmentParams, bandAlpha, bandsFor, combinedState, levelTone, pickInRange } from '../assessments.js'
+import { activeWeeks, bandAlpha, bandsFor, combinedState, levelTone, ofSeries, pickInRange, plottedSeries, singleSeries } from '../assessments.js'
 import { useMethod } from '../useMethod.js'
 import { StatusTrendTiles, TileGrid } from './StatusTrendTiles.jsx'
 import { ResourceBoundary } from '../ResourceBoundary.jsx'
@@ -25,18 +25,27 @@ export function TimeSeriesPanel({ panel, location, range, latest }) {
   const query = useQuery({ queryKey: ['data', params], queryFn: () => fetchData(params) })
   // Tiles describe one series, so panels split into several lines get none.
   const single = !panel.series_by && !!method
-  const aParams = { ...assessmentParams(params), method: method?.name }
+  // Over the whole history, so the range only re-picks a row; the summary builds the same key and shares the cache.
+  const aParams = { ...panelParams(panel.query, location?.value), method: method?.name }
   const assessed = useQuery({ queryKey: ['assessments', aParams], queryFn: () => fetchAssessments(aParams), enabled: single })
   const tParams = { ...params, method: method?.name }
   const thresholds = useQuery({ queryKey: ['thresholds', tParams], queryFn: () => fetchThresholds(tParams), enabled: single })
-  const pick = single && range && assessed.data ? pickInRange(assessed.data, range, latest) : null
+  // Without a location filter the lookups can hold other populations than the one plotted (e.g. Attica's
+  // history beside Greece's chart): keep only the plotted series' rows for tiles, bands and shading.
+  const plotted = plottedSeries(query.data)
+  const own = (rows) => (plotted ? (rows ?? []).filter((r) => ofSeries(r, plotted)) : rows ?? [])
+  const assessedRows = own(assessed.data)
+  const thresholdRows = own(thresholds.data)
+  const pick = single && range && assessed.data && assessedRows.length ? pickInRange(assessedRows, range, latest) : null
   // Cached rows keep serving through a failed refetch; only a lookup that never loaded counts as failed.
   const lookups = single ? combinedState([assessed, thresholds]) : 'ok'
-  const chartExtras = single ? {
-    bands: bandsFor(thresholds.data ?? [], method.levels),
+  // Bands need no assessment history, but neither overlay may merge several series.
+  const overlays = single && !pick?.ambiguous && singleSeries([...assessedRows, ...thresholdRows])
+  const chartExtras = overlays ? {
+    bands: bandsFor(thresholdRows, method.levels),
     bandColour: (level) => alpha(theme.palette[levelTone(method.levels, level)].main, bandAlpha(method.levels, level)),
     bandLabel: (level) => t(`level.${level}`),
-    shading: activeWeeks(assessed.data ?? [], method.active_phases),
+    shading: activeWeeks(assessedRows, method.active_phases),
   } : {}
   const title = configLabel(t, panel.label_key, panel.id)
   const card = (
@@ -66,6 +75,7 @@ export function TimeSeriesPanel({ panel, location, range, latest }) {
   if (lookups === 'unauth') return <Navigate to="/login" replace />
   // A failed lookup must not read as "never assessed"; an ambiguous one leaves the chart's own warning to explain.
   const tiles = lookups === 'error' ? <Alert severity="warning">{t('assessment.unavailable')}</Alert>
-    : pick && !pick.ambiguous && <StatusTrendTiles pick={pick} method={method} />
+    : pick?.ambiguous ? <Alert severity="info">{t('assessment.ambiguous')}</Alert>
+    : pick && <StatusTrendTiles pick={pick} method={method} />
   return <TileGrid card={card} tiles={tiles} />
 }
