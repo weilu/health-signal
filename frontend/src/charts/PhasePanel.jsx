@@ -69,7 +69,7 @@ export function PhasePanel({ panel, target, location, range, latest }) {
       <Typography variant="body1" component="p">{t('phase.ambiguous')}</Typography>
     </Tile>
   ) : pick.row ? (
-    <Tile title={t('phase.title')} current={pick.current} footer={asOfFooter(t, pick, pick.row.method)}>
+    <Tile title={t('phase.title')} current={pick.current} footer={asOfFooter(t, pick, pick.row.method, 'phase')}>
       <Typography variant="h5" component="p">{phaseLabel(t, pick.row, rows, method)}</Typography>
     </Tile>
   ) : <NoneInRange />)
