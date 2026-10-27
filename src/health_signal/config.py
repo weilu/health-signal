@@ -319,12 +319,26 @@ class Config(BaseModel):
         page = next((p for p in target.pages if p.id == page_id), None) if target else None
         return next((x for x in page.panels if x.id == panel_id), None) if page else None
 
-    def _client_panel(self, panel: Panel) -> dict:
+    def _canonical_query(self, query: PanelQuery) -> tuple | None:
+        feed = next((f for f in self.data.feeds if f.id == query.feed), None) if self.data else None
+        if feed is None:
+            return None
+        dims = PROFILES[feed.profile].canonical(query.indicator, query.dimensions)
+        return query.feed, query.indicator, tuple(sorted(dims.items()))
+
+    def _client_panel(self, panel: Panel, shared: dict[tuple, list[str]]) -> dict:
         out = panel.model_dump(mode="json")
-        feed = next((f for f in self.data.feeds if panel.query and f.id == panel.query.feed), None) if self.data else None
-        if feed is not None:
-            # Canonical, as phase streams are, so the summary compares a panel with a stream like for like.
-            out["query"]["dimensions"] = PROFILES[feed.profile].canonical(panel.query.indicator, panel.query.dimensions)
+        key = self._canonical_query(panel.query) if panel.query else None
+        if key is None:
+            return out
+        feed, indicator, dims = key
+        profile = PROFILES[next(f.profile for f in self.data.feeds if f.id == feed)]
+        # Canonical, as phase streams are, so the summary compares a panel with a stream like for like.
+        out["query"]["dimensions"] = dict(dims)
+        # The overview groups by feed, then pathogen-specific vs syndromic (an indicator reported per pathogen,
+        # or implying one, vs e.g. ILI), naming the tabs a syndromic series is shared across.
+        specific = indicator in profile.pathogen_specific or bool(profile.indicator_implies.get(indicator, {}).get("pathogen"))
+        out["group"] = {"feed": feed, "kind": "pathogen_specific" if specific else "syndromic", "targets": shared[key]}
         return out
 
     def bootstrap_config(self) -> dict:
@@ -338,12 +352,19 @@ class Config(BaseModel):
 
     def client_config(self) -> dict:
         # Full view-model (authenticated); still excludes server-only fields.
+        shared: dict[tuple, list[str]] = {}
+        for t in self.targets:
+            for page in t.pages:
+                for panel in page.panels:
+                    key = self._canonical_query(panel.query) if panel.query else None
+                    if key is not None and t.id not in shared.setdefault(key, []):
+                        shared[key].append(t.id)
         return {
             **self.bootstrap_config(),
             "targets": [
                 {**t.model_dump(mode="json"),
                  "pages": [{**p.model_dump(mode="json"), "path": page_path(t.id, p.id),
-                            "panels": [self._client_panel(x) for x in p.panels]} for p in t.pages]}
+                            "panels": [self._client_panel(x, shared) for x in p.panels]} for p in t.pages]}
                 for t in self.targets
             ],
             # The client keeps reading the year start beside the range settings it shapes.

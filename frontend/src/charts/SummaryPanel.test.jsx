@@ -14,12 +14,12 @@ const target = { id: 'Influenza', pages: [{ id: 'ww', path: '/influenza/ww', lab
   { id: 'load', type: 'timeseries', label_key: 'panels.load', query: { feed: 'wastewater', indicator: 'fluA', dimensions: {} } },
 ] }] }
 
-function renderPanel(location = { value: 'Attica' }) {
+function renderPanel(location = { value: 'Attica' }, tgt = target) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={client}>
       <MemoryRouter>
-        <SummaryPanel panel={{ id: 'summary', label_key: 'panels.summary' }} target={target}
+        <SummaryPanel panel={{ id: 'summary', label_key: 'panels.summary' }} target={tgt}
           location={location} range={{ from: '2026-W01', to: '2026-W20' }} latest="2026-W20" />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -82,5 +82,25 @@ describe('SummaryPanel', () => {
     renderPanel(null)
     await screen.findByRole('link', { name: 'load' })
     expect(screen.queryByText('cases')).toBeNull()   // the role chip (its defaultValue: no locale loaded)
+  })
+
+  it('groups rows under feed and kind subheadings instead of a page column', async () => {
+    const panel = (id, feed, kind, targets) => ({ id, type: 'timeseries', label_key: `panels.${id}`,
+      query: { feed, indicator: id, dimensions: {} }, group: { feed, kind, targets } })
+    const grouped = { id: 'Influenza', pages: [{ id: 'c', path: '/influenza/c', label_key: 'pages.c', panels: [
+      panel('adm', 'clinical', 'pathogen_specific', ['Influenza']),
+      panel('ili', 'clinical', 'syndromic', ['SARS-CoV-2', 'Influenza']),
+      panel('load', 'wastewater', 'pathogen_specific', ['Influenza']),
+    ] }] }
+    fetchConfig.mockResolvedValue({ methods: METHOD })
+    fetchPhaseStreams.mockResolvedValue([])
+    fetchAssessments.mockResolvedValue([{ location: 'Attica', period: '2026-W10', level: 'low', method: 'aedseo' }])
+    renderPanel(undefined, grouped)
+    const headings = (await screen.findAllByRole('rowheader')).map((h) => h.textContent)
+    // The clinical feed has both kinds, so each is named; wastewater has one, so its heading is the feed alone.
+    // Feed names fall back to the feed id when no locale is loaded, as here.
+    expect(headings).toEqual(['clinical · summary.group.pathogen_specific',
+                              'clinical · summary.group.syndromic · summary.sharedAcross', 'wastewater'])
+    expect(screen.queryByText('summary.page')).toBeNull()
   })
 })
