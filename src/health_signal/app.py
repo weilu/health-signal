@@ -13,7 +13,7 @@ from .assessments import (AssessmentRow, AssessmentSource, PhaseRow, PhaseSource
 from .auth import AuthProvider, User
 from .config import Config
 from .datasource import DataSource, FileDataSource
-from .profile import PROFILES, FeedRow
+from .profile import FeedRow
 
 _WEEK = r"^\d{4}-W\d{2}$"  # ISO year-week; a malformed value 422s instead of reaching the source
 _FIXED_PARAMS = {"feed", "location", "indicator", "week_from", "week_to"}
@@ -57,10 +57,10 @@ def create_app(
     provider.install(app)
     feeds = config.data.feeds if config.data else []
     if data_sources is None:
-        data_sources = {f.id: FileDataSource(f.dir, PROFILES[f.profile]) for f in feeds}
-    assessment_sources = {f.id: AssessmentSource(f.assessments, PROFILES[f.profile]) for f in feeds if f.assessments}
+        data_sources = {f.id: FileDataSource(f.dir, config.profile(f.profile)) for f in feeds}
+    assessment_sources = {f.id: AssessmentSource(f.assessments, config.profile(f.profile)) for f in feeds if f.assessments}
     phase_source = PhaseSource(config.data.phases) if config.data and config.data.phases else None
-    stream_source = (PhaseStreamSource(config.data.phase_streams, {f.id: PROFILES[f.profile] for f in feeds})
+    stream_source = (PhaseStreamSource(config.data.phase_streams, {f.id: config.profile(f.profile) for f in feeds})
                      if config.data and config.data.phase_streams else None)
 
     _ALWAYS_PUBLIC = ("/healthz", "/login", "/logout")

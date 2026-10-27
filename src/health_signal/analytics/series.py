@@ -85,7 +85,7 @@ def _series(feed: str, pathogen: str, location: str, rows: list[FeedRow], source
     if first.unit in profile.count_units:
         return Series(feed, pathogen, location, first.indicator, dims, first.unit, periods,
                       [values[p] for p in periods], "count", censored=[p in censored for p in periods])
-    denominator = profile.denominators.get(first.indicator)
+    denominator = profile.denominator_for(first.indicator, first.unit)
     if denominator is None:
         # A rate or load with no denominator series: a constant exposure, which cancels in the growth model.
         return Series(feed, pathogen, location, first.indicator, dims, first.unit, periods,

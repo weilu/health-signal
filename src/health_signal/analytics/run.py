@@ -10,7 +10,6 @@ from ..assessments import PhaseSource, PhaseStreamSource
 from ..config import Config
 from ..datasource import FileDataSource
 from ..methods import AEDSEO
-from ..profile import PROFILES
 from .aedseo_r import RAedseo
 from .backend import Backend
 from .engine import SeriesResult, assess_series
@@ -54,7 +53,7 @@ def assess(config: Config, *, full: bool = False, jobs: int = 1,
                            "to 2-52 (e.g. 21 for W21-W20 respiratory seasons)")
     factory = backend or RAedseo
     main_backend = factory()
-    profiles = {f.id: PROFILES[f.profile] for f in config.data.feeds}
+    profiles = {f.id: config.profile(f.profile) for f in config.data.feeds}
     sources = {f.id: FileDataSource(f.dir, profiles[f.id]) for f in config.data.feeds}
     series, refs, warnings = assessed_series(config, sources)
     if not series:

@@ -3,10 +3,11 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, PositiveInt, computed_field, field_validator, model_validator
+from pydantic import (BaseModel, ConfigDict, Field, PositiveFloat, PositiveInt, PrivateAttr, computed_field,
+                      field_validator, model_validator)
 
 from .methods import METHODS
-from .profile import PATHOGENS, PROFILES, implies_message
+from .profile import PATHOGENS, PROFILES, Denominator, Profile, implies_message
 
 
 class Branding(BaseModel):
@@ -184,12 +185,65 @@ class FeedConfig(BaseModel):
     dir: str
     assessments: str | None = None  # Status/Trend tables for this feed's series (spec §6.3)
 
-    @field_validator("profile")
+
+
+class DenominatorRule(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    indicator: str            # the rate
+    unit: str | None = None   # only the rate's rows in this unit
+    denominator: str          # the indicator whose value is the rate's exposure
+    per: PositiveFloat
+
+
+class ProfileExtension(BaseModel):
+    """Additive vocabulary on a built-in profile (spec §6.2.1): data valid under the base stays valid."""
+    model_config = ConfigDict(extra="forbid")
+    extends: str
+    indicators: set[str] = set()
+    units: set[str] = set()
+    dimension_vocab: dict[str, set[str]] = {}
+    qualities: set[str] = set()
+    count_units: set[str] = set()
+    censored_qualities: set[str] = set()
+    pathogen_specific: set[str] = set()
+    denominators: list[DenominatorRule] = []
+
+    @field_validator("extends")
     @classmethod
-    def _known_profile(cls, name: str) -> str:
+    def _built_in(cls, name: str) -> str:
         if name not in PROFILES:
-            raise ValueError(f"unknown profile {name!r}; one of {sorted(PROFILES)}")
+            raise ValueError(f"extends {name!r}, which is not a built-in profile; one of {sorted(PROFILES)}")
         return name
+
+    def build(self, name: str) -> Profile:
+        base = PROFILES[self.extends]
+        vocab = dict(base.dimension_vocab)
+        for dim, values in self.dimension_vocab.items():
+            if dim == "pathogen":
+                raise ValueError(f"profile {name!r}: the pathogen vocabulary is the shared registry, not extensible")
+            if dim not in base.dimension_keys:
+                # A new key would change how this profile's series are identified.
+                raise ValueError(f"profile {name!r}: {dim!r} is not a dimension of {base.name}")
+            if dim not in vocab:
+                raise ValueError(f"profile {name!r}: dimension {dim!r} of {base.name} is already unconstrained")
+            vocab[dim] = vocab[dim] | values
+        indicators, units = base.indicators | self.indicators, base.units | self.units
+        for rule in self.denominators:
+            if rule.indicator not in indicators:
+                raise ValueError(f"profile {name!r}: denominator rule for unknown indicator {rule.indicator!r}")
+            if rule.denominator not in indicators:
+                raise ValueError(f"profile {name!r}: denominator {rule.denominator!r} is not an indicator")
+            if rule.unit is not None and rule.unit not in units:
+                raise ValueError(f"profile {name!r}: unit {rule.unit!r} of the {rule.indicator} rule is not a unit")
+        return base.model_copy(update={
+            "name": name, "version": f"{base.version}+{name}", "indicators": indicators, "units": units,
+            "dimension_vocab": vocab, "qualities": base.qualities | self.qualities,
+            "count_units": base.count_units | self.count_units,
+            "censored_qualities": base.censored_qualities | self.censored_qualities,
+            "pathogen_specific": base.pathogen_specific | self.pathogen_specific,
+            "denominators": [*base.denominators, *(Denominator(rate=r.indicator, unit=r.unit, indicator=r.denominator,
+                                                               per=r.per) for r in self.denominators)],
+        })
 
 
 class PhaseStreamsEntry(BaseModel):
@@ -253,8 +307,24 @@ class Config(BaseModel):
     filters: Filters = Field(default_factory=Filters)
     surveillance: Surveillance = Field(default_factory=Surveillance)
     analytics: AnalyticsConfig = Field(default_factory=AnalyticsConfig)
+    profiles: dict[str, ProfileExtension] = Field(default_factory=dict)   # server-only, like data
     # Server-only: neither projection below references it, so it never reaches the client.
     data: DataConfig | None = None
+    _profiles: dict[str, Profile] = PrivateAttr(default_factory=dict)
+
+    # First of the validators: the ones after it read feeds' profiles through self.profile().
+    @model_validator(mode="after")
+    def _resolve_profiles(self) -> "Config":
+        if shadowing := set(self.profiles) & set(PROFILES):
+            raise ValueError(f"profiles {sorted(shadowing)} would shadow a built-in profile; name the extension apart")
+        self._profiles = {**PROFILES, **{name: ext.build(name) for name, ext in self.profiles.items()}}
+        for feed in self.data.feeds if self.data else []:
+            if feed.profile not in self._profiles:
+                raise ValueError(f"feed {feed.id!r}: unknown profile {feed.profile!r}; one of {sorted(self._profiles)}")
+        return self
+
+    def profile(self, name: str) -> Profile:
+        return self._profiles[name]
 
     @model_validator(mode="after")
     def _unique_pages(self) -> "Config":
@@ -267,7 +337,7 @@ class Config(BaseModel):
     @model_validator(mode="after")
     def _panels_match_their_feeds(self) -> "Config":
         # Checked here, not on the panel: only the config knows which profile a feed id means.
-        profiles = {f.id: PROFILES[f.profile] for f in self.data.feeds} if self.data else {}
+        profiles = {f.id: self.profile(f.profile) for f in self.data.feeds} if self.data else {}
         for target in self.targets:
             for page in target.pages:
                 for panel in page.panels:
@@ -324,7 +394,7 @@ class Config(BaseModel):
         feed = next((f for f in self.data.feeds if panel.query and f.id == panel.query.feed), None) if self.data else None
         if feed is not None:
             # Canonical, as phase streams are, so the summary compares a panel with a stream like for like.
-            out["query"]["dimensions"] = PROFILES[feed.profile].canonical(panel.query.indicator, panel.query.dimensions)
+            out["query"]["dimensions"] = self.profile(feed.profile).canonical(panel.query.indicator, panel.query.dimensions)
         return out
 
     def bootstrap_config(self) -> dict:

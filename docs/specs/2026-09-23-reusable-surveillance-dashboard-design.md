@@ -182,6 +182,36 @@ reporting exceptions: ILI/ARI rates are per 100 000 population except per 100 co
 Luxembourg, Malta) and per 100 000 consultations (Finland), per the ERVISS README. ERVISS's variant
 and sequencing files have a different shape and belong to the variant track.
 
+#### 6.2.1 Extending a profile in config
+
+A country's own surveillance rarely matches a published vocabulary exactly: Greece's EODY reports a SARI
+rate per 1,000 hospital admissions (ERVISS's `SARIrate` is per 100k population) and positivity from a
+private-hospital network ERVISS has no surveillance type for. Rather than adding those to a built-in
+profile — which stays pinned to its published vocabulary — a dashboard declares a named, additive
+extension and its feeds use it:
+
+```yaml
+profiles:
+  erviss_gr:
+    extends: erviss
+    units: [per_1000_admissions]
+    dimension_vocab: {survtype: [private hospital]}
+    denominators:
+      - {indicator: SARIrate, unit: per_1000_admissions, denominator: hospitaladmissions, per: 1000}
+data:
+  feeds:
+    - {id: clinical, profile: erviss_gr, dir: data/clinical}
+```
+
+An extension may add indicators, units, dimension values, count units, censored qualities,
+pathogen-specific indicators and denominators; it can't remove or rename anything (data valid under
+the base stays valid), add a dimension key (that changes how series are identified), or extend the
+`pathogen` vocabulary (the shared registry, §6.1). It must extend a built-in profile and may not take a
+built-in's name; its version reads `<base version>+<name>`. Denominators may be scoped to a unit, so the
+admissions-based SARI rate is modelled against admissions while ERVISS's per-population one isn't.
+Everything validates against the extended profile exactly as against a built-in: feed rows, panel
+queries, assessments and phase streams.
+
 ### 6.3 Extensions and derived analytics
 
 - **Wastewater (WBE) — the `phes_odm` profile.** ERVISS has no wastewater indicator, so this is its

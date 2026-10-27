@@ -18,8 +18,10 @@ def implies_message(indicator: str, dim: str, value: str) -> str:
     return f"indicator {indicator!r} carries no {dim}" if value == "" else f"indicator {indicator!r} implies {dim} {value!r}"
 
 class Denominator(BaseModel):
-    indicator: str  # the series whose value is this rate's exposure, same key otherwise
-    per: float      # the rate's scale: 100 for a percentage of tests
+    rate: str                # the rate indicator modelled against it
+    indicator: str           # the series whose value is the rate's exposure, same key otherwise
+    per: float               # the rate's scale: 100 for a percentage of tests
+    unit: str | None = None  # only the rate's rows in this unit (one indicator, two measures); None = any unit
 
 
 class Profile(BaseModel):
@@ -41,9 +43,14 @@ class Profile(BaseModel):
     count_units: set[str] = set()  # graded on aedseo's cases path; every other unit is a rate or load
     # rate indicator -> its own denominator series, aedseo's exposure offset: growth of positivity must be
     # modelled against tests, not population (greece-public-health's AEDSEO_INPUTS note).
-    denominators: dict[str, Denominator] = {}
+    denominators: list[Denominator] = []
     # Indicators reported per pathogen: a series of one without a pathogen mixes every pathogen's figures.
     pathogen_specific: set[str] = set()
+
+    def denominator_for(self, indicator: str, unit: str) -> Denominator | None:
+        # A unit-scoped rule wins: e.g. a SARI rate per admissions uses admissions, one per population doesn't.
+        matches = [d for d in self.denominators if d.rate == indicator and d.unit in (unit, None)]
+        return min(matches, key=lambda d: d.unit is None, default=None)
 
     def canonical(self, indicator: str, dimensions: dict[str, str]) -> dict[str, str]:
         """The dimensions minus those the indicator implies, so equal series compare equal however written."""
@@ -135,7 +142,7 @@ ERVISS = Profile(
     period_pattern=r"\d{4}-W\d{2}",
     required_dimensions={"survtype", "age"},  # spec §6.2: only the pathogen fields are nullable
     count_units={"count"},
-    denominators={"positivity": Denominator(indicator="tests", per=100)},
+    denominators=[Denominator(rate="positivity", indicator="tests", per=100)],
     # ILI, ARI and SARI rates are syndromic (no pathogen); everything else is reported per pathogen.
     pathogen_specific={"tests", "detections", "positivity", "hospitaladmissions", "ICUadmissions",
                        "ICUinpatients", "deaths"},

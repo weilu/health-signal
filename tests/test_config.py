@@ -141,7 +141,6 @@ def test_panels_need_a_data_block():
 @pytest.mark.parametrize("bad", [
     {"feeds": []},
     {"feeds": [{"id": "c", "profile": "erviss", "dir": "a"}, {"id": "c", "profile": "erviss", "dir": "b"}]},  # duplicate id
-    {"feeds": [{"id": "c", "profile": "nwss", "dir": "a"}]},                                                  # unknown profile
     {"feeds": [{"id": "", "profile": "erviss", "dir": "a"}]},                                                 # the client drops empty params
     {"dir": "a"},                                                                                             # the old single-feed form
 ])
