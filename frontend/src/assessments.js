@@ -80,6 +80,28 @@ export function phaseSince(rows, asOf, activePhases) {
   return sorted[i].period
 }
 
+// The runs of active weeks overlapping the range (the stream charts' shaded bands, as a list): each run keeps
+// its true start and end, flagged where the range clips it, and is ongoing when it reaches the latest row.
+// Rows are consecutive weeks, as phaseSince reads them.
+export function phaseRuns(rows, range, activePhases) {
+  const sorted = [...rows].sort((x, y) => (x.period < y.period ? -1 : 1))
+  const runs = []
+  let run = null
+  for (const r of sorted) {
+    if (activePhases.includes(r.phase)) {
+      run = run ? { ...run, to: r.period, weeks: run.weeks + 1 } : { from: r.period, to: r.period, weeks: 1 }
+    } else if (run) {
+      runs.push(run)
+      run = null
+    }
+  }
+  if (run) runs.push({ ...run, ongoing: true })
+  return runs
+    .filter((x) => x.to >= range.from && x.from <= range.to)
+    .map((x) => ({ from: x.from, to: x.to, weeks: x.weeks, startsBefore: x.from < range.from, endsAfter: x.to > range.to,
+                   ongoing: !!x.ongoing }))
+}
+
 // A panel's {indicator, ...dimensions} against a phase stream's series, in any parameter order.
 export function sameSeries(feed, params, stream) {
   const keys = Object.keys(stream.series)
