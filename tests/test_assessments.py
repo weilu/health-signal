@@ -136,11 +136,14 @@ def test_phase_streams_load(tmp_path):
     (_S1.replace("indicator=fluA", "indicator=cov&pathogen=Influenza"), "implies pathogen"),  # naming it doesn't hide it
     (_S1.replace("indicator=fluA", "indicator=fluA&pathogen=Measles"), "pathogen 'Measles' not allowed"),
     (_S1.replace("indicator=fluA&aggregation=floMean", "indicator=ppmv&aggregation=me"), "carries no pathogen"),
-    (_S1.replace(",wastewater,indicator=fluA&aggregation=floMean", ",clinical,indicator=detections&pathogen=RSV"),
-     "names pathogen 'RSV'"),
+    (_S1.replace(",wastewater,indicator=fluA&aggregation=floMean",
+                 ",clinical,indicator=detections&pathogen=RSV&survtype=non-sentinel&age=total"), "names pathogen 'RSV'"),
     # admissions of every pathogen at once: the overview would chart a mixture as influenza's evidence
     (_S1.replace(",wastewater,indicator=fluA&aggregation=floMean",
                  ",clinical,indicator=hospitaladmissions&survtype=non-sentinel&age=total"), "pathogen-specific"),
+    # a required dimension left out (or blank) matches every value of it: several series, not one
+    (_S1.replace("&aggregation=floMean", ""), "required dimension 'aggregation'"),
+    (_S1.replace("aggregation=floMean", "aggregation="), "required dimension 'aggregation'"),
 ])
 def test_bad_phase_streams_fail(tmp_path, bad, message):
     with pytest.raises(ValueError, match=rf"phase_streams\.csv row 1: .*{message}"):

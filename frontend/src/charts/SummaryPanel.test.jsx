@@ -14,13 +14,13 @@ const target = { id: 'Influenza', pages: [{ id: 'ww', path: '/influenza/ww', lab
   { id: 'load', type: 'timeseries', label_key: 'panels.load', query: { feed: 'wastewater', indicator: 'fluA', dimensions: {} } },
 ] }] }
 
-function renderPanel() {
+function renderPanel(location = { value: 'Attica' }, tgt = target) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={client}>
       <MemoryRouter>
-        <SummaryPanel panel={{ id: 'summary', label_key: 'panels.summary' }} target={target}
-          location={{ value: 'Attica' }} range={{ from: '2026-W01', to: '2026-W20' }} latest="2026-W20" />
+        <SummaryPanel panel={{ id: 'summary', label_key: 'panels.summary' }} target={tgt}
+          location={location} range={{ from: '2026-W01', to: '2026-W20' }} latest="2026-W20" />
       </MemoryRouter>
     </QueryClientProvider>,
   )
@@ -72,5 +72,45 @@ describe('SummaryPanel', () => {
     expect(await screen.findByText('assessment.ambiguous')).toBeTruthy()
     expect(screen.queryByText('level.high')).toBeNull()
     expect(screen.queryByText('assessment.noneInRange')).toBeNull()
+  })
+
+  it("highlights a row as a stream only at the stream's own location", async () => {
+    fetchConfig.mockResolvedValue({ methods: METHOD })
+    fetchPhaseStreams.mockResolvedValue([{ location: 'Greece', pathogen: 'Influenza', method: 'aedseo', role: 'cases',
+                                           feed: 'wastewater', series: { indicator: 'fluA' } }])
+    fetchAssessments.mockResolvedValue([{ location: 'Attica', period: '2026-W10', level: 'low', method: 'aedseo' }])
+    renderPanel(null)
+    await screen.findByRole('link', { name: 'load' })
+    expect(screen.queryByText('cases')).toBeNull()   // the role chip (its defaultValue: no locale loaded)
+  })
+
+  it('groups rows under feed and kind subheadings instead of a page column', async () => {
+    const panel = (id, feed, kind, targets) => ({ id, type: 'timeseries', label_key: `panels.${id}`,
+      query: { feed, indicator: id, dimensions: {} }, group: { feed, kind, targets } })
+    const grouped = { id: 'Influenza', pages: [{ id: 'c', path: '/influenza/c', label_key: 'pages.c', panels: [
+      panel('adm', 'clinical', 'pathogen_specific', ['Influenza']),
+      panel('ili', 'clinical', 'syndromic', ['SARS-CoV-2', 'Influenza']),
+      panel('load', 'wastewater', 'pathogen_specific', ['Influenza']),
+    ] }] }
+    fetchConfig.mockResolvedValue({ methods: METHOD })
+    fetchPhaseStreams.mockResolvedValue([])
+    fetchAssessments.mockResolvedValue([{ location: 'Attica', period: '2026-W10', level: 'low', method: 'aedseo' }])
+    renderPanel(undefined, grouped)
+    const headings = (await screen.findAllByRole('rowheader')).map((h) => h.textContent)
+    // The clinical feed has both kinds, so each is named; wastewater has one, so its heading is the feed alone.
+    // Feed names fall back to the feed id when no locale is loaded, as here.
+    expect(headings).toEqual(['clinical · summary.group.pathogen_specific',
+                              'clinical · summary.group.syndromic · summary.sharedAcross', 'wastewater'])
+    expect(screen.queryByText('summary.page')).toBeNull()
+  })
+
+  it('also states status, trend and as-of under the indicator, for narrow screens', async () => {
+    // Phones show this line instead of three more columns (CSS picks which; jsdom renders both).
+    fetchConfig.mockResolvedValue({ methods: METHOD })
+    fetchPhaseStreams.mockResolvedValue([])
+    fetchAssessments.mockResolvedValue([{ location: 'Attica', period: '2026-W10', level: 'low', trend: 'stable', method: 'aedseo' }])
+    renderPanel()
+    const cell = (await screen.findByRole('link', { name: 'load' })).closest('td')
+    expect(cell.textContent).toContain('level.low · trend.stable · range.week')
   })
 })

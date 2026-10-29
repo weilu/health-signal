@@ -1,18 +1,42 @@
-// Assessments are fetched over the whole history once; the range then only re-picks a row.
-export function assessmentParams({ week_from, week_to, ...rest }) {
-  return rest
-}
-
 // The tile describes the range's last week (spec §9): the latest assessment within the range,
 // never one from before it. null = the series is never assessed, so the panel shows no tiles.
 export function pickInRange(rows, range, latest) {
   if (!rows.length) return null
-  // Two rows for one week means the query matched several series: no row describes this panel's one.
-  if (new Set(rows.map((r) => r.period)).size !== rows.length) return { ambiguous: true }
+  // Two rows for one week, or rows of several locations or dimension values (even in disjoint weeks), are several
+  // series: no row describes this panel's one, and one series' weeks aren't another's history.
+  if (new Set(rows.map((r) => r.period)).size !== rows.length || !singleSeries(rows)) {
+    return { ambiguous: true }
+  }
   const row = rows
     .filter((r) => r.period >= range.from && r.period <= range.to)
     .reduce((best, r) => (!best || r.period > best.period ? r : best), undefined)
   return row ? { row, asOf: row.period, current: row.period === latest } : { row: undefined }
+}
+
+// The one series a panel's data rows plot (its location and dimensions); { mixed: true } when they mix several
+// (the chart warns about that itself), null when there are none.
+export function plottedSeries(rows) {
+  if (!rows?.length) return null
+  // Data mixing several series has no one series' status or bands to show.
+  if (!singleSeries(rows)) return { mixed: true }
+  const dims = Object.entries(rows[0].dimensions ?? {}).filter(([k, v]) => rows.every((r) => r.dimensions?.[k] === v))
+  return { location: rows[0].location, dimensions: Object.fromEntries(dims) }
+}
+
+// Whether a lookup row (assessment, threshold) belongs to the plotted series: same location and the same value of
+// every dimension either carries. Blank equals missing, but missing is never a wildcard: fraction=liq isn't a
+// series with no fraction.
+export function ofSeries(row, series) {
+  const mine = row.dimensions ?? {}
+  return row.location === series.location
+    && [...new Set([...Object.keys(mine), ...Object.keys(series.dimensions)])]
+      .every((k) => (mine[k] ?? '') === (series.dimensions[k] ?? ''))
+}
+
+// Whether rows (assessments, thresholds) all belong to one series: one location, one set of dimensions.
+export function singleSeries(rows) {
+  const key = (r) => `${r.location}|${JSON.stringify(Object.entries(r.dimensions ?? {}).filter(([, v]) => v !== '').sort())}`
+  return new Set(rows.map(key)).size <= 1
 }
 
 // Ordered levels onto three tones by position, so any method's scale reads the same way. An ungraded
@@ -54,6 +78,28 @@ export function phaseSince(rows, asOf, activePhases) {
   let i = sorted.length - 1
   while (i > 0 && activePhases.includes(sorted[i - 1].phase)) i--
   return sorted[i].period
+}
+
+// The runs of active weeks overlapping the range (the stream charts' shaded bands, as a list): each run keeps
+// its true start and end, flagged where the range clips it, and is ongoing when it reaches the latest row.
+// Rows are consecutive weeks, as phaseSince reads them.
+export function phaseRuns(rows, range, activePhases) {
+  const sorted = [...rows].sort((x, y) => (x.period < y.period ? -1 : 1))
+  const runs = []
+  let run = null
+  for (const r of sorted) {
+    if (activePhases.includes(r.phase)) {
+      run = run ? { ...run, to: r.period, weeks: run.weeks + 1 } : { from: r.period, to: r.period, weeks: 1 }
+    } else if (run) {
+      runs.push(run)
+      run = null
+    }
+  }
+  if (run) runs.push({ ...run, ongoing: true })
+  return runs
+    .filter((x) => x.to >= range.from && x.from <= range.to)
+    .map((x) => ({ from: x.from, to: x.to, weeks: x.weeks, startsBefore: x.from < range.from, endsAfter: x.to > range.to,
+                   ongoing: !!x.ongoing }))
 }
 
 // A panel's {indicator, ...dimensions} against a phase stream's series, in any parameter order.

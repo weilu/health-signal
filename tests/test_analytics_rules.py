@@ -94,7 +94,7 @@ def test_wave_phase():
 
 
 def test_an_unavailable_onset_alarm_is_no_phase_not_out_of_season():
-    # greece-public-health suppresses the phase when the onset fit is unavailable rather than call it out of season
+    # No phase when the onset fit is unavailable, rather than calling it out of season
     state = SeasonState(last_period="2025-W01")
     assert season_phase(state, "2025-W02", 15, 10.0, None) == (None, state)
     in_season = SeasonState(True, 0, "2025-W01")

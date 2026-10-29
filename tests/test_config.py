@@ -153,7 +153,7 @@ def test_example_config_loads():
     cfg = load_config("examples/greece.dashboard.yaml")
     assert all(p.panels for t in cfg.targets for p in t.pages)
     assert {f.id for f in cfg.data.feeds} == {"clinical", "wastewater"}
-    # Every target pairs clinical and wastewater pages, the way greece-public-health's source tabs do.
+    # Every target pairs clinical and wastewater pages, one tab per source.
     assert all([p.id for p in t.pages] == ["overview", "clinical", "wastewater"] for t in cfg.targets)
     assert all([x.type for x in t.pages[0].panels] == ["phase", "summary"] for t in cfg.targets)
 
@@ -398,3 +398,20 @@ def test_client_panel_queries_drop_the_pathogen_their_indicator_implies():
                      "feed": "wastewater", "indicator": "cov", "dimensions": {"aggregation": "floMean", "pathogen": "SARS-CoV-2"}}})])])])
     query = cfg.client_config()["targets"][0]["pages"][0]["panels"][0]["query"]
     assert query["dimensions"] == {"aggregation": "floMean"}
+
+
+def test_client_panels_carry_their_summary_group():
+    # Grouped as the overview shows them: pathogen-specific vs syndromic clinical, and which tabs
+    # share a syndromic series.
+    ili = {"feed": "clinical", "indicator": "ILIconsultationrate", "dimensions": {"survtype": "primary care sentinel", "age": "total"}}
+    adm = {"feed": "clinical", "indicator": "hospitaladmissions",
+           "dimensions": {"survtype": "non-sentinel", "pathogen": "Influenza", "age": "total"}}
+    ww = {"feed": "wastewater", "indicator": "fluA", "dimensions": {"aggregation": "floMean"}}
+    cfg = Config(schema_version="1", site=SiteConfig(title="T"), data=_FEEDS, targets=[
+        Target(id="Influenza", pages=[Page(id="c", panels=[Panel(id="ili", query=ili), Panel(id="adm", query=adm),
+                                                           Panel(id="ww", query=ww)])]),
+        Target(id="RSV", pages=[Page(id="c", panels=[Panel(id="ili", query=ili)])])])
+    groups = {p["id"]: p["group"] for p in cfg.client_config()["targets"][0]["pages"][0]["panels"]}
+    assert groups == {"ili": {"feed": "clinical", "kind": "syndromic", "targets": ["Influenza", "RSV"]},
+                      "adm": {"feed": "clinical", "kind": "pathogen_specific", "targets": ["Influenza"]},
+                      "ww": {"feed": "wastewater", "kind": "pathogen_specific", "targets": ["Influenza"]}}

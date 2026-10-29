@@ -151,7 +151,9 @@ config shape profile-agnostic: a wastewater profile's dimensions need no new fie
 validated at load against its feed's profile, so a typo fails before the app serves.
 **Location and the date range are dashboard-wide filters, not panel settings:**
 `filters.location` lists the selectable locations and a default, and every panel is queried for the
-selected one; a panel with no rows for it shows a "no data for {location}" message rather than being
+selected one (it's optional, but a dashboard without it must show one population: the app refuses to
+start when a feed or the phase table holds several locations and no location filter selects one, since
+every chart, tile and summary row would otherwise blend them); a panel with no rows for it shows a "no data for {location}" message rather than being
 hidden or falling back to another level. `filters.date_range` (optional) sets `default_weeks` (a count
 or `"all"`, default 52). The yearly presets begin at `surveillance.year_start_week` (1–52, default 1;
 e.g. 21 for a W21→W20 respiratory year), the dashboard's surveillance year, which the analytics

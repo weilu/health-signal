@@ -46,7 +46,7 @@ def test_wave_pathogens_use_the_wave_pair():
 
 def test_a_failed_onset_or_wave_fit_is_unavailable_not_a_negative():
     # Raising would drop the week's already-computed bands; returning "no alarm" or "between waves" would
-    # publish a false phase. Ported from greece-public-health's bridge test.
+    # publish a false phase.
     class RError(Exception):
         pass
 
@@ -69,8 +69,8 @@ def test_a_failed_onset_or_wave_fit_is_unavailable_not_a_negative():
 
 
 def test_a_week_aedseo_cannot_fit_grades_only_a_reported_zero():
-    # greece-public-health grades a zero without bands too: it's the lowest burden by definition. A positive
-    # value aedseo can't place is "not graded", never left to an older week's grade.
+    # A zero grades without bands: it's the lowest burden by definition. A positive value aedseo can't place
+    # is "not graded", never left to an older week's grade.
     res = _run([0, 5, 12])   # the fake can't fit the first two weeks
     assert [(r["level"], r["trend"], r["phase"]) for r in res.rows[:2]] == \
         [("very_low", "inconclusive", None), (None, "inconclusive", None)]

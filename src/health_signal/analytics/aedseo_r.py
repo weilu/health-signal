@@ -1,5 +1,4 @@
-"""SSI's aedseo over rpy2: the only module that touches R, entered only to fit (generalised from
-greece-public-health's aedseo_bridge)."""
+"""SSI's aedseo over rpy2: the only module that touches R, entered only to fit."""
 import math
 from datetime import date, timedelta
 
@@ -7,7 +6,7 @@ import numpy as np
 
 from .backend import FitError, FitInput, WeekFit
 
-# SSI's defaults as greece-public-health ran them (spec §6.3.1); not configurable until a country needs it.
+# SSI's defaults (spec §6.3.1); not configurable until a country needs it.
 _ONSET = dict(family="quasipoisson", k=5)
 _BURDEN = dict(family="lnorm", n_peak=3, decay_factor=0.8, conf_levels=0.975)
 # Tuned on the Greek COVID series to separate back-to-back waves without single-week noise.

@@ -24,7 +24,7 @@ def backend():
 
 
 def _seasons(n_seasons=4, peak=90.0, base=5.0):
-    # greece-public-health's synthetic season: a triangular peak each W21-W20 year.
+    # A synthetic season: a triangular peak each W21-W20 year.
     start = date.fromisocalendar(2019, 21, 1)
     dates, values = [], []
     for i in range(52 * n_seasons):
