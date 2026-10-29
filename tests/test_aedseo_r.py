@@ -54,6 +54,20 @@ def test_waves_are_segmented_when_asked(backend):
     assert backend.fit(FitInput(dates, values, (), 1.0, 1.0, "count", 21, WaveEnd())).in_wave in (True, False)
 
 
+def test_a_wave_declining_across_the_season_boundary_stays_a_wave(backend):
+    # Yearly waves peaking around W5, and one peaking in early May 2024 that is still well above its burden
+    # levels after W21: the new season must not reset it to "between waves" just because it isn't rising.
+    start = date(2019, 5, 20)
+    dates = tuple(start + timedelta(weeks=i) for i in range(262))   # through 2024-W22
+    values = []
+    for d in dates:
+        week = d.isocalendar()[1]
+        late = 600 * math.exp(-((d - date(2024, 5, 6)).days / 7) ** 2 / 20) if d >= date(2024, 3, 25) else 0
+        values.append(round(20 + 400 * math.exp(-((week - 5) % 52) ** 2 / 30) + late))
+    fit = backend.fit(FitInput(dates, tuple(values), (), 1.0, 1.0, "count", 21, WaveEnd(steps_with_decrease=3, burden_level_decrease="medium")))
+    assert fit.in_wave is True
+
+
 def test_a_series_too_short_to_fit_raises_fit_error(backend):
     dates, values = _seasons(n_seasons=1)
     with pytest.raises(FitError):

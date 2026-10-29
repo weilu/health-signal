@@ -99,8 +99,10 @@ class RAedseo:
 
     def _wave(self, tsd, tdis, season, week: date, end: WaveEnd) -> bool | None:
         try:
+            # Whole history, unlike the onset: aedseo tracks a wave row by row, so cut at the season start it
+            # would drop a wave still declining across it to "between waves" until a fresh onset.
             onset = self._aedseo.combined_seasonal_output(
-                tsd, disease_threshold=tdis, only_current_season=True, **season, **_WAVES,
+                tsd, disease_threshold=tdis, only_current_season=False, **season, **_WAVES,
                 steps_with_decrease=end.steps_with_decrease,
                 burden_level_decrease=end.burden_level_decrease).rx2("onset_output")
         except self._RError:
