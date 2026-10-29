@@ -9,9 +9,13 @@ from .backend import FitError, FitInput, WeekFit
 # SSI's defaults (spec §6.3.1); not configurable until a country needs it.
 _ONSET = dict(family="quasipoisson", k=5)
 _BURDEN = dict(family="lnorm", n_peak=3, decay_factor=0.8, conf_levels=0.975)
-# Tuned on the Greek COVID series to separate back-to-back waves without single-week noise.
-_WAVES = dict(family="quasipoisson", family_quant="lnorm", multiple_waves=True, steps_with_decrease=3,
-              burden_level_decrease="medium", n_peak=3, conf_levels=0.975, decay_factor=0.8)
+# combined_seasonal_output refits the onset and burden levels itself, and a wave ends against those bands, so it
+# gets the same settings as the bands we draw and grade by (its `family` is the onset's; the burden's is
+# `family_quant`). The wave settings are tuned on the Greek COVID series to separate back-to-back waves without
+# single-week noise.
+_WAVES = dict(family=_ONSET["family"], k=_ONSET["k"],
+              family_quant=_BURDEN["family"], **{k: v for k, v in _BURDEN.items() if k != "family"},
+              multiple_waves=True, steps_with_decrease=3, burden_level_decrease="medium")
 _NAN3 = (math.nan,) * 3
 _NAN4 = (math.nan,) * 4
 
