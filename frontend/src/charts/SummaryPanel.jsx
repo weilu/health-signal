@@ -41,24 +41,29 @@ export function SummaryPanel({ panel, target, location, range, latest }) {
         : !rows.length ? <Typography color="text.secondary">{t('summary.none')}</Typography> : (
         <TableContainer>
           <Table size="small">
-            {/* Column labels frame the table with the one rule under them; on phones there's one column, so none. */}
+            {/* Column labels; the first section band right under them is the table's top edge. One column on phones. */}
             <TableHead sx={{ display: { xs: 'none', md: 'table-header-group' } }}>
-              <TableRow sx={{ '& > th': { typography: 'caption', fontWeight: 600, color: 'text.secondary',
-                                          borderBottom: 1, borderColor: 'divider' } }}>
+              <TableRow sx={{ '& > th': { typography: 'caption', fontWeight: 600, color: 'text.secondary', borderBottom: 0 } }}>
                 <TableCell>{t('summary.indicator')}</TableCell>
                 <TableCell>{t('assessment.status')}</TableCell>
                 <TableCell>{t('assessment.trend')}</TableCell>
                 <TableCell>{t('summary.asOf')}</TableCell>
               </TableRow>
             </TableHead>
-            {groups.map(({ key, label, rows: members }, g) => (
+            {groups.map(({ key, source, kind, shared, rows: members }) => (
             <TableBody key={key}>
               <TableRow>
-                {/* A section heading, not a row: weight and the space above set it apart, without a second rule. */}
+                {/* A section is a recessed band in the page colour, shorter than a row; rows are separated by
+                    hairlines. Band = section, rule = row: one meaning per device. */}
                 <TableCell component="th" scope="rowgroup" colSpan={4}
-                  sx={{ pt: g ? 3 : 2, pb: 0.75, typography: 'subtitle2', fontWeight: 700, color: 'text.primary',
-                        borderBottom: 0 }}>
-                  {label}
+                  sx={{ bgcolor: 'background.default', py: 0.75, borderBottom: 0, typography: 'body2' }}>
+                  <Stack direction={{ xs: 'column', md: 'row' }} sx={{ columnGap: 1, justifyContent: 'space-between' }}>
+                    <Box>
+                      <Box component="span" data-part sx={{ fontWeight: 600, color: 'text.primary' }}>{source}</Box>
+                      {kind && <Box component="span" data-part sx={{ ml: 1, color: 'text.secondary' }}>{kind}</Box>}
+                    </Box>
+                    {shared && <Box component="span" data-part sx={{ typography: 'caption', color: 'text.secondary' }}>{shared}</Box>}
+                  </Stack>
                 </TableCell>
               </TableRow>
               {members.map(({ page, panel: p, data }) => {
@@ -75,18 +80,18 @@ export function SummaryPanel({ panel, target, location, range, latest }) {
                   <Box sx={{ width: 10, height: 10, borderRadius: '50%', flexShrink: 0, bgcolor: toneColor(levelTone(method.levels, row.level)) }} />
                 )
                 return (
-                  // A real row with a real link, stretched over the row so the whole row is clickable.
-                  // A stream is marked by a bar on its left edge (and its role chip), not a tinted row: a full-row
-                  // tint reads as a band like the section headings.
+                  // A real row with a real link, stretched over the row so the whole row is clickable. A stream is
+                  // marked by its role chip alone: the amber there is the table's one accent.
                   <TableRow key={`${page.id}/${p.id}`} hover
-                    sx={{ position: 'relative', ...(stream && { '& > td:first-of-type': { boxShadow: (theme) => `inset 3px 0 0 ${theme.palette.primary.main}` } }) }}>
+                    sx={{ position: 'relative', '& > td': { borderBottom: 1, borderColor: 'divider' },
+                          '&:last-of-type > td': { borderBottom: 0 } }}>
                     <TableCell>
                       <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                         <Link component={RouterLink} to={withFilters(page.path, search)} underline="hover" color="inherit"
                           sx={{ '&::after': { content: '""', position: 'absolute', inset: 0 } }}>
                           {configLabel(t, p.label_key, p.id)}
                         </Link>
-                        {stream && <Chip size="small" variant="outlined" label={t(`role.${stream.role}`, { defaultValue: stream.role })} />}
+                        {stream && <Chip size="small" variant="outlined" color="primary" label={t(`role.${stream.role}`, { defaultValue: stream.role })} />}
                       </Stack>
                       <Stack direction="row" spacing={1} sx={{ ...NARROW, alignItems: 'center', mt: 0.5, color: 'text.secondary' }}>
                         {dot}
@@ -125,9 +130,8 @@ function groupRows(t, rows) {
     if (!groups.has(key)) {
       const shared = g.targets.length > 1
         && t('summary.sharedAcross', { targets: g.targets.map((id) => configLabel(t, `targets.${id}`, id)).join(' / ') })
-      const label = [t(`feeds.${g.feed}`, { defaultValue: g.feed }), kinds.get(g.feed).size > 1 && t(`summary.group.${g.kind}`), shared]
-        .filter(Boolean).join(' · ')
-      groups.set(key, { key, label, rows: [] })
+      groups.set(key, { key, rows: [], source: t(`feeds.${g.feed}`, { defaultValue: g.feed }),
+                        kind: kinds.get(g.feed).size > 1 && t(`summary.group.${g.kind}`), shared })
     }
     groups.get(key).rows.push(r)
   }
