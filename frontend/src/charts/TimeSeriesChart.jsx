@@ -4,59 +4,22 @@ import { alpha, useTheme } from '@mui/material/styles'
 import { useTranslation } from 'react-i18next'
 import { CategoryScale, Chart as ChartJS, Legend, LinearScale, LineElement, PointElement, Tooltip } from 'chart.js'
 import { Line } from 'react-chartjs-2'
+import { bandAlpha, levelTone } from '../assessments.js'
 import { axisNumber } from '../labels.js'
-import { endLabelsFit, isolated } from '../series.js'
-import { phaseShading, thresholdBands } from './plugins.js'
+import { isolated } from '../series.js'
+import { useAlignedAxis } from './AlignedCharts.jsx'
+import { crosshair, endLabels, phaseShading, thresholdBands } from './plugins.js'
 
 ChartJS.register(CategoryScale, LinearScale, LineElement, PointElement, Tooltip, Legend)
-
-// Hairline at the hovered week: readers aim at a date, not a 2px line.
-const crosshair = {
-  id: 'crosshair',
-  afterDraw(chart, _args, opts) {
-    const [active] = chart.tooltip?.getActiveElements() ?? []
-    if (!active) return
-    const { ctx, chartArea: { top, bottom } } = chart
-    ctx.save()
-    ctx.strokeStyle = opts.color
-    ctx.lineWidth = 1
-    ctx.beginPath()
-    ctx.moveTo(active.element.x, top)
-    ctx.lineTo(active.element.x, bottom)
-    ctx.stroke()
-    ctx.restore()
-  },
-}
-
-const LABEL_GAP = 14  // px between end-label baselines at 12px type
-
-// Ink, never the series colour; only series reaching the last week; none if any would collide.
-const endLabels = {
-  id: 'endLabels',
-  afterDatasetsDraw(chart, _args, opts) {
-    if (!opts.enabled) return
-    const last = chart.data.labels.length - 1
-    const ends = chart.data.datasets
-      .map((ds, i) => ({ label: ds.label, point: chart.getDatasetMeta(i).data[last], visible: chart.isDatasetVisible(i) && ds.data[last] != null }))
-      .filter((e) => e.visible && e.point)
-    if (!endLabelsFit(ends.map((e) => e.point.y), LABEL_GAP)) return
-    const { ctx } = chart
-    ctx.save()
-    ctx.fillStyle = opts.color
-    ctx.font = opts.font
-    ctx.textBaseline = 'middle'
-    ends.forEach((e) => ctx.fillText(e.label, e.point.x + 6, e.point.y))
-    ctx.restore()
-  },
-}
 
 export function useChartPalette() {
   const theme = useTheme()
   return theme.palette.chart?.[theme.palette.mode] ?? []
 }
 
-export function TimeSeriesChart({ periods, series, unit, bands = [], bandColour, bandLabel, shading = null, height = 320,
-  axisWidth = 0, onAxisWidth }) {
+// `levels` are the method's ordered levels: the chart colours and names its bands from them, as the tiles do.
+export function TimeSeriesChart({ periods, series, unit, bands = [], levels = [], shading = null, height = 320 }) {
+  const { axisWidth, onAxisWidth } = useAlignedAxis()
   const theme = useTheme()
   const { t, i18n } = useTranslation()
   const palette = useChartPalette()
@@ -83,6 +46,11 @@ export function TimeSeriesChart({ periods, series, unit, bands = [], bandColour,
       pointHoverRadius: 4, pointHoverBorderWidth: 2, pointHoverBorderColor: theme.palette.background.paper,
     })),
   }
+  // An ungraded level has no tone of its own; grey keeps it from reading as "all clear".
+  const bandColour = (level) => {
+    const tone = levelTone(levels, level)
+    return alpha(tone === 'neutral' ? theme.palette.grey[500] : theme.palette[tone].main, bandAlpha(levels, level))
+  }
   const options = {
     responsive: true, maintainAspectRatio: false, animation: false,
     interaction: { mode: 'index', intersect: false },
@@ -96,7 +64,7 @@ export function TimeSeriesChart({ periods, series, unit, bands = [], bandColour,
         ticks: { color: ink2, font, callback: (v) => tick(v) },
         // Stacked charts share the widest y-axis, so their plots start at the same x and weeks line up.
         afterFit: (scale) => {
-          onAxisWidth?.(scale.width)
+          onAxisWidth(scale.width)
           scale.width = Math.max(scale.width, axisWidth)
         },
       },
@@ -119,7 +87,7 @@ export function TimeSeriesChart({ periods, series, unit, bands = [], bandColour,
         },
       },
       crosshair: { color: rule },
-      thresholdBands: { bands, colour: bandColour, labelFor: bandLabel, lineColour: alpha(ink2, 0.5), labelColour: ink2, font: `11px ${theme.typography.fontFamily}` },
+      thresholdBands: { bands, colour: bandColour, labelFor: (level) => t(`level.${level}`), lineColour: alpha(ink2, 0.5), labelColour: ink2, font: `11px ${theme.typography.fontFamily}` },
       phaseShading: { weeks: shading, colour: alpha(theme.palette.text.primary, 0.06) },
       endLabels: { enabled: labelled, color: ink2, font: labelFont },
     },

@@ -96,11 +96,11 @@ describe('SummaryPanel', () => {
     fetchPhaseStreams.mockResolvedValue([])
     fetchAssessments.mockResolvedValue([{ location: 'Attica', period: '2026-W10', level: 'low', method: 'aedseo' }])
     renderPanel(undefined, grouped)
-    const headings = (await screen.findAllByRole('rowheader')).map((h) => h.textContent)
+    const headings = (await screen.findAllByRole('rowheader')).map((h) => [...h.querySelectorAll('[data-part]')].map((p) => p.textContent))
     // The clinical feed has both kinds, so each is named; wastewater has one, so its heading is the feed alone.
     // Feed names fall back to the feed id when no locale is loaded, as here.
-    expect(headings).toEqual(['clinical · summary.group.pathogen_specific',
-                              'clinical · summary.group.syndromic · summary.sharedAcross', 'wastewater'])
+    expect(headings).toEqual([['clinical', 'summary.group.pathogen_specific'],
+                              ['clinical', 'summary.group.syndromic', 'summary.sharedAcross'], ['wastewater']])
     expect(screen.queryByText('summary.page')).toBeNull()
   })
 

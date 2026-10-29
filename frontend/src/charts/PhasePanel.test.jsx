@@ -11,11 +11,14 @@ vi.mock('../api.js', () => ({ fetchConfig: vi.fn(), fetchData: vi.fn(), fetchPha
 const charted = []
 // Each mock chart reports a y-axis width by its label, as a real one reports its fitted axis.
 const AXIS = { cases: 60, admissions: 110 }
+// The mock joins its group through the real hook, so the panel's grouping is what the test exercises.
 vi.mock('./TimeSeriesChart.jsx', async () => {
   const { useEffect } = await import('react')
+  const { useAlignedAxis } = await import('./AlignedCharts.jsx')
   return { TimeSeriesChart: (props) => {
-    charted.push(props)
-    useEffect(() => { props.onAxisWidth?.(AXIS[props.series[0].label] ?? 50) })
+    const { axisWidth, onAxisWidth } = useAlignedAxis()
+    charted.push({ ...props, axisWidth })
+    useEffect(() => { onAxisWidth(AXIS[props.series[0].label] ?? 50) })
     return null
   } }
 })

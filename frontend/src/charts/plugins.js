@@ -1,3 +1,5 @@
+import { endLabelsFit } from '../series.js'
+
 // Behind the line: the method's level bands within each span's weeks, clipped to the axis so a high
 // threshold can't rescale it.
 export const thresholdBands = {
@@ -50,6 +52,46 @@ export const phaseShading = {
     labels.forEach((p, i) => {
       if (opts.weeks.has(p)) ctx.fillRect(x.getPixelForValue(i) - half, area.top, half * 2, area.bottom - area.top)
     })
+    ctx.restore()
+  },
+}
+
+// Hairline at the hovered week: readers aim at a date, not a 2px line.
+export const crosshair = {
+  id: 'crosshair',
+  afterDraw(chart, _args, opts) {
+    const [active] = chart.tooltip?.getActiveElements() ?? []
+    if (!active) return
+    const { ctx, chartArea: { top, bottom } } = chart
+    ctx.save()
+    ctx.strokeStyle = opts.color
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    ctx.moveTo(active.element.x, top)
+    ctx.lineTo(active.element.x, bottom)
+    ctx.stroke()
+    ctx.restore()
+  },
+}
+
+const LABEL_GAP = 14  // px between end-label baselines at 12px type
+
+// Ink, never the series colour; only series reaching the last week; none if any would collide.
+export const endLabels = {
+  id: 'endLabels',
+  afterDatasetsDraw(chart, _args, opts) {
+    if (!opts.enabled) return
+    const last = chart.data.labels.length - 1
+    const ends = chart.data.datasets
+      .map((ds, i) => ({ label: ds.label, point: chart.getDatasetMeta(i).data[last], visible: chart.isDatasetVisible(i) && ds.data[last] != null }))
+      .filter((e) => e.visible && e.point)
+    if (!endLabelsFit(ends.map((e) => e.point.y), LABEL_GAP)) return
+    const { ctx } = chart
+    ctx.save()
+    ctx.fillStyle = opts.color
+    ctx.font = opts.font
+    ctx.textBaseline = 'middle'
+    ends.forEach((e) => ctx.fillText(e.label, e.point.x + 6, e.point.y))
     ctx.restore()
   },
 }
