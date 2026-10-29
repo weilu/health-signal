@@ -8,7 +8,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from . import auth as _auth
-from .assessments import AssessmentRow, AssessmentSource, PhaseRow, PhaseSource, ThresholdRow
+from .assessments import (AssessmentRow, AssessmentSource, PhaseRow, PhaseSource, PhaseStreamRow,
+                          PhaseStreamSource, ThresholdRow)
 from .auth import AuthProvider, User
 from .config import Config
 from .datasource import DataSource, FileDataSource
@@ -47,6 +48,20 @@ def _serve_spa(config: Config, request: Request) -> Response:
     return HTMLResponse(render_index(index.read_text(encoding="utf-8"), config.bootstrap_config(), base_href))
 
 
+def _require_one_location(data_sources: dict, phase_source: PhaseSource | None) -> None:
+    # With no location filter nothing selects a region, so every chart, tile and summary row would blend the
+    # regions' rows: a dashboard without one shows a single population, or refuses to start.
+    held = {f"feed {fid!r}": source.locations() for fid, source in data_sources.items()}
+    if phase_source is not None:
+        held["data.phases"] = {r.location for r in phase_source.phases()}
+    # Across sources too: one region's clinical feed beside another's wastewater would mix them on the overview.
+    every = set().union(*held.values())
+    if len(every) > 1:
+        sources = "; ".join(f"{where}: {', '.join(sorted(locations))}" for where, locations in held.items() if locations)
+        raise ValueError(f"the data hold several locations ({', '.join(sorted(every))}) but no filters.location is "
+                         f"configured; add one so each view shows one region ({sources})")
+
+
 def create_app(
     config: Config, auth_provider: AuthProvider | None = None,
     data_sources: dict[str, DataSource] | None = None,
@@ -59,6 +74,10 @@ def create_app(
         data_sources = {f.id: FileDataSource(f.dir, PROFILES[f.profile]) for f in feeds}
     assessment_sources = {f.id: AssessmentSource(f.assessments, PROFILES[f.profile]) for f in feeds if f.assessments}
     phase_source = PhaseSource(config.data.phases) if config.data and config.data.phases else None
+    stream_source = (PhaseStreamSource(config.data.phase_streams, {f.id: PROFILES[f.profile] for f in feeds})
+                     if config.data and config.data.phase_streams else None)
+    if config.filters.location is None:
+        _require_one_location(data_sources, phase_source)
 
     _ALWAYS_PUBLIC = ("/healthz", "/login", "/logout")
 
@@ -147,6 +166,20 @@ def create_app(
         source = assessment_sources.get(feed)
         return source.thresholds(location=location, indicator=indicator, week_from=week_from, week_to=week_to,
                                  dimensions=dimensions, method=method) if source else []
+
+    @app.get("/api/phase-streams", response_model=list[PhaseStreamRow])
+    def get_phase_streams(
+        request: Request,
+        user: User = Depends(require_auth),
+        location: str | None = None,
+        pathogen: str | None = None,
+        method: str | None = None,
+    ) -> list[PhaseStreamRow]:
+        unknown = request.query_params.keys() - {"location", "pathogen", "method"}
+        if unknown:
+            # An ignored typo would silently return every pathogen's streams.
+            raise HTTPException(status_code=422, detail=f"unknown filter(s) {', '.join(sorted(unknown))}")
+        return stream_source.streams(location=location, pathogen=pathogen, method=method) if stream_source else []
 
     @app.get("/api/phases", response_model=list[PhaseRow])
     def get_phases(

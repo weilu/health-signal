@@ -16,16 +16,16 @@ import { selectedLocation, selectedRange, withFilters } from './filters.js'
 
 const rule = { borderBottom: 1, borderColor: 'divider' }
 
-function AppRoutes({ view, location, range }) {
+function AppRoutes({ view, location, range, latest }) {
   const { t } = useTranslation()
   const { search } = useLocation()
   const pages = view.targets.flatMap((target) => target.pages.map((page) => ({ target, page })))
   const home = pages[0]?.page.path ?? '/config'
   return (
     <Routes>
-      {pages.map(({ page }) => (
+      {pages.map(({ target, page }) => (
         // Keyed by path: react-router reuses unkeyed elements, carrying panel state across pages.
-        <Route key={page.path} path={page.path} element={<TargetPage key={page.path} page={page} location={location} range={range} />} />
+        <Route key={page.path} path={page.path} element={<TargetPage key={page.path} target={target} page={page} location={location} range={range} latest={latest} />} />
       ))}
       <Route path="/config" element={<ConfigView />} />
       <Route path="/" element={<Navigate to={withFilters(home, search)} replace />} />
@@ -62,7 +62,7 @@ function Shell({ config }) {
     )
   }
 
-  // Layout after greece-public-health: a utility strip for session controls, a header whose filters
+  // Layout: a utility strip for session controls, a header whose filters
   // scope the view, target tabs, then page tabs for multi-page targets.
   const targets = (configQuery.data?.targets ?? []).filter((target) => target.pages.length)
   const active = activePage(targets, pathname)
@@ -130,7 +130,7 @@ function Shell({ config }) {
           {(view) => (
             // Panels wait for the data's span so they don't fetch once unranged, then again ranged.
             <ResourceBoundary query={periodsQuery}>
-              {() => <AppRoutes view={view} location={location && { value: location, label: locationLabel(location) }} range={range} />}
+              {() => <AppRoutes view={view} location={location && { value: location, label: locationLabel(location) }} range={range} latest={periods?.last} />}
             </ResourceBoundary>
           )}
         </ResourceBoundary>

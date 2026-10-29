@@ -1,6 +1,6 @@
 import pytest
-from health_signal.assessments import AssessmentSource, PhaseSource
-from health_signal.profile import PHES_ODM
+from health_signal.assessments import AssessmentSource, PhaseSource, PhaseStreamSource
+from health_signal.profile import ERVISS, PHES_ODM
 
 _A = "location,period,pathogen,aggregation,indicator,method,level,provisional,trend,growth_rate,growth_lower,growth_upper,phase\n"
 _A1 = "Testville,2025-W02,Influenza,floMean,fluA,aedseo,low,false,increasing,0.2,0.1,0.3,in_season\n"
@@ -108,3 +108,57 @@ def test_header_only_tables_load_empty(tmp_path):
     assert src.assessments() == [] and src.thresholds() == []
     (tmp_path / "phase.csv").write_text(_P, encoding="utf-8")
     assert PhaseSource(tmp_path / "phase.csv").phases() == []
+
+
+_S = "location,pathogen,method,role,feed,series\n"
+_S1 = "Testville,Influenza,aedseo,cases,wastewater,indicator=fluA&aggregation=floMean\n"
+_FEEDS = {"wastewater": PHES_ODM, "clinical": ERVISS}
+
+
+def _streams(tmp_path, body):
+    f = tmp_path / "phase_streams.csv"
+    f.write_text(_S + body, encoding="utf-8")
+    return PhaseStreamSource(f, _FEEDS)
+
+
+def test_phase_streams_load(tmp_path):
+    [s] = _streams(tmp_path, _S1).streams(pathogen="Influenza")
+    assert (s.role, s.feed, s.series) == ("cases", "wastewater", {"indicator": "fluA", "aggregation": "floMean"})
+
+
+@pytest.mark.parametrize("bad, message", [
+    (_S1.replace(",cases,", ",community,"), "role"),                       # not one of aedseo's roles
+    (_S1.replace(",wastewater,", ",sewage,"), "feed"),                     # not a configured feed
+    (_S1.replace("aggregation=floMean", "survtype=non-sentinel"), "dimension"),  # another profile's dimension
+    (_S1.replace("indicator=fluA", "indicator=positivity"), "indicator"),
+    (_S1.replace("indicator=fluA&", ""), "indicator"),                     # a series needs its indicator
+    (_S1.replace("indicator=fluA", "indicator=cov"), "implies pathogen"),  # COVID wastewater as influenza evidence
+    (_S1.replace("indicator=fluA", "indicator=cov&pathogen=Influenza"), "implies pathogen"),  # naming it doesn't hide it
+    (_S1.replace("indicator=fluA", "indicator=fluA&pathogen=Measles"), "pathogen 'Measles' not allowed"),
+    (_S1.replace("indicator=fluA&aggregation=floMean", "indicator=ppmv&aggregation=me"), "carries no pathogen"),
+    (_S1.replace(",wastewater,indicator=fluA&aggregation=floMean",
+                 ",clinical,indicator=detections&pathogen=RSV&survtype=non-sentinel&age=total"), "names pathogen 'RSV'"),
+    # admissions of every pathogen at once: the overview would chart a mixture as influenza's evidence
+    (_S1.replace(",wastewater,indicator=fluA&aggregation=floMean",
+                 ",clinical,indicator=hospitaladmissions&survtype=non-sentinel&age=total"), "pathogen-specific"),
+    # a required dimension left out (or blank) matches every value of it: several series, not one
+    (_S1.replace("&aggregation=floMean", ""), "required dimension 'aggregation'"),
+    (_S1.replace("aggregation=floMean", "aggregation="), "required dimension 'aggregation'"),
+])
+def test_bad_phase_streams_fail(tmp_path, bad, message):
+    with pytest.raises(ValueError, match=rf"phase_streams\.csv row 1: .*{message}"):
+        _streams(tmp_path, bad)
+
+
+def test_a_pathogen_neutral_stream_needs_no_pathogen(tmp_path):
+    ili = _S1.replace(",wastewater,indicator=fluA&aggregation=floMean",
+                      ",clinical,indicator=ILIconsultationrate&survtype=primary+care+sentinel&age=total")
+    [s] = _streams(tmp_path, ili).streams()
+    assert s.series["indicator"] == "ILIconsultationrate"
+
+
+def test_streams_drop_the_pathogen_their_indicator_implies(tmp_path):
+    # So the summary matches a stream to its panel whether either spells out the implied pathogen.
+    named = _S1.replace("indicator=fluA&", "indicator=fluA&pathogen=Influenza&")
+    [s] = _streams(tmp_path, named).streams()
+    assert s.series == {"indicator": "fluA", "aggregation": "floMean"}

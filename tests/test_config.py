@@ -152,8 +152,9 @@ def test_example_config_loads():
     cfg = load_config("examples/greece.dashboard.yaml")
     assert all(p.panels for t in cfg.targets for p in t.pages)
     assert {f.id for f in cfg.data.feeds} == {"clinical", "wastewater"}
-    # Every target pairs clinical and wastewater pages, the way greece-public-health's source tabs do.
-    assert all({p.id for p in t.pages} == {"clinical", "wastewater"} for t in cfg.targets)
+    # Every target pairs clinical and wastewater pages, one tab per source.
+    assert all([p.id for p in t.pages] == ["overview", "clinical", "wastewater"] for t in cfg.targets)
+    assert all([x.type for x in t.pages[0].panels] == ["phase", "summary"] for t in cfg.targets)
 
 
 @pytest.mark.parametrize("bad", [
@@ -294,7 +295,8 @@ def test_a_panel_must_query_its_targets_pathogen():
 def test_methods_reach_the_client():
     methods = Config(schema_version="1", site=SiteConfig(title="T")).client_config()["methods"]
     assert methods["aedseo"] == {"levels": ["very_low", "low", "medium", "high", "very_high"],
-                                 "phases": ["in_season", "in_wave", "out_of_season"], "trend": True}
+                                 "phases": ["in_season", "in_wave", "out_of_season"], "trend": True,
+                                 "stream_roles": ["cases", "admissions"], "active_phases": ["in_season", "in_wave"]}
 
 
 def test_feeds_and_phases_take_optional_assessment_dirs():
@@ -317,3 +319,44 @@ def test_a_panel_whose_indicator_implies_another_pathogen_fails():
     # cov is always SARS-CoV-2, so under the Influenza target it would show COVID data.
     with pytest.raises(ValidationError, match="target 'Influenza'"):
         _with_panel({"id": "w", "query": {"feed": "wastewater", "indicator": "cov", "dimensions": {"aggregation": "floMean"}}})
+
+
+def test_overview_panels_take_no_query():
+    _with_panel({"id": "phase", "type": "phase"})
+    _with_panel({"id": "summary", "type": "summary"})
+
+
+@pytest.mark.parametrize("bad", [
+    {"id": "phase", "type": "phase", "query": {"feed": "clinical", "indicator": "deaths"}},
+    {"id": "summary", "type": "summary", "series_by": "age"},
+    {"id": "deaths", "type": "timeseries"},  # a time series needs its query
+])
+def test_panel_kinds_check_their_fields(bad):
+    with pytest.raises(ValidationError):
+        _with_panel(bad)
+
+
+def test_client_panel_queries_drop_the_pathogen_their_indicator_implies():
+    # The same canonical form as phase streams, so the two compare equal in the summary.
+    cfg = Config(schema_version="1", site=SiteConfig(title="T"), data=_FEEDS,
+                 targets=[Target(id="SARS-CoV-2", pages=[Page(id="w", panels=[Panel(**{"id": "cov", "query": {
+                     "feed": "wastewater", "indicator": "cov", "dimensions": {"aggregation": "floMean", "pathogen": "SARS-CoV-2"}}})])])])
+    query = cfg.client_config()["targets"][0]["pages"][0]["panels"][0]["query"]
+    assert query["dimensions"] == {"aggregation": "floMean"}
+
+
+def test_client_panels_carry_their_summary_group():
+    # Grouped as the overview shows them: pathogen-specific vs syndromic clinical, and which tabs
+    # share a syndromic series.
+    ili = {"feed": "clinical", "indicator": "ILIconsultationrate", "dimensions": {"survtype": "primary care sentinel", "age": "total"}}
+    adm = {"feed": "clinical", "indicator": "hospitaladmissions",
+           "dimensions": {"survtype": "non-sentinel", "pathogen": "Influenza", "age": "total"}}
+    ww = {"feed": "wastewater", "indicator": "fluA", "dimensions": {"aggregation": "floMean"}}
+    cfg = Config(schema_version="1", site=SiteConfig(title="T"), data=_FEEDS, targets=[
+        Target(id="Influenza", pages=[Page(id="c", panels=[Panel(id="ili", query=ili), Panel(id="adm", query=adm),
+                                                           Panel(id="ww", query=ww)])]),
+        Target(id="RSV", pages=[Page(id="c", panels=[Panel(id="ili", query=ili)])])])
+    groups = {p["id"]: p["group"] for p in cfg.client_config()["targets"][0]["pages"][0]["panels"]}
+    assert groups == {"ili": {"feed": "clinical", "kind": "syndromic", "targets": ["Influenza", "RSV"]},
+                      "adm": {"feed": "clinical", "kind": "pathogen_specific", "targets": ["Influenza"]},
+                      "ww": {"feed": "wastewater", "kind": "pathogen_specific", "targets": ["Influenza"]}}

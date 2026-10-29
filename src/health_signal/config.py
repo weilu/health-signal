@@ -57,9 +57,18 @@ class PanelQuery(BaseModel):
 class Panel(BaseModel):
     model_config = ConfigDict(extra="forbid")
     id: str
-    type: Literal["timeseries"] = "timeseries"  # other kinds (status, stacked_bar) must be stated
-    query: PanelQuery
+    type: Literal["timeseries", "phase", "summary"] = "timeseries"  # phase and summary build the Overview
+    query: PanelQuery | None = None
     series_by: str | None = None  # one line per value of this dimension
+
+    @model_validator(mode="after")
+    def _fields_fit_the_kind(self) -> "Panel":
+        # phase and summary work from their target and the location filter, not a query.
+        if self.type == "timeseries" and self.query is None:
+            raise ValueError(f"panel {self.id!r}: a timeseries panel needs a query")
+        if self.type != "timeseries" and (self.query is not None or self.series_by is not None):
+            raise ValueError(f"panel {self.id!r}: a {self.type} panel takes no query or series_by")
+        return self
 
     @computed_field
     @property
@@ -183,6 +192,7 @@ class DataConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
     feeds: list[FeedConfig] = Field(min_length=1)
     phases: str | None = None  # the pathogen-level phase CSV, one per dashboard (spec §6.3)
+    phase_streams: str | None = None  # the series behind each computed phase (spec §6.3)
 
     @model_validator(mode="after")
     def _unique_ids(self) -> "DataConfig":
@@ -239,6 +249,8 @@ class Config(BaseModel):
         for target in self.targets:
             for page in target.pages:
                 for panel in page.panels:
+                    if panel.query is None:
+                        continue
                     if (problem := _panel_problem(panel, profiles)) is not None:
                         raise ValueError(f"panel {panel.id!r} on page {page.id!r}: {problem}")
                     # Explicit, or implied by the indicator (wastewater cov is always SARS-CoV-2).
@@ -248,6 +260,28 @@ class Config(BaseModel):
                         raise ValueError(f"panel {panel.id!r} on page {page.id!r} queries pathogen {pathogen!r} "
                                          f"but sits under target {target.id!r}")
         return self
+
+    def _canonical_query(self, query: PanelQuery) -> tuple | None:
+        feed = next((f for f in self.data.feeds if f.id == query.feed), None) if self.data else None
+        if feed is None:
+            return None
+        dims = PROFILES[feed.profile].canonical(query.indicator, query.dimensions)
+        return query.feed, query.indicator, tuple(sorted(dims.items()))
+
+    def _client_panel(self, panel: Panel, shared: dict[tuple, list[str]]) -> dict:
+        out = panel.model_dump(mode="json")
+        key = self._canonical_query(panel.query) if panel.query else None
+        if key is None:
+            return out
+        feed, indicator, dims = key
+        profile = PROFILES[next(f.profile for f in self.data.feeds if f.id == feed)]
+        # Canonical, as phase streams are, so the summary compares a panel with a stream like for like.
+        out["query"]["dimensions"] = dict(dims)
+        # The overview groups by feed, then pathogen-specific vs syndromic (an indicator reported per pathogen,
+        # or implying one, vs e.g. ILI), naming the tabs a syndromic series is shared across.
+        specific = indicator in profile.pathogen_specific or bool(profile.indicator_implies.get(indicator, {}).get("pathogen"))
+        out["group"] = {"feed": feed, "kind": "pathogen_specific" if specific else "syndromic", "targets": shared[key]}
+        return out
 
     def bootstrap_config(self) -> dict:
         # Whitelisted slice injected pre-login: only what the shell + login page need.
@@ -260,11 +294,19 @@ class Config(BaseModel):
 
     def client_config(self) -> dict:
         # Full view-model (authenticated); still excludes server-only fields.
+        shared: dict[tuple, list[str]] = {}
+        for t in self.targets:
+            for page in t.pages:
+                for panel in page.panels:
+                    key = self._canonical_query(panel.query) if panel.query else None
+                    if key is not None and t.id not in shared.setdefault(key, []):
+                        shared[key].append(t.id)
         return {
             **self.bootstrap_config(),
             "targets": [
                 {**t.model_dump(mode="json"),
-                 "pages": [{**p.model_dump(mode="json"), "path": page_path(t.id, p.id)} for p in t.pages]}
+                 "pages": [{**p.model_dump(mode="json"), "path": page_path(t.id, p.id),
+                            "panels": [self._client_panel(x, shared) for x in p.panels]} for p in t.pages]}
                 for t in self.targets
             ],
             "filters": self.filters.model_dump(mode="json"),
