@@ -49,8 +49,7 @@ def assess_series(series: Series, weeks: list[str], backend: Backend, *, method:
             fit = backend.fit(data)
         except FitError:
             # Still a row, so a tile describes this week rather than an older graded one. A reported zero is
-            # the lowest burden even where aedseo can't fit; a positive
-            # value it can't place is left ungraded.
+            # the lowest burden even where aedseo can't fit; a positive value it can't place is left ungraded.
             level = method.levels[0] if value == 0 else None
             rows.append({"period": week, "level": level, "provisional": provisional, "trend": "inconclusive",
                          "growth_rate": None, "growth_lower": None, "growth_upper": None, "phase": None})

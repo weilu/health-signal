@@ -4,7 +4,7 @@ from typing import Protocol
 
 
 class FitError(Exception):
-    """aedseo can't fit this series as of this week (too little history): the week gets no row."""
+    """aedseo can't fit this series as of this week (too little history): the week is left ungraded."""
 
 
 @dataclass(frozen=True)
