@@ -2,10 +2,9 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Navigate } from 'react-router-dom'
 import { Alert, Button, Paper, Stack, Typography } from '@mui/material'
-import { alpha, useTheme } from '@mui/material/styles'
 import { useTranslation } from 'react-i18next'
 import { fetchAssessments, fetchData, fetchThresholds } from '../api.js'
-import { activeWeeks, bandAlpha, bandsFor, combinedState, levelTone, ofSeries, pickInRange, plottedSeries, singleSeries } from '../assessments.js'
+import { activeWeeks, bandsFor, combinedState, ofSeries, pickInRange, plottedSeries, singleSeries } from '../assessments.js'
 import { useMethod } from '../useMethod.js'
 import { StatusTrendTiles, TileGrid } from './StatusTrendTiles.jsx'
 import { ResourceBoundary } from '../ResourceBoundary.jsx'
@@ -17,7 +16,6 @@ import { TimeSeriesChart, useChartPalette } from './TimeSeriesChart.jsx'
 
 export function TimeSeriesPanel({ panel, location, range, latest }) {
   const { t } = useTranslation()
-  const theme = useTheme()
   const palette = useChartPalette()
   const method = useMethod()
   const [asTable, setAsTable] = useState(false)
@@ -43,8 +41,7 @@ export function TimeSeriesPanel({ panel, location, range, latest }) {
   const overlays = single && !pick?.ambiguous && singleSeries([...assessedRows, ...thresholdRows])
   const chartExtras = overlays ? {
     bands: bandsFor(thresholdRows, method.levels),
-    bandColour: (level) => alpha(theme.palette[levelTone(method.levels, level)].main, bandAlpha(method.levels, level)),
-    bandLabel: (level) => t(`level.${level}`),
+    levels: method.levels,
     shading: activeWeeks(assessedRows, method.active_phases),
   } : {}
   const title = configLabel(t, panel.label_key, panel.id)

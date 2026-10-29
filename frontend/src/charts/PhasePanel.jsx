@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Alert, Box, Button, Paper, Stack, Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
@@ -8,6 +8,7 @@ import { configLabel, weekStamp } from '../labels.js'
 import { ResourceBoundary } from '../ResourceBoundary.jsx'
 import { toChartModel } from '../series.js'
 import { useMethod } from '../useMethod.js'
+import { AlignedCharts } from './AlignedCharts.jsx'
 import { SeriesTable } from './SeriesTable.jsx'
 import { NoneInRange, Tile, TileGrid, asOfFooter } from './StatusTrendTiles.jsx'
 import { TimeSeriesChart } from './TimeSeriesChart.jsx'
@@ -17,7 +18,7 @@ export function phaseQuery(target, location, method) {
 }
 
 // One compact chart per stream on the same weeks: the streams' units differ, so they can't share an axis.
-function StreamChart({ stream, range, shading, axisWidth, onAxisWidth, named }) {
+function StreamChart({ stream, range, shading, named }) {
   const { t } = useTranslation()
   // The stream's own location, as the producer recorded it: without a location filter, the feed may hold others.
   const params = { feed: stream.feed, ...stream.series, location: stream.location, week_from: range?.from, week_to: range?.to }
@@ -44,7 +45,7 @@ function StreamChart({ stream, range, shading, axisWidth, onAxisWidth, named }) 
           return asTable
             ? <SeriesTable periods={model.periods} series={series} unit={unit} />
             : <TimeSeriesChart periods={model.periods} series={series} unit={unit} shading={shading} height={180}
-                axisWidth={axisWidth} onAxisWidth={onAxisWidth} />
+              />
         }}
       </ResourceBoundary>
     </Box>
@@ -67,9 +68,6 @@ export function PhasePanel({ panel, target, location, range, latest }) {
   const phases = useQuery({ queryKey: ['phases', base], queryFn: () => fetchPhases(base), enabled: !!method })
   const streams = useQuery({ queryKey: ['phase-streams', base], queryFn: () => fetchPhaseStreams(base), enabled: !!method })
   const title = configLabel(t, panel.label_key, panel.id)
-  const [axisWidth, setAxisWidth] = useState(0)
-  // Only ever grows, so the charts settle after one pass instead of re-fitting each other.
-  const reportAxis = useCallback((width) => setAxisWidth((widest) => Math.max(widest, Math.ceil(width))), [])
   const rows = phases.data ?? []
   // A declared phase can stand without observation feeds, so no dashboard range: its own weeks bound it then.
   const span = range ?? (rows.length ? { from: rows.reduce((m, r) => (r.period < m ? r.period : m), rows[0].period),
@@ -98,13 +96,14 @@ export function PhasePanel({ panel, target, location, range, latest }) {
           return (
             <ResourceBoundary query={streams}>
               {(list) => (
-                <Stack spacing={2}>
-                  {list.map((s) => (
-                    <StreamChart key={`${s.location}/${s.role}`} stream={s} range={range} axisWidth={axisWidth} named={!location}
-                      onAxisWidth={reportAxis}
-                      shading={activeWeeks(loaded.filter((r) => r.location === s.location), method.active_phases)} />
-                  ))}
-                </Stack>
+                <AlignedCharts>
+                  <Stack spacing={2}>
+                    {list.map((s) => (
+                      <StreamChart key={`${s.location}/${s.role}`} stream={s} range={range} named={!location}
+                        shading={activeWeeks(loaded.filter((r) => r.location === s.location), method.active_phases)} />
+                    ))}
+                  </Stack>
+                </AlignedCharts>
               )}
             </ResourceBoundary>
           )
