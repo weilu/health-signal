@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { configLabel, reportingWeek, weekStamp } from './labels.js'
+import { axisNumber, configLabel, reportingWeek, weekStamp } from './labels.js'
 
 const t = (key, opts) => (key === 'targets.covid' ? 'COVID-19' : opts?.defaultValue ?? '')
 
@@ -23,5 +23,12 @@ describe('reportingWeek', () => {
   it('offers the stamp and its parts to the translation', () => {
     const t = (key, vars) => `W${vars.week} ${vars.year}`
     expect(reportingWeek(t, '2026-W41')).toEqual({ stamp: 'W41 2026', week: '41', year: '2026' })
+  })
+})
+
+describe('axisNumber', () => {
+  it('keeps axis labels short at any magnitude, in the reader’s language', () => {
+    expect([50e12, 1.25e12, 1400, 0.45, 12].map(axisNumber('en'))).toEqual(['50T', '1.25T', '1.4K', '0.45', '12'])
+    expect(axisNumber('el')(50e12)).toBe('50\u00a0τρισ.')   // a non-breaking space: the unit never wraps away
   })
 })

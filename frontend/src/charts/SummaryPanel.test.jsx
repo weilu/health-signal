@@ -103,4 +103,14 @@ describe('SummaryPanel', () => {
                               'clinical · summary.group.syndromic · summary.sharedAcross', 'wastewater'])
     expect(screen.queryByText('summary.page')).toBeNull()
   })
+
+  it('also states status, trend and as-of under the indicator, for narrow screens', async () => {
+    // Phones show this line instead of three more columns (CSS picks which; jsdom renders both).
+    fetchConfig.mockResolvedValue({ methods: METHOD })
+    fetchPhaseStreams.mockResolvedValue([])
+    fetchAssessments.mockResolvedValue([{ location: 'Attica', period: '2026-W10', level: 'low', trend: 'stable', method: 'aedseo' }])
+    renderPanel()
+    const cell = (await screen.findByRole('link', { name: 'load' })).closest('td')
+    expect(cell.textContent).toContain('level.low · trend.stable · range.week')
+  })
 })
