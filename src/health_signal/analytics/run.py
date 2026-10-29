@@ -66,6 +66,8 @@ def assess(config: Config, *, full: bool = False, jobs: int = 1,
     settings = [(method, "year_start_week", str(config.surveillance.year_start_week)),
                 (method, "min_seasons", str(analytics.min_seasons)),
                 *((method, "wave_pathogen", p) for p in sorted(analytics.wave_pathogens)),
+                (method, "steps_with_decrease", str(analytics.wave_end.steps_with_decrease)),
+                (method, "burden_level_decrease", analytics.wave_end.burden_level_decrease),
                 (method, "package_version", main_backend.version)]
     stores = {f.id: FeedStore(f.assessments, profiles[f.id], full=full) for f in config.data.feeds if f.assessments}
     for store in stores.values():
@@ -84,7 +86,7 @@ def assess(config: Config, *, full: bool = False, jobs: int = 1,
         if weeks:
             options = dict(method=AEDSEO, start_week=config.surveillance.year_start_week,
                            min_seasons=analytics.min_seasons,
-                           waves=pathogens[id(s)] <= set(analytics.wave_pathogens),
+                           waves=analytics.wave_end if pathogens[id(s)] <= set(analytics.wave_pathogens) else None,
                            state=store.resume(s, method))
             jobs_to_run.append((s, weeks, options))
     weeks_done = graded = fitted = 0

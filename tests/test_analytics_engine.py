@@ -7,6 +7,7 @@ from health_signal.analytics.aedseo_r import RAedseo
 from health_signal.analytics.engine import assess_series
 from health_signal.analytics.rules import SeasonState
 from health_signal.analytics.series import Series
+from health_signal.config import WaveEnd
 from health_signal.methods import AEDSEO
 from analytics_support import BandsBackend, FakeBackend, RecordingBackend, weeks
 
@@ -17,7 +18,7 @@ def _series(values):
                   p, values, "incidence", [100.0] * len(values), 1.0)
 
 
-def _run(values, weeks_to_do=None, waves=False, state=SeasonState()):
+def _run(values, weeks_to_do=None, waves=None, state=SeasonState()):
     s = _series(values)
     return assess_series(s, weeks_to_do or s.periods, FakeBackend(), method=AEDSEO, start_week=21,
                          min_seasons=3, waves=waves, state=state)
@@ -41,7 +42,7 @@ def test_only_the_requested_weeks_are_computed_resuming_the_state():
 
 
 def test_wave_pathogens_use_the_wave_pair():
-    assert [r["phase"] for r in _run([5, 6, 12, 8], waves=True).rows][2:] == ["in_wave", "between_waves"]
+    assert [r["phase"] for r in _run([5, 6, 12, 8], waves=WaveEnd()).rows][2:] == ["in_wave", "between_waves"]
 
 
 def test_a_failed_onset_or_wave_fit_is_unavailable_not_a_negative():
@@ -65,7 +66,7 @@ def test_a_failed_onset_or_wave_fit_is_unavailable_not_a_negative():
     backend._aedseo, backend._base, backend._RError = Failing(), Base(), RError
     growth, alarm = backend._onset(None, 1.0, {}, date(2025, 1, 6))
     assert all(math.isnan(g) for g in growth) and alarm is None
-    assert backend._wave(None, 1.0, {}, date(2025, 1, 6)) is None
+    assert backend._wave(None, 1.0, {}, date(2025, 1, 6), WaveEnd()) is None
 
 
 def test_a_week_aedseo_cannot_fit_grades_only_a_reported_zero():
@@ -82,7 +83,7 @@ def test_a_week_aedseo_cannot_fit_grades_only_a_reported_zero():
 def test_unusable_bands_give_no_grade_phase_or_threshold_rows(bands):
     s = _series([5, 6, 12, 30])
     res = assess_series(s, s.periods, BandsBackend(bands), method=AEDSEO, start_week=21, min_seasons=3,
-                        waves=False, state=SeasonState())
+                        waves=None, state=SeasonState())
     assert [(r["level"], r["phase"]) for r in res.rows] == [(None, None)] * 4 and res.bounds == []
 
 
@@ -92,7 +93,7 @@ def test_a_censored_week_reaches_aedseo_as_a_gap_but_is_still_graded():
     s = _series([12, 30, 0, 25])
     s.censored = [False, False, True, False]
     backend = RecordingBackend()
-    res = assess_series(s, s.periods, backend, method=AEDSEO, start_week=21, min_seasons=3, waves=False,
+    res = assess_series(s, s.periods, backend, method=AEDSEO, start_week=21, min_seasons=3, waves=None,
                         state=SeasonState())
     assert math.isnan(backend.inputs[-1].values[2]) and backend.inputs[-1].values[3] == 25
     assert [r["level"] for r in res.rows[2:]] == ["very_low", "medium"]

@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Protocol
 
+from ..config import WaveEnd
+
 
 class FitError(Exception):
     """aedseo can't fit this series as of this week (too little history): the week is left ungraded."""
@@ -16,7 +18,7 @@ class FitInput:
     scale: float                  # values are fitted × scale; thresholds come back in the values' own units
     kind: str                     # "count" or "incidence"
     season_start: int
-    waves: bool
+    waves: WaveEnd | None         # how a wave ends; None for a series phased in seasons
 
 
 @dataclass(frozen=True)

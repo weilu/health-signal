@@ -4,18 +4,19 @@ from datetime import date, timedelta
 
 import numpy as np
 
+from ..config import WaveEnd
 from .backend import FitError, FitInput, WeekFit
 
-# SSI's defaults (spec §6.3.1); not configurable until a country needs it.
+# The aedseo paper's validated settings (SSI; medRxiv 2025, doi:10.1101/2025.11.18.25340240): k, the families
+# and decay_factor are aedseo's defaults; n_peak=3 and conf_levels=0.975 (Supplement S5) override its 6 and 0.95.
 _ONSET = dict(family="quasipoisson", k=5)
 _BURDEN = dict(family="lnorm", n_peak=3, decay_factor=0.8, conf_levels=0.975)
 # combined_seasonal_output refits the onset and burden levels itself, and a wave ends against those bands, so it
 # gets the same settings as the bands we draw and grade by (its `family` is the onset's; the burden's is
-# `family_quant`). The wave settings are tuned on the Greek COVID series to separate back-to-back waves without
-# single-week noise.
+# `family_quant`). How a wave ends comes from config (analytics.wave_end).
 _WAVES = dict(family=_ONSET["family"], k=_ONSET["k"],
               family_quant=_BURDEN["family"], **{k: v for k, v in _BURDEN.items() if k != "family"},
-              multiple_waves=True, steps_with_decrease=3, burden_level_decrease="medium")
+              multiple_waves=True)
 _NAN3 = (math.nan,) * 3
 _NAN4 = (math.nan,) * 4
 
@@ -79,7 +80,7 @@ class RAedseo:
         except self._RError:
             bands = _NAN4   # burden levels need a complete previous season
         growth, alarm = self._onset(tsd, tdis, season, data.dates[-1])
-        in_wave = self._wave(tsd, tdis, season, data.dates[-1]) if data.waves else None
+        in_wave = self._wave(tsd, tdis, season, data.dates[-1], data.waves) if data.waves else None
         bands = tuple(b / data.scale for b in bands) if len(bands) == 4 else _NAN4
         return WeekFit(bands, growth, alarm, in_wave)
 
@@ -96,10 +97,12 @@ class RAedseo:
         alarm = self._numbers(onset, "seasonal_onset_alarm")[-1]
         return growth, (bool(alarm) if math.isfinite(alarm) else None)
 
-    def _wave(self, tsd, tdis, season, week: date) -> bool | None:
+    def _wave(self, tsd, tdis, season, week: date, end: WaveEnd) -> bool | None:
         try:
             onset = self._aedseo.combined_seasonal_output(
-                tsd, disease_threshold=tdis, only_current_season=True, **season, **_WAVES).rx2("onset_output")
+                tsd, disease_threshold=tdis, only_current_season=True, **season, **_WAVES,
+                steps_with_decrease=end.steps_with_decrease,
+                burden_level_decrease=end.burden_level_decrease).rx2("onset_output")
         except self._RError:
             return None   # can't segment: unavailable, not "between waves"
         if not self._last_is(onset, week):

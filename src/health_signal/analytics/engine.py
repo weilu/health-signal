@@ -2,6 +2,7 @@ import math
 from dataclasses import dataclass
 from datetime import date
 
+from ..config import WaveEnd
 from ..methods import Method
 from .backend import Backend, FitError, FitInput
 from .rules import SeasonState, completed_seasons, level_for, season_phase, trend_for, wave_phase
@@ -33,7 +34,7 @@ def _monday(period: str) -> date:
 
 
 def assess_series(series: Series, weeks: list[str], backend: Backend, *, method: Method, start_week: int,
-                  min_seasons: int, waves: bool, state: SeasonState) -> SeriesResult:
+                  min_seasons: int, waves: WaveEnd | None, state: SeasonState) -> SeriesResult:
     """Grade `weeks` of one series, each from its data up to and including that week (spec §6.3.1)."""
     index = {p: i for i, p in enumerate(series.periods)}
     fitted_values = [math.nan if c else v
@@ -59,7 +60,7 @@ def assess_series(series: Series, weeks: list[str], backend: Backend, *, method:
         thresholds = _usable(fit.thresholds)
         level = level_for(value, thresholds, method.levels)
         trend, growth = trend_for(*fit.growth)
-        if waves:
+        if waves is not None:
             phase = wave_phase(fit.in_wave)
         else:
             phase, state = season_phase(state, week, value, thresholds[0], fit.alarm)

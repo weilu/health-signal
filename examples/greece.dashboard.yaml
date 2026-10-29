@@ -53,6 +53,7 @@ data:
 analytics:
   min_seasons: 3
   wave_pathogens: [SARS-CoV-2]
+  wave_end: { steps_with_decrease: 3, burden_level_decrease: medium }
   phase_streams:
     - pathogen: SARS-CoV-2
       location: Attica
