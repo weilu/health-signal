@@ -338,9 +338,10 @@ panels (no `series_by`; tiles, bands and shading appear only on those) × every 
 select (`filters.location`'s options; every location in the feed's data when there's no location
 filter), so a feed covering all EU countries costs nothing for regions the dashboard can't show. No separate list to keep in step with the panels.
 
-**Settings.** Defaults live with the method in code (SSI's: `k=5`, `n_peak=3`, `decay_factor=0.8`,
-`conf_levels=0.975`, the families, and the wave-segmentation settings tuned on Greek COVID). Config
-overrides only policy choices, each in one place:
+**Settings.** The fitting settings live with the method in code: the aedseo paper's validated ones
+(SSI; `k=5`, `decay_factor=0.8` and the families are aedseo's defaults; `n_peak=3` and
+`conf_levels=0.975` from its Supplement S5 override aedseo's 6 and 0.95). Config sets the policy
+choices and the data-dependent wave segmentation, each in one place:
 - `surveillance.year_start_week` — the season boundary (the season ends the week before), shared
   with the date-range presets (§6.1). aedseo has no week 0, so `assess` refuses a season starting in
   week 1 before fitting anything.
@@ -352,6 +353,12 @@ overrides only policy choices, each in one place:
   registry pathogen (not necessarily a target, so the default suits
   a dashboard without a COVID tab). Replaces greece-public-health's "covid in the
   key" rule.
+- `analytics.aedseo.wave_end` (default aedseo's: `steps_with_decrease: 2`, `burden_level_decrease: low`) —
+  when a wave ends: after that many weeks of decline, all below that burden level's upper edge. Series
+  differ in how close their waves run (Greece's COVID needs `3` and `medium` to split back-to-back
+  waves), so it's config, recorded in `assessed_with.csv` like the rest. It sits under the method's
+  name, in aedseo's argument names and level vocabulary; another method's data-dependent settings
+  would sit under its own (e.g. `analytics.mem`).
 - `analytics.phase_streams` — the inputs of a method's pathogen-level phase (below).
 
 **Input to aedseo, by the row's `unit`.** Counts → aedseo's cases path (rounded). A rate with its

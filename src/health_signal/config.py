@@ -254,11 +254,27 @@ class PhaseStreamsEntry(BaseModel):
     streams: dict[str, str]  # role -> "<page>/<panel>" under the pathogen's target
 
 
+class WaveEnd(BaseModel):
+    # When aedseo closes a wave: after this many weeks of decline, all below this burden level's upper edge.
+    # Defaults are aedseo's own; a country's series may need others to split back-to-back waves.
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    steps_with_decrease: PositiveInt = 2
+    burden_level_decrease: Literal["very low", "low", "medium", "high"] = "low"
+
+
+class AedseoConfig(BaseModel):
+    # aedseo's own settings that depend on the data, in its names and level vocabulary.
+    model_config = ConfigDict(extra="forbid")
+    wave_end: WaveEnd = Field(default_factory=WaveEnd)
+
+
 class AnalyticsConfig(BaseModel):
-    # Policy choices of the analytics component (spec §6.3.1); the method's statistical settings stay in code.
+    # Policy choices of the analytics component (spec §6.3.1), whatever the method; a method's data-dependent
+    # settings sit under its name, and its other statistical settings stay in code.
     model_config = ConfigDict(extra="forbid")
     min_seasons: PositiveInt = 3
     wave_pathogens: list[str] = Field(default_factory=lambda: ["SARS-CoV-2"])
+    aedseo: AedseoConfig = Field(default_factory=AedseoConfig)
     phase_streams: list[PhaseStreamsEntry] = Field(default_factory=list)
 
 

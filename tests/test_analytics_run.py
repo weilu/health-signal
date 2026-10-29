@@ -1,13 +1,14 @@
 import pytest
 
 from health_signal.analytics import assess
+from health_signal.analytics.store import SettingsChanged
 from health_signal.assessments import AssessmentSource, PhaseSource, PhaseStreamSource
 from health_signal.config import Config
 from health_signal.profile import ERVISS
-from analytics_support import FakeBackend, FlakyBackend, NeverFitsBackend, erviss_rows, write_feed
+from analytics_support import FakeBackend, FlakyBackend, NeverFitsBackend, RecordingBackend, erviss_rows, write_feed
 
 
-def _config(tmp_path, streams=True, year_start_week=21, covid_too=False):
+def _config(tmp_path, streams=True, year_start_week=21, covid_too=False, analytics=None):
     feed = write_feed(tmp_path / "c",
                       erviss_rows("Greece", "ILIconsultationrate", "per_100k", [5, 6, 12, 30, 25, 9])
                       + erviss_rows("Greece", "SARIrate", "per_100k", [4, 5, 11, 20, 22, 21], survtype="SARI syndromic"))
@@ -23,7 +24,7 @@ def _config(tmp_path, streams=True, year_start_week=21, covid_too=False):
         "data": {"feeds": [{"id": "clinical", "profile": "erviss", "dir": str(feed), "assessments": str(tmp_path / "a")}],
                  "phases": str(tmp_path / "phase.csv"), "phase_streams": str(tmp_path / "streams.csv")},
         "targets": targets,
-        "analytics": {"phase_streams": [entry] if streams else []}})
+        "analytics": {"phase_streams": [entry] if streams else [], **(analytics or {})}})
 
 
 def test_assess_writes_tables_the_app_loads(tmp_path):
@@ -121,3 +122,21 @@ def test_no_series_at_all_fails_before_replacing_good_tables(tmp_path):
     with pytest.raises(RuntimeError, match="no series"):
         assess(cfg, full=True, backend=FakeBackend)
     assert (tmp_path / "a" / "assessment.csv").read_bytes() == before
+
+
+def test_the_configured_wave_end_reaches_only_wave_series(tmp_path):
+    wave_end = {"steps_with_decrease": 3, "burden_level_decrease": "medium"}
+    recorder = RecordingBackend()
+    assess(_config(tmp_path, streams=False, analytics={"wave_pathogens": ["Influenza"], "aedseo": {"wave_end": wave_end}}),
+           backend=lambda: recorder)
+    assert {(i.waves.steps_with_decrease, i.waves.burden_level_decrease) for i in recorder.inputs} == {(3, "medium")}
+    recorder.inputs.clear()
+    assess(_config(tmp_path, streams=False, analytics={"aedseo": {"wave_end": wave_end}}), full=True, backend=lambda: recorder)
+    assert {i.waves for i in recorder.inputs} == {None}
+
+
+def test_a_changed_wave_end_needs_a_full_run(tmp_path):
+    assess(_config(tmp_path, streams=False), backend=FakeBackend)
+    cfg = _config(tmp_path, streams=False, analytics={"aedseo": {"wave_end": {"steps_with_decrease": 3}}})
+    with pytest.raises(SettingsChanged, match="steps_with_decrease"):
+        assess(cfg, backend=FakeBackend)
