@@ -257,7 +257,7 @@ and sequencing files have a different shape and belong to the variant track.
     (one span) or change per season or per week. Draws the chart bands.
   - **`phase.csv`** — `location` × `pathogen` × `period` × `method` → `phase` (e.g. `in_season`,
     `in_wave`, `out_of_season`): the pathogen-level status behind the "in season since W48" badge,
-    e.g. greece-public-health's cross-stream rule (community and admissions streams have each onset
+    e.g. a cross-stream rule (community and admissions streams have each onset
     and their runs overlap). **Precomputed, not derived in the app:** the rule is a policy choice that
     belongs with the analysis, and a country may write its officially declared season here instead.
     `out_of_season`, not "pre-season": a quiet week can't tell before-onset from after-season.
@@ -291,7 +291,7 @@ The methods are standard, so they are computed once, generically, rather than in
 ETL: `health_signal.analytics` reads feeds (a series is location + dimensions + indicator, with its
 periods and values) and writes the tables above, via a CLI (`health-signal assess --config
 dashboard.yaml`) run as a batch step after the feeds refresh. aedseo first (Status, Trend, onset and
-phase), generalised from greece-public-health's aedseo bridge; MEM and others as further registry
+phase), generalised from the pilot's earlier aedseo bridge; MEM and others as further registry
 entries. aedseo and MEM are R packages (via rpy2), so the component installs as an optional extra
 (`health-signal[analytics]`) and the app itself stays free of R. Countries may still supply their own
 tables in the same format.
@@ -403,7 +403,7 @@ precedence over client-side routes.
 ## 9. Frontend — modularity & i18n
 
 - **Config-driven rendering.** The SPA fetches `/api/config` and builds pathogen tabs, panels, and
-  indicator charts from it. One route per configured page. Layout (after greece-public-health): a plain
+  indicator charts from it. One route per configured page. Layout: a plain
   utility strip for session controls (language, Configuration, Sign out), a header with the title on the
   left and the dashboard filters on the right as label/value rows (Region, Date range, Reporting week;
   stacked under the title on phones), a row of target tabs whose right end is reserved for a Methods
@@ -517,9 +517,8 @@ greece-dashboard/                  # consumer repo (this repo's successor role)
 
 - **Generic repo** `health-signal` at `/Users/wlu4/workspace/health-signal` — the library; this spec
   lives here.
-- **Greek repo** (`greece-public-health`): branch `feat/reusable-dashboard` (off `fix/source-label`)
-  holds the migration — reshape the ETL output to the ERVISS contract, add `dashboard.yaml` +
-  `locales/` + branding, depend on the library, update the Connect deploy.
+- **Greek repo** (private consumer): a migration branch reshapes the ETL output to the contract, adds
+  `dashboard.yaml`, `locales/` and branding, depends on the library and updates the Connect deploy.
 
 ## 12. Testing
 
@@ -557,8 +556,7 @@ outside the repo; that output is never committed, and screenshots of it stay out
 
 Work proceeds in **stages, one GitHub PR per stage**, each following this lifecycle:
 
-1. Open the PR → **GitHub Copilot review** → iterate until Copilot has no substantive findings
-   (the same loop already run on `greece-public-health` PR #2).
+1. Open the PR → **GitHub Copilot review** → iterate until Copilot has no substantive findings.
 2. **User review** → iterate.
 3. **Merge.**
 

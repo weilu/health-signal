@@ -94,7 +94,7 @@ export function SummaryPanel({ panel, target, location, range, latest }) {
   )
 }
 
-// Subheadings as in greece-public-health's overview: the feed, then its kind only where the feed has both
+// Subheadings: the feed, then its kind only where the feed has both
 // (pathogen-specific vs syndromic clinical), and the tabs a series is shared across.
 function groupRows(t, rows) {
   const kinds = new Map()

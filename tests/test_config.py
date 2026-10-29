@@ -152,7 +152,7 @@ def test_example_config_loads():
     cfg = load_config("examples/greece.dashboard.yaml")
     assert all(p.panels for t in cfg.targets for p in t.pages)
     assert {f.id for f in cfg.data.feeds} == {"clinical", "wastewater"}
-    # Every target pairs clinical and wastewater pages, the way greece-public-health's source tabs do.
+    # Every target pairs clinical and wastewater pages, one tab per source.
     assert all([p.id for p in t.pages] == ["overview", "clinical", "wastewater"] for t in cfg.targets)
     assert all([x.type for x in t.pages[0].panels] == ["phase", "summary"] for t in cfg.targets)
 
@@ -346,7 +346,7 @@ def test_client_panel_queries_drop_the_pathogen_their_indicator_implies():
 
 
 def test_client_panels_carry_their_summary_group():
-    # Grouped as greece-public-health's overview is: pathogen-specific vs syndromic clinical, and which tabs
+    # Grouped as the overview shows them: pathogen-specific vs syndromic clinical, and which tabs
     # share a syndromic series.
     ili = {"feed": "clinical", "indicator": "ILIconsultationrate", "dimensions": {"survtype": "primary care sentinel", "age": "total"}}
     adm = {"feed": "clinical", "indicator": "hospitaladmissions",

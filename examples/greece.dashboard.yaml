@@ -30,7 +30,7 @@ filters:
     options:
       - { value: Greece, label_key: "locations.national" }
       - { value: Attica, label_key: "locations.attica" }
-  # Yearly presets run W21-W20, greece-public-health's respiratory year; the default view is the
+  # Yearly presets run W21-W20, the respiratory year; the default view is the
   # last 52 weeks (default_weeks).
   date_range:
     year_start_week: 21
@@ -45,7 +45,7 @@ data:
 # Wastewater pages show the flow- and population-normalised load (floMean, gene copies/day per 100k)
 # per PHES-ODM measure (generic codes until assay targets are pinned). Raw concentration (me) stays in
 # the feed but isn't charted: it moves with dilution, so it misleads read on its own.
-# Clinical pages mirror greece-public-health's Clinical view where ERVISS has the data. Labels are i18n keys. Each
+# Clinical pages show the pilot's clinical indicators where ERVISS has the data. Labels are i18n keys. Each
 # query should match one row per series per week (checked against ERVISS); series_by splits it.
 targets:
   - id: SARS-CoV-2
