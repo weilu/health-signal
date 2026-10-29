@@ -53,13 +53,13 @@ const endLabels = {
 }
 
 export function useChartPalette() {
-  const { axisWidth, onAxisWidth } = useAlignedAxis()
   const theme = useTheme()
   return theme.palette.chart?.[theme.palette.mode] ?? []
 }
 
 // `levels` are the method's ordered levels: the chart colours and names its bands from them, as the tiles do.
 export function TimeSeriesChart({ periods, series, unit, bands = [], levels = [], shading = null, height = 320 }) {
+  const { axisWidth, onAxisWidth } = useAlignedAxis()
   const theme = useTheme()
   const { t, i18n } = useTranslation()
   const palette = useChartPalette()
