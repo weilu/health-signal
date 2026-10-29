@@ -1,28 +1,160 @@
-{ "app": { "loading": "Loading…", "error": "Something went wrong", "logoutError": "Sign-out failed — please try again.", "notFound": "Page not found." }, "nav": { "configuration": "Configuration", "logout": "Sign out" },
-  "login": { "email": "Email", "password": "Password", "submit": "Sign in", "error": "Invalid email or password", "failed": "Sign-in failed — please try again." },
-  "config": { "title": "Configuration", "targets": "Surveillance targets", "locales": "Languages" },
-  "filters": { "location": "Region", "dateRange": "Date range", "reportingWeek": "Reporting week {{stamp}}" },
-  "range": { "last_one": "Last week", "last": "Last {{count}} weeks", "all": "All history", "custom": "Custom range", "quick": "Quick ranges",
-    "years": "Year", "current": "{{label}} (current)", "from": "From", "to": "To", "week": "W{{week}} {{year}}" },
-  "page": { "noPanels": "No panels are configured for this page." },
-  "chart": { "showTable": "Show table", "showChart": "Show chart", "period": "Week", "unspecified": "Unspecified",
+{
+  "app": {
+    "loading": "Loading…",
+    "error": "Something went wrong",
+    "logoutError": "Sign-out failed — please try again.",
+    "notFound": "Page not found."
+  },
+  "nav": {
+    "configuration": "Configuration",
+    "logout": "Sign out"
+  },
+  "login": {
+    "email": "Email",
+    "password": "Password",
+    "submit": "Sign in",
+    "error": "Invalid email or password",
+    "failed": "Sign-in failed — please try again."
+  },
+  "config": {
+    "title": "Configuration",
+    "targets": "Surveillance targets",
+    "locales": "Languages"
+  },
+  "filters": {
+    "location": "Region",
+    "dateRange": "Date range",
+    "reportingWeek": "Reporting week {{stamp}}"
+  },
+  "range": {
+    "last_one": "Last week",
+    "last": "Last {{count}} weeks",
+    "all": "All history",
+    "custom": "Custom range",
+    "quick": "Quick ranges",
+    "years": "Year",
+    "current": "{{label}} (current)",
+    "from": "From",
+    "to": "To",
+    "week": "W{{week}} {{year}}"
+  },
+  "page": {
+    "noPanels": "No panels are configured for this page."
+  },
+  "chart": {
+    "showTable": "Show table",
+    "showChart": "Show chart",
+    "period": "Week",
+    "unspecified": "Unspecified",
     "empty": "No data for this panel yet.",
     "emptyAt": "No data for {{location}} from {{from}} to {{to}}.",
     "emptyIn": "No data from {{from}} to {{to}}.",
     "mixedUnits": "These rows mix units ({{units}}), so they can't share one axis. Narrow the panel's query.",
     "ambiguous": "More than one row per series in {{period}}. Narrow the panel's query (e.g. pathogentype) or set series_by.",
     "mixedSeries": "Rows with different {{field}} would share one line. Narrow the panel's query or set series_by.",
-    "tooManySeries": "{{count}} series are more than colour can tell apart. Narrow the panel's query." },
-  "quality": { "beLOD": "below detection limit" },
-  "unit": { "per_100k": "per 100,000 population", "per_100_consultations": "per 100 consultations",
-    "per_100k_consultations": "per 100,000 consultations", "count": "count", "percent": "%", "rate": "rate",
-    "gcL": "gene copies/L", "gcMl": "gene copies/mL", "log10cpL": "log10 gene copies/L", "gCGS": "gene copies/g solids",
-    "gcPpmov": "gene copies per PMMoV copy", "gcDay": "gene copies/day", "gcDay100k": "gene copies/day per 100,000 people" },
-  "assessment": {"status": "Status", "trend": "Trend", "asOf": "As of {{week}} · {{source}}", "asOfPast": "As of {{week}} · {{source}} · not the latest week", "noneInRange": "No assessment in this range", "provisional": "Provisional", "ungraded": "Not graded", "ambiguous": "Several series match this panel", "unavailable": "Status unavailable", "growth": "{{rate}}/wk ({{lower}} to {{upper}})"},
-  "level": {"very_low": "Very low", "low": "Low", "medium": "Medium", "high": "High", "very_high": "Very high"},
-  "trend": {"increasing": "Increasing", "stable": "Stable", "decreasing": "Decreasing", "inconclusive": "Inconclusive"},
-  "phase": {"runs": {"season": "Seasons in this range", "waves": "Waves in this range"}, "noRuns": {"season": "No season in this range", "waves": "No wave in this range"}, "ongoing": "ongoing", "weeks_one": "{{count}} week", "weeks_other": "{{count}} weeks", "startedBefore": "began before this range", "endsAfter": "continues after this range", "in_season": "In season", "in_wave": "In a wave", "out_of_season": "Out of season", "between_waves": "Between waves", "ambiguous": "Phases differ by location; choose a region", "since": "{{phase}} · since {{week}}", "none": "No season or wave status for this pathogen", "title": {"season": "Season status", "waves": "Wave status"}},
-  "role": {"cases": "Community stream", "admissions": "Admissions stream"},
-  "feeds": {"clinical": "Clinical", "wastewater": "Wastewater"},
-  "summary": {"group": {"pathogen_specific": "pathogen-specific", "syndromic": "syndromic respiratory surveillance"}, "sharedAcross": "shared across {{targets}}", "indicator": "Indicator", "asOf": "As of", "none": "No assessed indicators for this pathogen"},
-  "methods": {"aedseo": {"sources": {"status": "SSI aedseo burden levels", "trend": "aedseo growth rate", "phase": {"season": "aedseo seasonal onset", "waves": "aedseo wave detection"}}, "phase_rule": {"season": "In season while both its community and admissions streams are active. A stream turns active when it rises above its disease threshold, and stays active until it falls back below it.", "waves": "In a wave while both its community and admissions streams are active. A stream turns active when it rises above its disease threshold, and stays active until it falls back below it."}}} }
+    "tooManySeries": "{{count}} series are more than colour can tell apart. Narrow the panel's query."
+  },
+  "quality": {
+    "beLOD": "below detection limit"
+  },
+  "unit": {
+    "per_100k": "per 100,000 population",
+    "per_100_consultations": "per 100 consultations",
+    "per_100k_consultations": "per 100,000 consultations",
+    "count": "count",
+    "percent": "%",
+    "rate": "rate",
+    "gcL": "gene copies/L",
+    "gcMl": "gene copies/mL",
+    "log10cpL": "log10 gene copies/L",
+    "gCGS": "gene copies/g solids",
+    "gcPpmov": "gene copies per PMMoV copy",
+    "gcDay": "gene copies/day",
+    "gcDay100k": "gene copies/day per 100,000 people"
+  },
+  "assessment": {
+    "status": "Status",
+    "trend": "Trend",
+    "asOf": "As of {{week}} · {{source}}",
+    "asOfPast": "As of {{week}} · {{source}} · not the latest week",
+    "noneInRange": "No assessment in this range",
+    "provisional": "Provisional",
+    "ungraded": "Not graded",
+    "ambiguous": "Several series match this panel",
+    "unavailable": "Status unavailable",
+    "growth": "{{rate}}/wk ({{lower}} to {{upper}})"
+  },
+  "level": {
+    "very_low": "Very low",
+    "low": "Low",
+    "medium": "Medium",
+    "high": "High",
+    "very_high": "Very high"
+  },
+  "trend": {
+    "increasing": "Increasing",
+    "stable": "Stable",
+    "decreasing": "Decreasing",
+    "inconclusive": "Inconclusive"
+  },
+  "phase": {
+    "runs": {
+      "season": "Seasons in this range",
+      "waves": "Waves in this range"
+    },
+    "noRuns": {
+      "season": "No season in this range",
+      "waves": "No wave in this range"
+    },
+    "ongoing": "ongoing",
+    "weeks_one": "{{count}} week",
+    "weeks_other": "{{count}} weeks",
+    "startedBefore": "began before this range",
+    "endsAfter": "continues after this range",
+    "in_season": "In season",
+    "in_wave": "In a wave",
+    "out_of_season": "Out of season",
+    "between_waves": "Between waves",
+    "ambiguous": "Phases differ by location; choose a region",
+    "since": "{{phase}} · since {{week}}",
+    "none": "No season or wave status for this pathogen",
+    "title": {
+      "season": "Season status",
+      "waves": "Wave status"
+    }
+  },
+  "role": {
+    "cases": "Community stream",
+    "admissions": "Admissions stream"
+  },
+  "feeds": {
+    "clinical": "Clinical",
+    "wastewater": "Wastewater"
+  },
+  "summary": {
+    "group": {
+      "pathogen_specific": "pathogen-specific",
+      "syndromic": "syndromic respiratory surveillance"
+    },
+    "sharedAcross": "shared across {{targets}}",
+    "indicator": "Indicator",
+    "asOf": "As of",
+    "none": "No assessed indicators for this pathogen"
+  },
+  "methods": {
+    "aedseo": {
+      "sources": {
+        "status": "SSI aedseo burden levels",
+        "trend": "aedseo growth rate",
+        "phase": {
+          "season": "aedseo seasonal onset",
+          "waves": "aedseo wave detection"
+        }
+      },
+      "phase_rule": {
+        "season": "In season while both its community and admissions streams are active. A stream turns active when it rises above its disease threshold, and stays active until it falls back below it.",
+        "waves": "In a wave while both its community and admissions streams are active. A stream turns active when it rises above its disease threshold, and stays active until it falls back below it."
+      }
+    }
+  }
+}

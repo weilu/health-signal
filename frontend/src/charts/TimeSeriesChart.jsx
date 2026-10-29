@@ -4,6 +4,7 @@ import { alpha, useTheme } from '@mui/material/styles'
 import { useTranslation } from 'react-i18next'
 import { CategoryScale, Chart as ChartJS, Legend, LinearScale, LineElement, PointElement, Tooltip } from 'chart.js'
 import { Line } from 'react-chartjs-2'
+import { axisNumber } from '../labels.js'
 import { endLabelsFit, isolated } from '../series.js'
 import { phaseShading, thresholdBands } from './plugins.js'
 
@@ -60,6 +61,7 @@ export function TimeSeriesChart({ periods, series, unit, bands = [], bandColour,
   const { t, i18n } = useTranslation()
   const palette = useChartPalette()
   const fmt = new Intl.NumberFormat(i18n.resolvedLanguage, { maximumFractionDigits: 2 })
+  const tick = axisNumber(i18n.resolvedLanguage)
   const { primary: ink, secondary: ink2 } = theme.palette.text
   const rule = theme.palette.divider
   const font = { family: theme.typography.fontFamily, size: 12 }
@@ -86,11 +88,12 @@ export function TimeSeriesChart({ periods, series, unit, bands = [], bandColour,
     interaction: { mode: 'index', intersect: false },
     layout: { padding: { right: labelRoom } },
     scales: {
-      x: { grid: { display: false }, border: { color: rule }, ticks: { color: ink2, font, maxTicksLimit: 10, maxRotation: 0 } },
+      // Room between week labels, so a narrow chart skips some rather than running them together.
+      x: { grid: { display: false }, border: { color: rule }, ticks: { color: ink2, font, maxTicksLimit: 10, maxRotation: 0, autoSkipPadding: 16 } },
       y: {
         title: { display: true, text: unit, color: ink2, font },
         grid: { color: rule, lineWidth: 1 }, border: { display: false },
-        ticks: { color: ink2, font, callback: (v) => fmt.format(v) },
+        ticks: { color: ink2, font, callback: (v) => tick(v) },
         // Stacked charts share the widest y-axis, so their plots start at the same x and weeks line up.
         afterFit: (scale) => {
           onAxisWidth?.(scale.width)

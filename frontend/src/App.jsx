@@ -62,7 +62,7 @@ function Shell({ config }) {
     )
   }
 
-  // Layout after greece-public-health: a utility strip for session controls, a header whose filters
+  // Layout: a utility strip for session controls, a header whose filters
   // scope the view, target tabs, then page tabs for multi-page targets.
   const targets = (configQuery.data?.targets ?? []).filter((target) => target.pages.length)
   const active = activePage(targets, pathname)

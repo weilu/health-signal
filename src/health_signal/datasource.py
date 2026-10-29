@@ -23,6 +23,8 @@ class DataSource(Protocol):
 
     def periods(self) -> tuple[str, str] | None: ...
 
+    def locations(self) -> set[str]: ...
+
 
 class FileDataSource:
     def __init__(self, data_dir: str | Path, profile: Profile) -> None:
@@ -54,6 +56,9 @@ class FileDataSource:
     def periods(self) -> tuple[str, str] | None:
         # ISO weeks are zero-padded, so string min/max are chronological.
         return None if self._df.empty else (self._df["period"].min(), self._df["period"].max())
+
+    def locations(self) -> set[str]:
+        return set(self._df["location"])
 
     def _to_rows(self, df: pd.DataFrame) -> list[FeedRow]:
         dims = [k for k in self.profile.dimension_keys if k in df.columns]

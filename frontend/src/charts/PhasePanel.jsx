@@ -17,12 +17,14 @@ export function phaseQuery(target, location, method) {
 }
 
 // One compact chart per stream on the same weeks: the streams' units differ, so they can't share an axis.
-function StreamChart({ stream, range, shading, axisWidth, onAxisWidth }) {
+function StreamChart({ stream, range, shading, axisWidth, onAxisWidth, named }) {
   const { t } = useTranslation()
   // The stream's own location, as the producer recorded it: without a location filter, the feed may hold others.
   const params = { feed: stream.feed, ...stream.series, location: stream.location, week_from: range?.from, week_to: range?.to }
   const query = useQuery({ queryKey: ['data', params], queryFn: () => fetchData(params) })
-  const label = t(`role.${stream.role}`, { defaultValue: stream.role })
+  const role = t(`role.${stream.role}`, { defaultValue: stream.role })
+  // Without a location filter streams of several regions can sit together; the heading says whose this is.
+  const label = named ? `${role} · ${stream.location}` : role
   const [asTable, setAsTable] = useState(false)
   return (
     <Box>
@@ -96,7 +98,7 @@ export function PhasePanel({ panel, target, location, range, latest }) {
               {(list) => (
                 <Stack spacing={2}>
                   {list.map((s) => (
-                    <StreamChart key={`${s.location}/${s.role}`} stream={s} range={range} axisWidth={axisWidth}
+                    <StreamChart key={`${s.location}/${s.role}`} stream={s} range={range} axisWidth={axisWidth} named={!location}
                       onAxisWidth={reportAxis}
                       shading={activeWeeks(loaded.filter((r) => r.location === s.location), method.active_phases)} />
                   ))}

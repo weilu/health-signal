@@ -6,7 +6,7 @@ import { levelTone, toneColor } from '../assessments.js'
 // growth_* are proportional change per period (spec §6.3), so -0.2 reads -20%/wk.
 const pct = (v) => `${v > 0 ? '+' : ''}${Math.round(v * 100)}%`
 
-// The chart card and its tiles as sibling cards, as greece-public-health lays them out; one column on phones.
+// The chart card and its tiles as sibling cards; one column on phones.
 export function TileGrid({ card, tiles }) {
   if (!tiles) return card
   return (

@@ -123,4 +123,13 @@ describe('PhasePanel', () => {
     expect(await screen.findByText('phase.title.season')).toBeTruthy()
   })
 
+
+  it("names each stream's location in its heading when there is no location filter", async () => {
+    fetchConfig.mockResolvedValue({ methods: METHOD })
+    fetchPhases.mockResolvedValue(PHASES)
+    fetchPhaseStreams.mockResolvedValue([STREAM])
+    fetchData.mockResolvedValue([])
+    renderPanel(null)
+    expect(await screen.findByRole('heading', { name: 'cases · Greece' })).toBeTruthy()
+  })
 })
