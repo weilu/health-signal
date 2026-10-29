@@ -47,7 +47,7 @@ data:
   phase_streams: data/phase_streams.csv
 
 # What `health-signal assess` decides by policy (the statistics' settings stay in the method). The phase
-# pairs follow greece-public-health's: a cases stream and an admissions stream each in season. COVID's
+# pairs are a cases stream and an admissions stream, each in season. COVID's
 # cases stream is Attica wastewater; Attica influenza has no local cases stream, and RSV no admissions
 # panel here, so neither gets a phase.
 analytics:

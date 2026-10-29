@@ -40,7 +40,7 @@ class Profile(BaseModel):
     indicator_implies: dict[str, dict[str, str]] = {}
     count_units: set[str] = set()  # graded on aedseo's cases path; every other unit is a rate or load
     # rate indicator -> its own denominator series, aedseo's exposure offset: growth of positivity must be
-    # modelled against tests, not population (greece-public-health's AEDSEO_INPUTS note).
+    # modelled against tests, not population.
     denominators: dict[str, Denominator] = {}
     # Indicators reported per pathogen: a series of one without a pathogen mixes every pathogen's figures.
     pathogen_specific: set[str] = set()

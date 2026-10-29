@@ -70,8 +70,8 @@ class SeasonState:
 
 def season_phase(state: SeasonState, period: str, value: float, floor: float,
                  alarm: bool | None) -> tuple[str | None, SeasonState]:
-    # As of `period`, without hindsight: greece-public-health bridges a one-week dip after the fact; here
-    # the dip week reads in season and the second week below ends it, so a season ends a week late.
+    # As of `period`, without hindsight: a one-week dip can't be bridged after the fact, so the dip week
+    # reads in season and the second week below ends it; a season ends a week late.
     if not math.isfinite(floor):
         return None, state
     gap = weeks_between(state.last_period, period) - 1 if state.last_period else 0
@@ -80,8 +80,8 @@ def season_phase(state: SeasonState, period: str, value: float, floor: float,
         if in_season or alarm:
             return "in_season", SeasonState(True, 0, period)
         if alarm is None:
-            # The onset fit is unavailable, so whether a season started is unknown: no phase, as
-            # greece-public-health suppresses it, rather than a false "out of season".
+            # The onset fit is unavailable, so whether a season started is unknown: no phase rather than a
+            # false "out of season".
             return None, state
         return "out_of_season", SeasonState(False, 0, period)
     if in_season and state.below < MAX_DIP:
