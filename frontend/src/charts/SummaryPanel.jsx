@@ -41,21 +41,23 @@ export function SummaryPanel({ panel, target, location, range, latest }) {
         : !rows.length ? <Typography color="text.secondary">{t('summary.none')}</Typography> : (
         <TableContainer>
           <Table size="small">
-            <TableHead>
-              <TableRow>
+            {/* Column labels frame the table with the one rule under them; on phones there's one column, so none. */}
+            <TableHead sx={{ display: { xs: 'none', md: 'table-header-group' } }}>
+              <TableRow sx={{ '& > th': { typography: 'caption', fontWeight: 600, color: 'text.secondary',
+                                          borderBottom: 1, borderColor: 'divider' } }}>
                 <TableCell>{t('summary.indicator')}</TableCell>
-                <TableCell sx={WIDE}>{t('assessment.status')}</TableCell>
-                <TableCell sx={WIDE}>{t('assessment.trend')}</TableCell>
-                <TableCell sx={WIDE}>{t('summary.asOf')}</TableCell>
+                <TableCell>{t('assessment.status')}</TableCell>
+                <TableCell>{t('assessment.trend')}</TableCell>
+                <TableCell>{t('summary.asOf')}</TableCell>
               </TableRow>
             </TableHead>
             {groups.map(({ key, label, rows: members }, g) => (
             <TableBody key={key}>
               <TableRow>
-                {/* A section heading, not a row: space above and a heavier rule set it apart from the rows under it. */}
+                {/* A section heading, not a row: weight and the space above set it apart, without a second rule. */}
                 <TableCell component="th" scope="rowgroup" colSpan={4}
-                  sx={{ pt: g ? 3 : 1.5, pb: 0.75, typography: 'subtitle2', fontWeight: 700, color: 'text.primary',
-                        borderBottom: 2, borderColor: 'divider' }}>
+                  sx={{ pt: g ? 3 : 2, pb: 0.75, typography: 'subtitle2', fontWeight: 700, color: 'text.primary',
+                        borderBottom: 0 }}>
                   {label}
                 </TableCell>
               </TableRow>
