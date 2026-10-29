@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { fetchAssessments, fetchPhaseStreams } from '../api.js'
 import { combinedState, levelTone, pickInRange, sameSeries, toneColor } from '../assessments.js'
 import { panelParams, withFilters } from '../filters.js'
+import { groupPanels } from '../groups.js'
 import { configLabel, weekStamp } from '../labels.js'
 import { useMethod } from '../useMethod.js'
 import { phaseQuery } from './PhasePanel.jsx'
@@ -31,7 +32,7 @@ export function SummaryPanel({ panel, target, location, range, latest }) {
     .map((e, i) => ({ ...e, data: results[i].data }))
     .filter((e) => e.data?.length)
   const title = configLabel(t, panel.label_key, panel.id)
-  const groups = groupRows(t, rows)
+  const groups = groupPanels(t, rows, { panelOf: (r) => r.panel, alwaysSource: true })
   if (state === 'unauth') return <Navigate to="/login" replace />
   return (
     <Paper component="section" variant="outlined" aria-label={title} sx={{ p: 2 }}>
@@ -41,22 +42,23 @@ export function SummaryPanel({ panel, target, location, range, latest }) {
         : !rows.length ? <Typography color="text.secondary">{t('summary.none')}</Typography> : (
         <TableContainer>
           <Table size="small">
-            {/* Column labels; the first section band right under them is the table's top edge. One column on phones. */}
+            {/* The column labels frame every section, so they carry the table's one shaded band; the sections below are
+                labels set off by space and a rule, never stronger than this. One column on phones. */}
             <TableHead sx={{ display: { xs: 'none', md: 'table-header-group' } }}>
-              <TableRow sx={{ '& > th': { typography: 'caption', fontWeight: 600, color: 'text.secondary', borderBottom: 0 } }}>
+              <TableRow sx={{ '& > th': { typography: 'body2', fontWeight: 600, color: 'text.secondary', bgcolor: 'background.default',
+                                          borderBottom: 1, borderColor: 'divider' } }}>
                 <TableCell>{t('summary.indicator')}</TableCell>
                 <TableCell>{t('assessment.status')}</TableCell>
                 <TableCell>{t('assessment.trend')}</TableCell>
                 <TableCell>{t('summary.asOf')}</TableCell>
               </TableRow>
             </TableHead>
-            {groups.map(({ key, source, kind, shared, rows: members }) => (
+            {groups.map(({ key, heading: { source, kind, shared }, items: members }) => (
             <TableBody key={key}>
               <TableRow>
-                {/* A section is a recessed band in the page colour, shorter than a row; rows are separated by
-                    hairlines. Band = section, rule = row: one meaning per device. */}
+                {/* A section is a semibold label with room above it and an ink rule under it; rows get hairlines. */}
                 <TableCell component="th" scope="rowgroup" colSpan={4}
-                  sx={{ bgcolor: 'background.default', py: 0.75, borderBottom: 0, typography: 'body2' }}>
+                  sx={{ pt: 2.5, pb: 0.75, typography: 'body2', borderBottom: 1, borderColor: 'text.secondary' }}>
                   <Stack direction={{ xs: 'column', md: 'row' }} sx={{ columnGap: 1, justifyContent: 'space-between' }}>
                     <Box>
                       <Box component="span" data-part sx={{ fontWeight: 600, color: 'text.primary' }}>{source}</Box>
@@ -113,27 +115,4 @@ export function SummaryPanel({ panel, target, location, range, latest }) {
       )}
     </Paper>
   )
-}
-
-// Subheadings: the feed, then its kind only where the feed has both
-// (pathogen-specific vs syndromic clinical), and the tabs a series is shared across.
-function groupRows(t, rows) {
-  const kinds = new Map()
-  for (const { panel: p } of rows) {
-    const feed = p.group?.feed ?? p.query.feed
-    kinds.set(feed, (kinds.get(feed) ?? new Set()).add(p.group?.kind))
-  }
-  const groups = new Map()
-  for (const r of rows) {
-    const g = r.panel.group ?? { feed: r.panel.query.feed, targets: [] }
-    const key = `${g.feed}.${g.kind}.${g.targets.join('/')}`
-    if (!groups.has(key)) {
-      const shared = g.targets.length > 1
-        && t('summary.sharedAcross', { targets: g.targets.map((id) => configLabel(t, `targets.${id}`, id)).join(' / ') })
-      groups.set(key, { key, rows: [], source: t(`feeds.${g.feed}`, { defaultValue: g.feed }),
-                        kind: kinds.get(g.feed).size > 1 && t(`summary.group.${g.kind}`), shared })
-    }
-    groups.get(key).rows.push(r)
-  }
-  return [...groups.values()]
 }
