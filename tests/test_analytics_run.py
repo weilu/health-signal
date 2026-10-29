@@ -127,16 +127,16 @@ def test_no_series_at_all_fails_before_replacing_good_tables(tmp_path):
 def test_the_configured_wave_end_reaches_only_wave_series(tmp_path):
     wave_end = {"steps_with_decrease": 3, "burden_level_decrease": "medium"}
     recorder = RecordingBackend()
-    assess(_config(tmp_path, streams=False, analytics={"wave_pathogens": ["Influenza"], "wave_end": wave_end}),
+    assess(_config(tmp_path, streams=False, analytics={"wave_pathogens": ["Influenza"], "aedseo": {"wave_end": wave_end}}),
            backend=lambda: recorder)
     assert {(i.waves.steps_with_decrease, i.waves.burden_level_decrease) for i in recorder.inputs} == {(3, "medium")}
     recorder.inputs.clear()
-    assess(_config(tmp_path, streams=False, analytics={"wave_end": wave_end}), full=True, backend=lambda: recorder)
+    assess(_config(tmp_path, streams=False, analytics={"aedseo": {"wave_end": wave_end}}), full=True, backend=lambda: recorder)
     assert {i.waves for i in recorder.inputs} == {None}
 
 
 def test_a_changed_wave_end_needs_a_full_run(tmp_path):
     assess(_config(tmp_path, streams=False), backend=FakeBackend)
-    cfg = _config(tmp_path, streams=False, analytics={"wave_end": {"steps_with_decrease": 3}})
+    cfg = _config(tmp_path, streams=False, analytics={"aedseo": {"wave_end": {"steps_with_decrease": 3}}})
     with pytest.raises(SettingsChanged, match="steps_with_decrease"):
         assess(cfg, backend=FakeBackend)

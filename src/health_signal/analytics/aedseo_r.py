@@ -13,7 +13,7 @@ _ONSET = dict(family="quasipoisson", k=5)
 _BURDEN = dict(family="lnorm", n_peak=3, decay_factor=0.8, conf_levels=0.975)
 # combined_seasonal_output refits the onset and burden levels itself, and a wave ends against those bands, so it
 # gets the same settings as the bands we draw and grade by (its `family` is the onset's; the burden's is
-# `family_quant`). How a wave ends comes from config (analytics.wave_end).
+# `family_quant`). How a wave ends comes from config (analytics.aedseo.wave_end).
 _WAVES = dict(family=_ONSET["family"], k=_ONSET["k"],
               family_quant=_BURDEN["family"], **{k: v for k, v in _BURDEN.items() if k != "family"},
               multiple_waves=True)
