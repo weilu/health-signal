@@ -172,6 +172,19 @@ def test_a_new_week_that_cannot_be_fitted_is_published_ungraded(tmp_path):
     assert [(r.period, r.level) for r in rows][-1] == ("2021-W05", None)
 
 
+def test_weeks_published_ungraded_are_refitted_by_the_next_run(tmp_path):
+    # An outage (or a week the backend couldn't place) mustn't freeze those weeks as not graded: the next run
+    # starts after the last week that was really fitted.
+    cfg = _config(tmp_path, streams=False)
+    feed = tmp_path / "c" / "feed.csv"
+    feed.write_text("".join(line for line in feed.read_text().splitlines(keepends=True) if "2021-W06" not in line))
+    assess(cfg, full=True, backend=FakeBackend)
+    graded = (tmp_path / "a" / "assessment.csv").read_bytes()
+    assess(cfg, full=True, backend=FlakyBackend)   # W05, the last week, can't be fitted this time
+    assert assess(cfg, backend=FakeBackend).weeks == 2   # each series' W05, refitted
+    assert (tmp_path / "a" / "assessment.csv").read_bytes() == graded
+
+
 def test_a_phase_that_cannot_be_written_leaves_every_table_as_it_was(tmp_path):
     assess(_config(tmp_path), backend=FakeBackend)
     before = (tmp_path / "a" / "assessment.csv").read_bytes()

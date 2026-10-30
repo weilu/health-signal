@@ -122,6 +122,16 @@ class FeedStore:
         rows = self._rows.get(self._series_key(series, method))
         return max(rows) if rows else None
 
+    def resume_week(self, series: Series, method: str) -> str | None:
+        """The last week really fitted (bands, growth or a phase). Weeks after it were published not graded, by an
+        outage or by data no fit could place, and are fitted again rather than frozen that way."""
+        key = self._series_key(series, method)
+        fitted = [p for p, row in self._rows.get(key, {}).items()
+                  if row["phase"] is not None or row["growth_rate"] is not None]
+        if self._spans.get(key):
+            fitted.append(self._spans[key][-1][1])
+        return max(fitted, default=None)
+
     def resume(self, series: Series, method: str) -> SeasonState:
         key = self._series_key(series, method)
         # Weeks without a phase (unfittable, or no bands) left the season state untouched in the run that wrote
