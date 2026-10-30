@@ -1,4 +1,5 @@
 import math
+import os
 from datetime import date, timedelta
 
 import pytest
@@ -10,7 +11,8 @@ from health_signal.analytics.rules import SeasonState
 from health_signal.analytics.series import Series
 from health_signal.methods import AEDSEO
 
-pytest.importorskip("rpy2")
+if not os.environ.get("HS_REQUIRE_R"):
+    pytest.importorskip("rpy2")
 from health_signal.analytics.aedseo_r import RAedseo  # noqa: E402  (after importorskip: R is optional)
 
 pytestmark = pytest.mark.r
@@ -21,6 +23,9 @@ def backend():
     try:
         return RAedseo()
     except RuntimeError as e:
+        # The dedicated CI job sets HS_REQUIRE_R, so a broken R there fails rather than skipping to green.
+        if os.environ.get("HS_REQUIRE_R"):
+            raise
         pytest.skip(str(e))
 
 
