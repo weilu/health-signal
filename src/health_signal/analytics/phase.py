@@ -1,7 +1,8 @@
 from collections.abc import Callable
 from urllib.parse import urlencode
 
-from ..config import Config, PhaseStreamsEntry
+from ..config import PhaseStreamsEntry
+from .series import Series
 
 ACTIVE = ("in_season", "in_wave")
 # Each phase-producing method's own combining rule (spec §6.3.1): aedseo's is SSI's, every stream active.
@@ -19,10 +20,9 @@ def pathogen_phases(entry: PhaseStreamsEntry, by_role: dict[str, dict[str, str |
             for week in sorted(weeks)]
 
 
-def stream_rows(entry: PhaseStreamsEntry, config: Config) -> list[dict]:
-    rows = []
-    for role, ref in sorted(entry.streams.items()):
-        query = config.panel(entry.pathogen, ref).query
-        rows.append({"location": entry.location, "pathogen": entry.pathogen, "method": entry.method, "role": role,
-                     "feed": query.feed, "series": urlencode({"indicator": query.indicator, **query.dimensions})})
-    return rows
+def stream_rows(entry: PhaseStreamsEntry, resolved: dict[str, Series]) -> list[dict]:
+    """Each role's series as the data pins it, not as its panel's query states it: a query may leave a dimension
+    (e.g. age) implicit, and the descriptor must still name exactly one series."""
+    return [{"location": entry.location, "pathogen": entry.pathogen, "method": entry.method, "role": role,
+             "feed": s.feed, "series": urlencode({"indicator": s.indicator, **s.dimensions})}
+            for role, s in sorted(resolved.items())]

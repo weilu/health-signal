@@ -38,6 +38,16 @@ def test_assess_writes_tables_the_app_loads(tmp_path):
     assert streams[0].series == {"indicator": "SARIrate", "survtype": "SARI syndromic", "age": "total"}
 
 
+def test_a_stream_panel_that_leaves_a_dimension_implicit_still_publishes(tmp_path):
+    # The ILI query omits age, which the data pins to "total": the descriptor must carry what the series is.
+    cfg = _config(tmp_path)
+    cfg.targets[0].pages[0].panels[0].query.dimensions.pop("age")
+    assess(cfg, backend=FakeBackend)
+    streams = {s.role: s for s in PhaseStreamSource(tmp_path / "streams.csv", {"clinical": ERVISS}).streams()}
+    assert streams["cases"].series == {"indicator": "ILIconsultationrate", "survtype": "primary care sentinel",
+                                       "age": "total"}
+
+
 def test_a_rerun_without_new_data_changes_nothing(tmp_path):
     cfg = _config(tmp_path)
     assess(cfg, backend=FakeBackend)

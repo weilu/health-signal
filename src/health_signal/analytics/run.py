@@ -134,15 +134,16 @@ def assess(config: Config, *, full: bool = False, jobs: int = 1,
 def _write_phases(config: Config, refs: dict, stores: dict[str, FeedStore], profiles: dict) -> None:
     phases, streams = [], []
     for entry in config.analytics.phase_streams:
-        by_role = {}
+        by_role, resolved = {}, {}
         for role, ref in entry.streams.items():
             s = refs.get((entry.pathogen, entry.location, ref))
             if s is None:
                 raise ValueError(f"analytics.phase_streams {entry.pathogen}/{entry.location}: panel {ref!r} has no "
                                  f"assessed series at {entry.location}")
             by_role[role] = stores[s.feed].phases(s, entry.method)
+            resolved[role] = s
         phases += pathogen_phases(entry, by_role, waves=entry.pathogen in config.analytics.wave_pathogens)
-        streams += stream_rows(entry, config)
+        streams += stream_rows(entry, resolved)
     phase_path, stream_path = Path(config.data.phases), Path(config.data.phase_streams)
     files = {
         phase_path: (_PHASE_COLUMNS, [[r[c] for c in _PHASE_COLUMNS]
