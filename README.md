@@ -12,7 +12,7 @@ and languages.
 
 `health-signal` is a [FastAPI](https://fastapi.tiangolo.com/) application that serves a React
 ([MUI](https://mui.com/)) single-page app plus a gated JSON API. It ships a respiratory profile
-first (ECDC/WHO **ERVISS** clinical indicators + US CDC **NWSS** wastewater); further domains
+first (ECDC/WHO **ERVISS** clinical indicators + **PHES-ODM** wastewater); further domains
 (e.g. AMR, vaccine-preventable diseases) are added as configuration plus a schema profile, not a
 fork. It is packaged as a Python library that a country's own repository configures and deploys
 (for example, to Posit Connect).
@@ -60,6 +60,34 @@ locales), translation overrides, and a data feed adhering to the contract. See
 [`examples/greece.dashboard.yaml`](examples/greece.dashboard.yaml) for a worked example —
 `branding.theme` is a [MUI theme-options](https://mui.com/material-ui/customization/theming/) object
 merged over the library's neutral default, so a government restyles with no rebuild.
+
+### Data feeds and profiles
+
+Each feed in `data.feeds` names a **profile**: the columns, indicators, units and dimension values its CSVs
+must use, checked when the app starts. Two are built in: `erviss` (ECDC/WHO ERVISS respiratory indicators,
+vocabulary pinned to its published dataset) and `phes_odm` (PHES-ODM v3 wastewater measures).
+
+A country whose own series mostly fit a built-in profile can **extend** it in config rather than in the
+library. Extensions are additive, so data valid under the base stays valid. They may add indicators, units,
+dimension values, qualities, count and censored units, pathogen-specific indicators and denominators; they
+may not add a dimension, extend the shared pathogen list, extend another extension, or reuse a built-in's name.
+An extended profile reports its version as `<base version>+<name>`.
+
+```yaml
+profiles:
+  erviss_gr:
+    extends: erviss
+    units: [per_1000_admissions]
+    dimension_vocab: { survtype: [private hospital] }
+    denominators:   # a rate in this unit is modelled against admissions, not as a constant exposure
+      - { indicator: SARIrate, unit: per_1000_admissions, denominator: hospitaladmissions, per: 1000 }
+data:
+  feeds:
+    - { id: clinical, profile: erviss_gr, dir: data/clinical, assessments: data/clinical/assessed }
+```
+
+`examples/greece.dashboard.yaml` uses this for EODY's series: rates per 1,000 admissions and consultations,
+the private-hospital network, and SARI's paediatric group, which EODY defines by hospital rather than age band.
 
 ### Status, Trend and phase (`health-signal assess`)
 
@@ -137,8 +165,8 @@ npm --prefix frontend ci && npm --prefix frontend run build
 frontend dependency, use `npm --prefix frontend install <pkg>` instead and commit the updated lockfile.
 
 Then wrap `create_app` in a module and serve it. Each feed in `data.feeds` must be an existing
-directory: put that profile's CSV files in it (`data/clinical` for ERVISS rows, `data/wastewater` for
-PHES-ODM rows); left empty, the dashboard starts and every panel says there's no data. Auth needs a
+directory: put that profile's CSV files in it (`data/clinical` for ERVISS-shaped rows, read with the
+example's `erviss_gr` extension; `data/wastewater` for PHES-ODM rows); left empty, the dashboard starts and every panel says there's no data. Auth needs a
 secret and at least one account (email → argon2 hash):
 
 ```bash
