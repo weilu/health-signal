@@ -99,7 +99,7 @@ def assess(config: Config, *, full: bool = False, jobs: int = 1,
     jobs_to_run: list[tuple[Series, list[str], dict]] = []
     for s in series:
         store = stores[s.feed]
-        last = store.last_week(s, method)
+        last = store.resume_week(s, method)
         weeks = [p for p in s.periods if last is None or p > last]
         if weeks:
             options = dict(method=AEDSEO, start_week=config.surveillance.year_start_week,
