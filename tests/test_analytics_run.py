@@ -1,3 +1,5 @@
+import math
+
 import pytest
 
 from health_signal.analytics import assess
@@ -132,6 +134,20 @@ def test_a_full_run_where_aedseo_never_fits_leaves_the_served_tables(tmp_path):
     before = (tmp_path / "a" / "assessment.csv").read_bytes()
     with pytest.raises(RuntimeError, match="no week could be fitted"):
         assess(cfg, full=True, backend=NeverFitsBackend)
+    assert (tmp_path / "a" / "assessment.csv").read_bytes() == before
+
+
+class NoBandsBackend(FakeBackend):
+    """Returns every week, but never with usable bands: as broken as never fitting, though no fit raises."""
+    thresholds = (math.nan,) * 4
+
+
+def test_a_full_run_where_no_week_gets_bands_leaves_the_served_tables(tmp_path):
+    cfg = _config(tmp_path, streams=False)
+    assess(cfg, backend=FakeBackend)
+    before = (tmp_path / "a" / "assessment.csv").read_bytes()
+    with pytest.raises(RuntimeError, match="no week could be fitted"):
+        assess(cfg, full=True, backend=NoBandsBackend)
     assert (tmp_path / "a" / "assessment.csv").read_bytes() == before
 
 

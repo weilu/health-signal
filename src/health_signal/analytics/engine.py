@@ -18,7 +18,7 @@ class SeriesResult:
     bounds: list[tuple[str, tuple[float, ...]]]   # (week, lower bounds of the levels above the lowest)
     state: SeasonState
     graded: int
-    fitted: int = 0   # weeks aedseo could fit at all; zero across a run means a systemic failure
+    fitted: int = 0   # weeks aedseo fitted with usable bands; zero across a run means a systemic failure
 
 
 def _usable(thresholds: tuple[float, ...]) -> tuple[float, ...]:
@@ -58,8 +58,8 @@ def assess_series(series: Series, weeks: list[str], backend: Backend, *, method:
                          "growth_rate": None, "growth_lower": None, "growth_upper": None, "phase": None})
             graded += level is not None
             continue
-        fitted += 1
         thresholds = _usable(fit.thresholds)
+        fitted += thresholds is not _NO_BANDS
         level = level_for(value, thresholds, method.levels)
         trend, growth = trend_for(*fit.growth)
         if waves is not None:

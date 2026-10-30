@@ -118,7 +118,8 @@ def assess(config: Config, *, full: bool = False, jobs: int = 1,
                 pool.shutdown(cancel_futures=True)   # don't grade the rest only to discard it
             raise
     if weeks_done and not fitted:
-        # Reported zeros still grade without a fit, so count fits: none at all is a systemic failure, not thin data.
+        # Reported zeros still grade without a fit, so count fits with usable bands: none at all is a systemic
+        # failure, not thin data.
         raise RuntimeError(f"no week could be fitted across {len(jobs_to_run)} series; check R/aedseo and the feeds' "
                            f"history (aedseo needs a complete past season)")
     for store in stores.values():
