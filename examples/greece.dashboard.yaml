@@ -36,15 +36,18 @@ filters:
 surveillance:
   year_start_week: 21
 
-# The clinical feed is EODY's weekly series in ERVISS's shape. ERVISS's vocabulary lacks two of them: the
-# SARI rate per 1,000 admissions (modelled against those admissions) and the private-hospital network.
+# The clinical feed is EODY's weekly series in ERVISS's shape. ERVISS's vocabulary lacks some of them: SARI
+# per 1,000 admissions and ILI per 1,000 consultations (each modelled against its own denominator), the
+# private-hospital network, and SARI's paediatric group, which EODY defines by hospital rather than age band.
 profiles:
   erviss_gr:
     extends: erviss
-    units: [per_1000_admissions]
-    dimension_vocab: { survtype: [private hospital] }
+    indicators: [consultations]
+    units: [per_1000_admissions, per_1000_consultations]
+    dimension_vocab: { survtype: [private hospital], age: [paediatric] }
     denominators:
       - { indicator: SARIrate, unit: per_1000_admissions, denominator: hospitaladmissions, per: 1000 }
+      - { indicator: ILIconsultationrate, unit: per_1000_consultations, denominator: consultations, per: 1000 }
 
 # One directory per feed, each validated against its profile. Paths are the deployment's; this repo
 # ships no data.
@@ -93,6 +96,8 @@ targets:
             query: { feed: clinical, indicator: ICUadmissions, dimensions: { survtype: non-sentinel, pathogen: SARS-CoV-2, age: total } }
           - id: deaths
             query: { feed: clinical, indicator: deaths, dimensions: { survtype: non-sentinel, pathogen: SARS-CoV-2, age: total } }
+          - id: test_positivity
+            query: { feed: clinical, indicator: positivity, dimensions: { survtype: non-sentinel, pathogen: SARS-CoV-2, age: total } }
           - id: sari_positivity
             query: { feed: clinical, indicator: positivity, dimensions: { survtype: SARI virological, pathogen: SARS-CoV-2, age: total } }
           - id: sentinel_positivity
@@ -118,8 +123,10 @@ targets:
         panels:
           - id: hospital_admissions
             query: { feed: clinical, indicator: hospitaladmissions, dimensions: { survtype: non-sentinel, pathogen: Influenza, age: total } }
-          - id: icu_admissions
-            query: { feed: clinical, indicator: ICUadmissions, dimensions: { survtype: non-sentinel, pathogen: Influenza, age: total } }
+          - id: icu_admissions_a
+            query: { feed: clinical, indicator: ICUadmissions, dimensions: { survtype: non-sentinel, pathogen: Influenza, pathogentype: Influenza A, age: total } }
+          - id: icu_admissions_b
+            query: { feed: clinical, indicator: ICUadmissions, dimensions: { survtype: non-sentinel, pathogen: Influenza, pathogentype: Influenza B, age: total } }
           - id: deaths
             query: { feed: clinical, indicator: deaths, dimensions: { survtype: non-sentinel, pathogen: Influenza, age: total } }
           - id: sari_positivity

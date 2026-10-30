@@ -49,6 +49,14 @@ def test_rates_below_one_fit_on_the_incidence_path(backend):
     assert all(math.isfinite(t) for t in fit.thresholds) and fit.thresholds[0] < 1   # back in the values' units
 
 
+def test_a_derived_fractional_denominator_still_fits(backend):
+    # e.g. consultations recovered as cases x 1,000 / rate: aedseo's population must be a whole number.
+    dates, values = _seasons()
+    exposure = tuple(1000.0 + i / 3 for i in range(len(values)))
+    fit = backend.fit(FitInput(dates, values, exposure, 1000.0, 1.0, "incidence", 21, None))
+    assert all(math.isfinite(t) for t in fit.thresholds)
+
+
 def test_waves_are_segmented_when_asked(backend):
     dates, values = _seasons()
     assert backend.fit(FitInput(dates, values, (), 1.0, 1.0, "count", 21, WaveEnd())).in_wave in (True, False)
