@@ -96,10 +96,24 @@ class FeedStore:
                 raise SettingsChanged(f"{self.directory} has rows but no {SETTINGS_FILE} (another producer's?); "
                                       f"run assess --full to recompute them")
             return
-        changed = sorted({f"{m}.{s}" for m, s, _ in self._settings ^ set(settings)})
+        # Which series are phased in waves is checked per series with rows (check_wave_series): a new one
+        # has no history to contradict.
+        stored = {row for row in self._settings if row[1] != "wave_series"}
+        changed = sorted({f"{m}.{s}" for m, s, _ in stored ^ {row for row in settings if row[1] != "wave_series"}})
         if changed:
             raise SettingsChanged(f"{self.directory} was assessed with other settings ({', '.join(changed)}); "
                                   f"run assess --full to recompute it")
+
+    def check_wave_series(self, modes: list[tuple[str, bool]]) -> None:
+        """`modes`: (label, phased in waves) for each series that already has rows. Their rows were phased one
+        way; phasing the new weeks the other would mix the two, so a change needs a full run."""
+        if self.full or self._settings is None:
+            return
+        stored = {value for _, setting, value in self._settings if setting == "wave_series"}
+        moved = sorted(label for label, waves in modes if (label in stored) != waves)
+        if moved:
+            raise SettingsChanged(f"{self.directory}: {'; '.join(moved)} moved between waves and seasons "
+                                  f"(wave_series); run assess --full to recompute it")
 
     def _series_key(self, series: Series, method: str) -> tuple:
         return _key(series.location, series.indicator, method, series.dimensions)

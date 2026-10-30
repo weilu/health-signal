@@ -11,7 +11,7 @@ from analytics_support import (ERVISS_HEADER, FakeBackend, FlakyBackend, NeverFi
                                erviss_rows, write_feed)
 
 
-def _config(tmp_path, streams=True, year_start_week=21, covid_too=False, analytics=None):
+def _config(tmp_path, streams=True, year_start_week=21, covid_too=False, analytics=None, only_ili=False):
     feed = write_feed(tmp_path / "c",
                       erviss_rows("Greece", "ILIconsultationrate", "per_100k", [5, 6, 12, 30, 25, 9])
                       + erviss_rows("Greece", "SARIrate", "per_100k", [4, 5, 11, 20, 22, 21], survtype="SARI syndromic"))
@@ -20,7 +20,7 @@ def _config(tmp_path, streams=True, year_start_week=21, covid_too=False, analyti
         {"id": "ili", "query": {"feed": "clinical", "indicator": "ILIconsultationrate",
                                 "dimensions": {"survtype": "primary care sentinel", "age": "total"}}},
         {"id": "sari", "query": {"feed": "clinical", "indicator": "SARIrate",
-                                 "dimensions": {"survtype": "SARI syndromic", "age": "total"}}}]}]
+                                 "dimensions": {"survtype": "SARI syndromic", "age": "total"}}}][:1 if only_ili else 2]}]
     targets = [{"id": "SARS-CoV-2", "pages": pages}] * covid_too + [{"id": "Influenza", "pages": pages}]
     return Config.model_validate({
         "schema_version": "1", "site": {"title": "T"}, "surveillance": {"year_start_week": year_start_week},
@@ -101,26 +101,43 @@ def test_a_run_that_dies_partway_leaves_the_served_tables_and_resumes(tmp_path):
     assert [f.read_bytes() for f in files] == resumed
 
 
-def test_a_feed_whose_inputs_vanish_stops_the_run_before_any_table_changes(tmp_path):
-    # Two assessed feeds: one emptied directory mustn't publish empty tables while the other still has series.
+def _two_feeds(tmp_path, sari_values=(4, 5, 11, 20, 22, 21)):
     ili = write_feed(tmp_path / "c", erviss_rows("Greece", "ILIconsultationrate", "per_100k", [5, 6, 12, 30, 25, 9]))
-    sari = write_feed(tmp_path / "d", erviss_rows("Greece", "SARIrate", "per_100k", [4, 5, 11, 20, 22, 21],
+    sari = write_feed(tmp_path / "d", erviss_rows("Greece", "SARIrate", "per_100k", list(sari_values),
                                                   survtype="SARI syndromic"))
     panels = [{"id": "ili", "query": {"feed": "ili", "indicator": "ILIconsultationrate",
                                       "dimensions": {"survtype": "primary care sentinel", "age": "total"}}},
               {"id": "sari", "query": {"feed": "sari", "indicator": "SARIrate",
                                        "dimensions": {"survtype": "SARI syndromic", "age": "total"}}}]
-    cfg = Config.model_validate({
+    return Config.model_validate({
         "schema_version": "1", "site": {"title": "T"}, "surveillance": {"year_start_week": 21},
         "data": {"feeds": [{"id": "ili", "profile": "erviss", "dir": str(ili), "assessments": str(tmp_path / "a")},
                            {"id": "sari", "profile": "erviss", "dir": str(sari), "assessments": str(tmp_path / "b")}]},
         "targets": [{"id": "Influenza", "pages": [{"id": "clinical", "panels": panels}]}]})
+
+
+def test_a_feed_whose_inputs_vanish_stops_the_run_before_any_table_changes(tmp_path):
+    # Two assessed feeds: one emptied directory mustn't publish empty tables while the other still has series.
+    cfg = _two_feeds(tmp_path)
     assess(cfg, backend=FakeBackend)
     before = (tmp_path / "b" / "assessment.csv").read_bytes()
-    (sari / "feed.csv").write_text(ERVISS_HEADER)
+    (tmp_path / "d" / "feed.csv").write_text(ERVISS_HEADER)
     with pytest.raises(RuntimeError, match="sari"):
         assess(cfg, full=True, backend=FakeBackend)
     assert (tmp_path / "b" / "assessment.csv").read_bytes() == before
+
+
+def test_a_full_rebuild_that_dies_resumes_as_a_full_rebuild_of_every_feed(tmp_path):
+    # The SARI feed revised a past week, which only a full run picks up. If the rebuild dies before reaching
+    # that feed, the resume must still rebuild it, not carry on from its old served rows.
+    assess(_two_feeds(tmp_path), backend=FakeBackend)
+    cfg = _two_feeds(tmp_path, sari_values=(4, 5, 13, 20, 22, 21))
+    with pytest.raises(RuntimeError, match="killed"):
+        assess(cfg, full=True, backend=CrashesOnSari)
+    assess(cfg, backend=FakeBackend)
+    resumed = (tmp_path / "b" / "assessment.csv").read_bytes()
+    assess(cfg, full=True, backend=FakeBackend)
+    assert (tmp_path / "b" / "assessment.csv").read_bytes() == resumed
 
 
 def test_a_series_moving_from_waves_to_seasons_needs_a_full_run(tmp_path):
@@ -130,6 +147,29 @@ def test_a_series_moving_from_waves_to_seasons_needs_a_full_run(tmp_path):
     assess(_config(tmp_path, streams=False, analytics=waves), backend=FakeBackend)
     with pytest.raises(SettingsChanged, match="wave_series"):
         assess(_config(tmp_path, streams=False, covid_too=True, analytics=waves), backend=FakeBackend)
+
+
+def test_a_new_wave_series_backfills_without_a_full_run(tmp_path):
+    # Only a series that already has rows can have changed mode; a new one just starts in its own.
+    waves = {"wave_pathogens": ["Influenza"]}
+    assess(_config(tmp_path, streams=False, analytics=waves, only_ili=True), backend=FakeBackend)
+    assert assess(_config(tmp_path, streams=False, analytics=waves), backend=FakeBackend).weeks == 6
+
+
+def test_a_new_week_that_cannot_be_fitted_is_published_ungraded(tmp_path):
+    # Stored history fitted fine, so one unfittable new week is the data, not a broken R: publish it as not
+    # graded rather than leave the tiles on an older week.
+    cfg = _config(tmp_path, streams=False)
+    feed = tmp_path / "c" / "feed.csv"
+    full_text = feed.read_text()
+    feed.write_text("".join(line for line in full_text.splitlines(keepends=True)
+                            if "2021-W05" not in line and "2021-W06" not in line))
+    assess(cfg, backend=FlakyBackend)
+    feed.write_text("".join(line for line in full_text.splitlines(keepends=True) if "2021-W06" not in line))
+    summary = assess(cfg, backend=FlakyBackend)
+    assert summary.weeks == 2 and any("no new week could be fitted" in w for w in summary.warnings)
+    rows = AssessmentSource(tmp_path / "a", ERVISS).assessments(indicator="ILIconsultationrate")
+    assert [(r.period, r.level) for r in rows][-1] == ("2021-W05", None)
 
 
 def test_a_phase_that_cannot_be_written_leaves_every_table_as_it_was(tmp_path):

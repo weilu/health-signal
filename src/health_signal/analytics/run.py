@@ -87,7 +87,14 @@ def assess(config: Config, *, full: bool = False, jobs: int = 1,
                                              for s in series if s.feed == feed and id(s) in in_waves)
                      for feed in stores}
     for feed, store in stores.items():
-        store.check_settings(feed_settings[feed])   # before any fitting: a mismatch should cost nothing
+        # Before any fitting: a mismatch should cost nothing.
+        store.check_settings(feed_settings[feed])
+        store.check_wave_series([(_label(s), id(s) in in_waves) for s in series
+                                 if s.feed == feed and store.last_week(s, method)])
+        if full:
+            # Every feed's rebuild starts now, so a run that dies before reaching one still resumes it as a
+            # rebuild instead of from its old served rows.
+            store.checkpoint(feed_settings[feed])
 
     jobs_to_run: list[tuple[Series, list[str], dict]] = []
     for s in series:
@@ -100,6 +107,9 @@ def assess(config: Config, *, full: bool = False, jobs: int = 1,
                            waves=wave_end if id(s) in in_waves else None,
                            state=store.resume(s, method))
             jobs_to_run.append((s, weeks, options))
+    # Whether any series computed now already has fitted history: then weeks no fit can place are the data, not
+    # a broken R, and are published ungraded rather than stopping the run.
+    history = any(stores[s.feed].last_week(s, method) for s, _, _ in jobs_to_run)
     weeks_done = graded = fitted = 0
     with ProcessPoolExecutor(max_workers=jobs, mp_context=multiprocessing.get_context("spawn")) if jobs > 1 \
             else nullcontext() as pool:
@@ -127,7 +137,10 @@ def assess(config: Config, *, full: bool = False, jobs: int = 1,
             if pool:
                 pool.shutdown(cancel_futures=True)   # don't grade the rest only to discard it
             raise
-    if weeks_done and not fitted:
+    if weeks_done and not fitted and history:
+        warnings.append(f"no new week could be fitted across {len(jobs_to_run)} series; they are published as not "
+                        f"graded (if this persists, check R/aedseo)")
+    if weeks_done and not fitted and not history:
         # Reported zeros still grade without a fit, so count fits with usable bands: none at all is a systemic
         # failure, not thin data.
         raise RuntimeError(f"no week could be fitted across {len(jobs_to_run)} series; check R/aedseo and the feeds' "
