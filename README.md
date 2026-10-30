@@ -79,7 +79,9 @@ health-signal assess --config dashboard.yaml                   # then after each
 
 It writes each feed's `assessments` dir and `data.phases` / `data.phase_streams`, and records the
 settings it used in `assessed_with.csv`: when `surveillance.year_start_week`, `analytics` or the aedseo
-version change, it stops and asks for `--full`. Run `--full` too after a feed revises past weeks. The
+version change, it stops and asks for `--full`. Run `--full` too after a feed revises past weeks. It saves
+each series as it finishes, so an interrupted run resumes where it stopped when run again without `--full`,
+and it runs at low priority so `--jobs` up to the core count leaves the machine usable. The
 policy settings live under `analytics:` (see the example config); countries may also write the tables
 themselves in the same format, with or without aedseo.
 
