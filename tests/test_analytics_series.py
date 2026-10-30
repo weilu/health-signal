@@ -27,7 +27,7 @@ def test_each_single_series_panel_is_assessed_at_every_location(tmp_path):
     series, refs, warnings = assessed_series(cfg, sources)
     assert sorted(s.location for s in series) == ["Cyprus", "Greece"]          # the series_by panel adds nothing
     greece = refs[("Influenza", "Greece", "clinical/ili")]
-    assert (greece.kind, greece.exposure, greece.scale) == ("incidence", [1.0] * 3, 100.0)   # 1.5 lifted to >= 100
+    assert (greece.kind, greece.exposure, greece.scaled) == ("incidence", [1.0] * 3, True)
     assert greece.dimensions == {"survtype": "primary care sentinel", "age": "total"} and not warnings
 
 
@@ -37,6 +37,26 @@ def test_a_query_matching_several_rows_per_week_is_skipped_with_a_warning(tmp_pa
     cfg, sources = _setup(tmp_path, body, [_panel("ili", "ILIconsultationrate", survtype="primary care sentinel")])
     series, _, warnings = assessed_series(cfg, sources)
     assert series == [] and "clinical/ili" in warnings[0] and "Greece" in warnings[0]
+
+
+def test_a_query_matching_different_series_in_different_weeks_is_skipped_with_a_warning(tmp_path):
+    # One row a week, but 0-4 for two weeks then 65+: grading them as one series would mix two populations.
+    p = weeks(2021, 4)
+    body = (erviss_rows("Greece", "ILIconsultationrate", "per_100k", [1, 2], age="0-4", periods=p[:2])
+            + erviss_rows("Greece", "ILIconsultationrate", "per_100k", [4, 5], age="65+", periods=p[2:]))
+    cfg, sources = _setup(tmp_path, body, [_panel("ili", "ILIconsultationrate", survtype="primary care sentinel")])
+    series, _, warnings = assessed_series(cfg, sources)
+    assert series == [] and "clinical/ili" in warnings[0] and "age" in warnings[0]
+
+
+def test_a_query_whose_unit_changes_is_skipped_with_a_warning(tmp_path):
+    p = weeks(2021, 4)
+    body = (erviss_rows("Greece", "ILIconsultationrate", "per_100k", [1, 2], periods=p[:2])
+            + erviss_rows("Greece", "ILIconsultationrate", "per_100_consultations", [4, 5], periods=p[2:]))
+    cfg, sources = _setup(tmp_path, body, [_panel("ili", "ILIconsultationrate", survtype="primary care sentinel",
+                                                  age="total")])
+    series, _, warnings = assessed_series(cfg, sources)
+    assert series == [] and "unit" in warnings[0]
 
 
 def test_counts_use_the_cases_path(tmp_path):

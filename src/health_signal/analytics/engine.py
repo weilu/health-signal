@@ -5,7 +5,7 @@ from datetime import date
 from ..config import WaveEnd
 from ..methods import Method
 from .backend import Backend, FitError, FitInput
-from .rules import SeasonState, completed_seasons, level_for, season_phase, trend_for, wave_phase
+from .rules import SeasonState, completed_seasons, level_for, season_phase, trend_for, value_scale, wave_phase
 from .series import Series
 
 
@@ -18,7 +18,7 @@ class SeriesResult:
     bounds: list[tuple[str, tuple[float, ...]]]   # (week, lower bounds of the levels above the lowest)
     state: SeasonState
     graded: int
-    fitted: int = 0   # weeks aedseo could fit at all; zero across a run means a systemic failure
+    fitted: int = 0   # weeks aedseo fitted with usable bands; zero across a run means a systemic failure
 
 
 def _usable(thresholds: tuple[float, ...]) -> tuple[float, ...]:
@@ -42,8 +42,10 @@ def assess_series(series: Series, weeks: list[str], backend: Backend, *, method:
     rows, bounds, graded, fitted = [], [], 0, 0
     for week in weeks:
         n = index[week] + 1
+        # From this week's history only, so a later, smaller value can't change how this week was fitted.
+        scale = value_scale(fitted_values[:n]) if series.scaled else 1.0
         data = FitInput(tuple(_monday(p) for p in series.periods[:n]), tuple(fitted_values[:n]),
-                        tuple(series.exposure[:n]), series.per, series.scale, series.kind, start_week, waves)
+                        tuple(series.exposure[:n]), series.per, scale, series.kind, start_week, waves)
         value = series.values[n - 1]
         provisional = completed_seasons(series.periods[:n], start_week) < min_seasons
         try:
@@ -56,8 +58,8 @@ def assess_series(series: Series, weeks: list[str], backend: Backend, *, method:
                          "growth_rate": None, "growth_lower": None, "growth_upper": None, "phase": None})
             graded += level is not None
             continue
-        fitted += 1
         thresholds = _usable(fit.thresholds)
+        fitted += thresholds is not _NO_BANDS
         level = level_for(value, thresholds, method.levels)
         trend, growth = trend_for(*fit.growth)
         if waves is not None:

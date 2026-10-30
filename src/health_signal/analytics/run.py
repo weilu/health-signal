@@ -5,6 +5,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from contextlib import nullcontext
 from dataclasses import dataclass, field
 from pathlib import Path
+from urllib.parse import urlencode
 
 from ..assessments import PhaseSource, PhaseStreamSource
 from ..config import Config
@@ -56,10 +57,13 @@ def assess(config: Config, *, full: bool = False, jobs: int = 1,
     profiles = {f.id: config.profile(f.profile) for f in config.data.feeds}
     sources = {f.id: FileDataSource(f.dir, profiles[f.id]) for f in config.data.feeds}
     series, refs, warnings = assessed_series(config, sources)
-    if not series:
-        # An emptied or mis-mounted feed dir looks like this; writing would replace good tables with empty ones.
-        raise RuntimeError("no series to assess: no single-series panel of a feed with an assessments dir has rows "
-                           "at a selectable location; check the feeds' dirs" + "".join(f"\n  {w}" for w in warnings))
+    # Per feed: an emptied or mis-mounted feed dir looks like this, and publishing would replace its good tables
+    # with empty ones even while another feed still has series.
+    empty = [f.id for f in config.data.feeds if f.assessments and not any(s.feed == f.id for s in series)]
+    if empty:
+        raise RuntimeError(f"no series to assess in feed {', '.join(empty)}: none of its single-series panels has "
+                           f"rows at a selectable location; check the feed's dir"
+                           + "".join(f"\n  {w}" for w in warnings))
     method = AEDSEO.name
     analytics = config.analytics
     wave_end = analytics.aedseo.wave_end
@@ -69,15 +73,21 @@ def assess(config: Config, *, full: bool = False, jobs: int = 1,
                 (method, "steps_with_decrease", str(wave_end.steps_with_decrease)),
                 (method, "burden_level_decrease", wave_end.burden_level_decrease),
                 (method, "package_version", main_backend.version)]
-    stores = {f.id: FeedStore(f.assessments, profiles[f.id], full=full) for f in config.data.feeds if f.assessments}
-    for store in stores.values():
-        store.check_settings(settings)   # before any fitting: a mismatch should cost nothing
-
     # A series shown on several tabs is phased in waves only if every one of those pathogens circulates in waves,
     # so e.g. ILI on the COVID tab doesn't put COVID's wave shading on the influenza tab's chart.
     pathogens: dict[int, set[str]] = {}
     for (pathogen, _, _), s in refs.items():
         pathogens.setdefault(id(s), set()).add(pathogen)
+    in_waves = {id(s) for s in series if pathogens[id(s)] <= set(analytics.wave_pathogens)}
+    stores = {f.id: FeedStore(f.assessments, profiles[f.id], full=full) for f in config.data.feeds if f.assessments}
+    # Which series are phased in waves is recorded too: one moving between waves and seasons (e.g. a panel added
+    # to another tab) has stored rows phased the other way, so it needs a full run like any changed setting.
+    feed_settings = {feed: settings + sorted((method, "wave_series", _label(s))
+                                             for s in series if s.feed == feed and id(s) in in_waves)
+                     for feed in stores}
+    for feed, store in stores.items():
+        store.check_settings(feed_settings[feed])   # before any fitting: a mismatch should cost nothing
+
     jobs_to_run: list[tuple[Series, list[str], dict]] = []
     for s in series:
         store = stores[s.feed]
@@ -86,7 +96,7 @@ def assess(config: Config, *, full: bool = False, jobs: int = 1,
         if weeks:
             options = dict(method=AEDSEO, start_week=config.surveillance.year_start_week,
                            min_seasons=analytics.min_seasons,
-                           waves=wave_end if pathogens[id(s)] <= set(analytics.wave_pathogens) else None,
+                           waves=wave_end if id(s) in in_waves else None,
                            state=store.resume(s, method))
             jobs_to_run.append((s, weeks, options))
     weeks_done = graded = fitted = 0
@@ -110,38 +120,58 @@ def assess(config: Config, *, full: bool = False, jobs: int = 1,
                     warnings.append(f"{s.feed} {s.location} {s.indicator} {s.dimensions}: no week could be graded")
                 if fitted:
                     # A checkpoint, so an interrupted run resumes from here; only once aedseo has fitted
-                    # something, so a broken R never replaces good tables with ungraded ones.
-                    stores[s.feed].write(settings)
+                    # something, so a broken R's ungraded rows are never what a resume builds on.
+                    stores[s.feed].checkpoint(feed_settings[s.feed])
         except BaseException:
             if pool:
                 pool.shutdown(cancel_futures=True)   # don't grade the rest only to discard it
             raise
     if weeks_done and not fitted:
-        # Reported zeros still grade without a fit, so count fits: none at all is a systemic failure, not thin data.
+        # Reported zeros still grade without a fit, so count fits with usable bands: none at all is a systemic
+        # failure, not thin data.
         raise RuntimeError(f"no week could be fitted across {len(jobs_to_run)} series; check R/aedseo and the feeds' "
                            f"history (aedseo needs a complete past season)")
+    # Every table is drafted and validated before any served one is replaced, so a failure anywhere (a phase
+    # stream, one feed's table) leaves the dashboard on its last complete run.
+    files = {}
+    for feed, store in stores.items():
+        files |= store.files(feed_settings[feed])
+    phase_files, check_phases = _phase_files(config, refs, stores, profiles) if analytics.phase_streams else ({}, None)
+    files |= phase_files
+
+    def validate(drafts):
+        for store in stores.values():
+            store.validate(drafts)
+        if check_phases:
+            check_phases(drafts)
+
+    write_validated(files, validate)
     for store in stores.values():
-        store.write(settings)
-    if analytics.phase_streams:
-        _write_phases(config, refs, stores, profiles)
+        store.discard_checkpoint()
     for warning in warnings:
         log.warning(warning)
     log.info("assessed %d series: %d weeks computed, %d graded", len(series), weeks_done, graded)
     return Summary(len(series), weeks_done, graded, warnings)
 
 
-def _write_phases(config: Config, refs: dict, stores: dict[str, FeedStore], profiles: dict) -> None:
+def _label(s: Series) -> str:
+    return f"{s.location} {s.indicator} {urlencode(sorted(s.dimensions.items()))}"
+
+
+def _phase_files(config: Config, refs: dict, stores: dict[str, FeedStore], profiles: dict):
+    """The phase tables as write_validated files, and how to validate their drafts."""
     phases, streams = [], []
     for entry in config.analytics.phase_streams:
-        by_role = {}
+        by_role, resolved = {}, {}
         for role, ref in entry.streams.items():
             s = refs.get((entry.pathogen, entry.location, ref))
             if s is None:
                 raise ValueError(f"analytics.phase_streams {entry.pathogen}/{entry.location}: panel {ref!r} has no "
                                  f"assessed series at {entry.location}")
             by_role[role] = stores[s.feed].phases(s, entry.method)
+            resolved[role] = s
         phases += pathogen_phases(entry, by_role, waves=entry.pathogen in config.analytics.wave_pathogens)
-        streams += stream_rows(entry, config)
+        streams += stream_rows(entry, resolved)
     phase_path, stream_path = Path(config.data.phases), Path(config.data.phase_streams)
     files = {
         phase_path: (_PHASE_COLUMNS, [[r[c] for c in _PHASE_COLUMNS]
@@ -149,5 +179,4 @@ def _write_phases(config: Config, refs: dict, stores: dict[str, FeedStore], prof
         stream_path: (_STREAM_COLUMNS, [[r[c] for c in _STREAM_COLUMNS]
                                         for r in sorted(streams, key=lambda r: [r[c] for c in _STREAM_COLUMNS])]),
     }
-    write_validated(files, lambda drafts: (PhaseSource(drafts[phase_path]),
-                                           PhaseStreamSource(drafts[stream_path], profiles)))
+    return files, lambda drafts: (PhaseSource(drafts[phase_path]), PhaseStreamSource(drafts[stream_path], profiles))

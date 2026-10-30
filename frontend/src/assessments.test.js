@@ -47,10 +47,12 @@ describe('sameSeries', () => {
   const stream = { feed: 'wastewater', series: { indicator: 'cov', aggregation: 'floMean' } }
   it('matches a panel query regardless of parameter order', () =>
     expect(sameSeries('wastewater', { aggregation: 'floMean', indicator: 'cov' }, stream)).toBe(true))
-  it('needs the same feed and every parameter', () => {
+  it('needs the same feed and every parameter the query states', () => {
     expect(sameSeries('clinical', { indicator: 'cov', aggregation: 'floMean' }, stream)).toBe(false)
-    expect(sameSeries('wastewater', { indicator: 'cov' }, stream)).toBe(false)
+    expect(sameSeries('wastewater', { indicator: 'cov', aggregation: 'me' }, stream)).toBe(false)
   })
+  it('matches a query that leaves a dimension the stream pins implicit', () =>
+    expect(sameSeries('wastewater', { indicator: 'cov' }, stream)).toBe(true))
 })
 
 describe('levelTone for ungraded weeks', () => {

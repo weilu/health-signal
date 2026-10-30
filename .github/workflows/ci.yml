@@ -54,4 +54,6 @@ jobs:
       - name: Sync with the analytics extra
         run: uv sync --extra analytics
       - name: R-backed tests
+        env:
+          HS_REQUIRE_R: "1"
         run: uv run pytest -q -m r

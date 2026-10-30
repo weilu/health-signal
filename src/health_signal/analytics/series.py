@@ -4,7 +4,6 @@ from typing import Literal
 from ..config import Config
 from ..datasource import FileDataSource
 from ..profile import FeedRow
-from .rules import value_scale
 
 
 @dataclass
@@ -20,7 +19,7 @@ class Series:
     kind: Literal["count", "incidence"]
     exposure: list[float] = field(default_factory=list)
     per: float = 1.0
-    scale: float = 1.0   # fit on values × scale, thresholds divided back (rules.value_scale)
+    scaled: bool = False   # fit on values × rules.value_scale(history up to the week), thresholds divided back
     censored: list[bool] = field(default_factory=list)   # value is a stand-in (e.g. below LOD): fitted as a gap
 
     @property
@@ -33,6 +32,14 @@ def _common_dimensions(rows: list[FeedRow]) -> dict[str, str]:
     # even when the panel's query leaves them implicit.
     first = rows[0].dimensions
     return {k: v for k, v in first.items() if all(r.dimensions.get(k) == v for r in rows)}
+
+
+def _drift(rows: list[FeedRow]) -> str:
+    """What varies across the rows that should be one series: the dimensions and the unit, or "" if nothing."""
+    keys = {k for r in rows for k in r.dimensions}
+    varying = sorted(k for k in keys if len({r.dimensions.get(k, "") for r in rows}) > 1)
+    varying += ["unit"] if len({r.unit for r in rows}) > 1 else []
+    return ", ".join(varying)
 
 
 def _by_location(rows: list[FeedRow]) -> dict[str, list[FeedRow]]:
@@ -68,6 +75,12 @@ def assessed_series(config: Config, sources: dict[str, FileDataSource]):
                         warnings.append(f"{ref} at {location}: the query matches several rows per week; "
                                         f"pin more dimensions to assess it")
                         continue
+                    # One row a week can still be different series in different weeks (e.g. one age group, then
+                    # another); graded as one, they'd mix populations or scales.
+                    if drift := _drift(rows):
+                        warnings.append(f"{ref} at {location}: the query matches different series over time "
+                                        f"({drift}); pin it to one to assess it")
+                        continue
                     found = _series(query.feed, target.id, location, rows, source, ref, warnings)
                     if found is not None:
                         refs[(target.id, location, ref)] = series.setdefault((found.feed, found.key), found)
@@ -90,7 +103,7 @@ def _series(feed: str, pathogen: str, location: str, rows: list[FeedRow], source
         # A rate or load with no denominator series: a constant exposure, which cancels in the growth model.
         return Series(feed, pathogen, location, first.indicator, dims, first.unit, periods,
                       [values[p] for p in periods], "incidence", [1.0] * len(periods), 1.0,
-                      value_scale(list(values.values())), [p in censored for p in periods])
+                      True, [p in censored for p in periods])
     denominators = source.query(location=location, indicator=denominator.indicator, **dims)
     if len({r.period for r in denominators}) != len(denominators):
         warnings.append(f"{ref} at {location}: several {denominator.indicator} rows per week match its rate; "
