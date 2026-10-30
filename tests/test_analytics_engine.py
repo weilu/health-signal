@@ -97,3 +97,13 @@ def test_a_censored_week_reaches_aedseo_as_a_gap_but_is_still_graded():
                         state=SeasonState())
     assert math.isnan(backend.inputs[-1].values[2]) and backend.inputs[-1].values[3] == 25
     assert [r["level"] for r in res.rows[2:]] == ["very_low", "medium"]
+
+
+def test_a_week_is_scaled_from_its_own_history_not_later_values():
+    # A later, smaller value mustn't change how earlier weeks were fitted, or a rebuild would differ from the
+    # incremental runs that graded them.
+    s = _series([150.0, 200.0, 120.0, 0.5])
+    s.scaled = True
+    backend = RecordingBackend()
+    assess_series(s, s.periods, backend, method=AEDSEO, start_week=21, min_seasons=3, waves=None, state=SeasonState())
+    assert [i.scale for i in backend.inputs] == [1.0, 1.0, 1.0, 1000.0]

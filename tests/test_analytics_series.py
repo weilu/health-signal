@@ -27,7 +27,7 @@ def test_each_single_series_panel_is_assessed_at_every_location(tmp_path):
     series, refs, warnings = assessed_series(cfg, sources)
     assert sorted(s.location for s in series) == ["Cyprus", "Greece"]          # the series_by panel adds nothing
     greece = refs[("Influenza", "Greece", "clinical/ili")]
-    assert (greece.kind, greece.exposure, greece.scale) == ("incidence", [1.0] * 3, 100.0)   # 1.5 lifted to >= 100
+    assert (greece.kind, greece.exposure, greece.scaled) == ("incidence", [1.0] * 3, True)
     assert greece.dimensions == {"survtype": "primary care sentinel", "age": "total"} and not warnings
 
 

@@ -4,7 +4,6 @@ from typing import Literal
 from ..config import Config
 from ..datasource import FileDataSource
 from ..profile import FeedRow
-from .rules import value_scale
 
 
 @dataclass
@@ -20,7 +19,7 @@ class Series:
     kind: Literal["count", "incidence"]
     exposure: list[float] = field(default_factory=list)
     per: float = 1.0
-    scale: float = 1.0   # fit on values × scale, thresholds divided back (rules.value_scale)
+    scaled: bool = False   # fit on values × rules.value_scale(history up to the week), thresholds divided back
     censored: list[bool] = field(default_factory=list)   # value is a stand-in (e.g. below LOD): fitted as a gap
 
     @property
@@ -104,7 +103,7 @@ def _series(feed: str, pathogen: str, location: str, rows: list[FeedRow], source
         # A rate or load with no denominator series: a constant exposure, which cancels in the growth model.
         return Series(feed, pathogen, location, first.indicator, dims, first.unit, periods,
                       [values[p] for p in periods], "incidence", [1.0] * len(periods), 1.0,
-                      value_scale(list(values.values())), [p in censored for p in periods])
+                      True, [p in censored for p in periods])
     denominators = source.query(location=location, indicator=denominator.indicator, **dims)
     if len({r.period for r in denominators}) != len(denominators):
         warnings.append(f"{ref} at {location}: several {denominator.indicator} rows per week match its rate; "
