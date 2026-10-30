@@ -34,6 +34,10 @@ def _common_dimensions(rows: list[FeedRow]) -> dict[str, str]:
     return {k: v for k, v in first.items() if all(r.dimensions.get(k) == v for r in rows)}
 
 
+# Units whose values are logarithms: aedseo's growth and burden levels assume linear values.
+_LOG_UNITS = {"log10cpL"}
+
+
 def _drift(rows: list[FeedRow]) -> str:
     """What varies across the rows that should be one series: the dimensions and the unit, or "" if nothing."""
     keys = {k for r in rows for k in r.dimensions}
@@ -95,6 +99,10 @@ def _series(feed: str, pathogen: str, location: str, rows: list[FeedRow], source
     values = {r.period: r.value for r in rows}
     censored = {r.period for r in rows if r.quality in profile.censored_qualities}
     periods = list(values)
+    if first.unit in _LOG_UNITS:
+        warnings.append(f"{ref} at {location}: {first.unit} readings are logarithmic and aedseo grades linear "
+                        f"values; publish them linear (e.g. gcL) to assess them")
+        return None
     if first.unit in profile.count_units:
         return Series(feed, pathogen, location, first.indicator, dims, first.unit, periods,
                       [values[p] for p in periods], "count", censored=[p in censored for p in periods])
@@ -104,11 +112,10 @@ def _series(feed: str, pathogen: str, location: str, rows: list[FeedRow], source
         return Series(feed, pathogen, location, first.indicator, dims, first.unit, periods,
                       [values[p] for p in periods], "incidence", [1.0] * len(periods), 1.0,
                       True, [p in censored for p in periods])
-    denominators = source.query(location=location, indicator=denominator.indicator, **dims)
-    if len({r.period for r in denominators}) != len(denominators):
-        warnings.append(f"{ref} at {location}: several {denominator.indicator} rows per week match its rate; "
-                        f"pin more dimensions to assess it")
-        return None
+    # The rate's whole identity, not just the dimensions it shares: a dimension blank on the rate (e.g. no
+    # influenza type) would otherwise match a narrower series' denominator (influenza A's tests).
+    denominators = [r for r in source.query(location=location, indicator=denominator.indicator, **dims)
+                    if all(r.dimensions.get(k, "") == dims.get(k, "") for k in {*r.dimensions, *dims})]
     exposure = {r.period: r.value for r in denominators}
     periods = [p for p in periods if exposure.get(p, 0) > 0]   # a rate without its denominator isn't modelled
     if not periods:
