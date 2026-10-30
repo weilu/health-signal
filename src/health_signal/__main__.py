@@ -45,7 +45,8 @@ def main(argv=None):
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     # A backfill can hold every core for a long time; at low priority (inherited by the workers) the machine it
     # runs on stays usable. Only the command does this: the importable assess() leaves its caller's priority alone.
-    os.nice(10)
+    if hasattr(os, "nice"):   # not on Windows, where the run just keeps its normal priority
+        os.nice(10)
     try:
         assess(load_config(args.config), full=args.full, jobs=args.jobs)
     except (SettingsChanged, RuntimeError, ValueError) as e:

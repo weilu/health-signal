@@ -80,10 +80,12 @@ def test_a_week_aedseo_cannot_fit_grades_only_a_reported_zero():
 
 @pytest.mark.parametrize("bands", [(10.0, math.nan, math.nan, math.nan),   # a disease threshold but no burden levels
                                    (10.0, 10.0, 40.0, 80.0)])              # bands that don't rise
-def test_unusable_bands_give_no_grade_phase_or_threshold_rows(bands):
+@pytest.mark.parametrize("waves", [None, WaveEnd()])
+def test_unusable_bands_give_no_grade_phase_or_threshold_rows(bands, waves):
+    # Waves too: a week with no level mustn't still tell the pathogen overview it is in a wave or between waves.
     s = _series([5, 6, 12, 30])
     res = assess_series(s, s.periods, BandsBackend(bands), method=AEDSEO, start_week=21, min_seasons=3,
-                        waves=None, state=SeasonState())
+                        waves=waves, state=SeasonState())
     assert [(r["level"], r["phase"]) for r in res.rows] == [(None, None)] * 4 and res.bounds == []
 
 

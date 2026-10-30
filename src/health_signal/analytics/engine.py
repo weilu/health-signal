@@ -63,7 +63,8 @@ def assess_series(series: Series, weeks: list[str], backend: Backend, *, method:
         level = level_for(value, thresholds, method.levels)
         trend, growth = trend_for(*fit.growth)
         if waves is not None:
-            phase = wave_phase(fit.in_wave)
+            # As for seasons: a week without usable bands has no level, so it says nothing about waves either.
+            phase = wave_phase(fit.in_wave) if thresholds is not _NO_BANDS else None
         else:
             phase, state = season_phase(state, week, value, thresholds[0], fit.alarm)
         rows.append({"period": week, "level": level,
