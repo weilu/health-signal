@@ -106,8 +106,8 @@ def assess(config: Config, *, full: bool = False, jobs: int = 1,
                            waves=wave_end if id(s) in in_waves else None,
                            state=store.resume(s, method))
             jobs_to_run.append((s, weeks, options))
-    # Whether any series computed now already has fitted history: then weeks no fit can place are the data, not
-    # a broken R, and are published ungraded rather than stopping the run.
+    # Whether any series computed now already has fitted history: then weeks no fit can place are the data (a broken
+    # R raises BackendError and stops the run), so they are published ungraded rather than stopping it.
     history = any(stores[s.feed].last_week(s, method) for s, _, _ in jobs_to_run)
     weeks_done = graded = fitted = 0
     with ProcessPoolExecutor(max_workers=jobs, mp_context=multiprocessing.get_context("spawn")) if jobs > 1 \
@@ -137,8 +137,8 @@ def assess(config: Config, *, full: bool = False, jobs: int = 1,
                 pool.shutdown(cancel_futures=True)   # don't grade the rest only to discard it
             raise
     if weeks_done and not fitted and history:
-        warnings.append(f"no new week could be fitted across {len(jobs_to_run)} series; they are published as not "
-                        f"graded (if this persists, check R/aedseo)")
+        warnings.append(f"no new week could be fitted across {len(jobs_to_run)} series (too little usable history); "
+                        f"they are published as not graded and fitted again next run")
     if weeks_done and not fitted and not history:
         # Reported zeros still grade without a fit, so count fits with usable bands: none at all is a systemic
         # failure, not thin data.

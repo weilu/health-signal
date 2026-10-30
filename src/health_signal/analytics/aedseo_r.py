@@ -5,7 +5,7 @@ from datetime import date, timedelta
 import numpy as np
 
 from ..config import WaveEnd
-from .backend import FitError, FitInput, WeekFit
+from .backend import BackendError, FitError, FitInput, WeekFit
 
 # The aedseo paper's validated settings (SSI; medRxiv 2025, doi:10.1101/2025.11.18.25340240): k, the families
 # and decay_factor are aedseo's defaults; n_peak=3 and conf_levels=0.975 (Supplement S5) override its 6 and 0.95.
@@ -69,12 +69,7 @@ class RAedseo:
             population = [round(exposure[d]) if d in exposure else na for d in weeks]
             tsd = aedseo.to_time_series(incidence=ro.FloatVector(incidence), population=ro.FloatVector(population),
                                         incidence_denominator=data.per, time=time, time_interval="weeks")
-        try:
-            tdis = float(self._numbers(aedseo.estimate_disease_threshold(tsd, **season), "disease_threshold")[0])
-        except self._RError as e:
-            raise FitError(str(e)) from e
-        if not math.isfinite(tdis):
-            raise FitError("no disease threshold")
+        tdis = self._threshold(tsd, season)
         try:
             bands = tuple(float(x) for x in np.asarray(
                 aedseo.seasonal_burden_levels(tsd, disease_threshold=tdis, **season, **_BURDEN).rx2("values"),
@@ -85,6 +80,17 @@ class RAedseo:
         in_wave = self._wave(tsd, tdis, season, data.dates[-1], data.waves) if data.waves else None
         bands = tuple(b / data.scale for b in bands) if len(bands) == 4 else _NAN4
         return WeekFit(bands, growth, alarm, in_wave)
+
+    def _threshold(self, tsd, season) -> float:
+        try:
+            tdis = float(self._numbers(self._aedseo.estimate_disease_threshold(tsd, **season), "disease_threshold")[0])
+        except self._RError as e:
+            # aedseo returns NA for too little history (checked down to all-NA input); raising means R or the call
+            # itself is broken, which a run must not publish as weeks that merely couldn't be graded.
+            raise BackendError(f"aedseo's estimate_disease_threshold failed: {e}") from e
+        if not math.isfinite(tdis):
+            raise FitError("no disease threshold")
+        return tdis
 
     def _onset(self, tsd, tdis, season, week: date) -> tuple[tuple[float, float, float], bool | None]:
         try:

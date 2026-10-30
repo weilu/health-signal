@@ -3,6 +3,7 @@ import math
 import pytest
 
 from health_signal.analytics import assess
+from health_signal.analytics.backend import BackendError
 from health_signal.analytics.store import SettingsChanged
 from health_signal.assessments import AssessmentSource, PhaseSource, PhaseStreamSource
 from health_signal.config import Config
@@ -183,6 +184,26 @@ def test_weeks_published_ungraded_are_refitted_by_the_next_run(tmp_path):
     assess(cfg, full=True, backend=FlakyBackend)   # W05, the last week, can't be fitted this time
     assert assess(cfg, backend=FakeBackend).weeks == 2   # each series' W05, refitted
     assert (tmp_path / "a" / "assessment.csv").read_bytes() == graded
+
+
+class BrokenR(FakeBackend):
+    def fit(self, data):
+        raise BackendError("Error in estimate_disease_threshold: could not find function")
+
+
+def test_a_broken_backend_stops_even_an_incremental_run_before_anything_changes(tmp_path):
+    # Unlike a week the data can't support, a broken R must not be published as "not graded".
+    cfg = _config(tmp_path)
+    feed = tmp_path / "c" / "feed.csv"
+    full_text = feed.read_text()
+    feed.write_text("".join(line for line in full_text.splitlines(keepends=True) if "2021-W06" not in line))
+    assess(cfg, backend=FakeBackend)
+    files = [tmp_path / "a" / "assessment.csv", tmp_path / "a" / "thresholds.csv", tmp_path / "phase.csv"]
+    before = [f.read_bytes() for f in files]
+    feed.write_text(full_text)
+    with pytest.raises(BackendError, match="could not find function"):
+        assess(cfg, backend=BrokenR)
+    assert [f.read_bytes() for f in files] == before
 
 
 def test_a_phase_that_cannot_be_written_leaves_every_table_as_it_was(tmp_path):
