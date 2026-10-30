@@ -5,6 +5,11 @@ from typing import Protocol
 from ..config import WaveEnd
 
 
+class BackendError(RuntimeError):
+    """R or aedseo failed, not the data (aedseo reports too little history as an NA threshold, never an error):
+    the run stops before publishing rather than grading the week "not graded"."""
+
+
 class FitError(Exception):
     """aedseo can't fit this series as of this week (too little history): the week is left ungraded."""
 

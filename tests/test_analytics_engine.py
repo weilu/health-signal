@@ -4,6 +4,7 @@ from datetime import date
 import pytest
 
 from health_signal.analytics.aedseo_r import RAedseo
+from health_signal.analytics.backend import BackendError, FitError
 from health_signal.analytics.engine import assess_series
 from health_signal.analytics.rules import SeasonState
 from health_signal.analytics.series import Series
@@ -43,6 +44,30 @@ def test_only_the_requested_weeks_are_computed_resuming_the_state():
 
 def test_wave_pathogens_use_the_wave_pair():
     assert [r["phase"] for r in _run([5, 6, 12, 8], waves=WaveEnd()).rows][2:] == ["in_wave", "between_waves"]
+
+
+def test_a_missing_threshold_is_the_data_but_an_r_error_is_a_broken_backend():
+    # aedseo reports too little history as an NA threshold; it raises only when R or the call itself is broken.
+    class RError(Exception):
+        pass
+
+    class Aedseo:
+        def __init__(self, result):
+            self.result = result
+
+        def estimate_disease_threshold(self, *args, **kwargs):
+            if isinstance(self.result, Exception):
+                raise self.result
+            return self.result
+
+    backend = RAedseo.__new__(RAedseo)   # no R needed: only the error mapping is exercised
+    backend._RError, backend._numbers = RError, lambda frame, column: [frame]
+    backend._aedseo = Aedseo(math.nan)
+    with pytest.raises(FitError, match="no disease threshold"):
+        backend._threshold(None, {})
+    backend._aedseo = Aedseo(RError("could not find function"))
+    with pytest.raises(BackendError, match="could not find function"):
+        backend._threshold(None, {})
 
 
 def test_a_failed_onset_or_wave_fit_is_unavailable_not_a_negative():
