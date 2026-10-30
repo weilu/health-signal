@@ -8,7 +8,7 @@ from ..assessments import AssessmentSource
 from ..methods import METHODS
 from ..profile import Profile
 from .engine import SeriesResult
-from .rules import SeasonState
+from .rules import SeasonState, weeks_between
 from .series import Series
 
 SETTINGS_FILE = "assessed_with.csv"
@@ -124,7 +124,8 @@ class FeedStore:
         self._rows.setdefault(key, {}).update({row["period"]: row for row in result.rows})
         spans = self._spans.setdefault(key, [])
         for week, bounds in result.bounds:
-            if spans and spans[-1][2] == tuple(bounds) and spans[-1][1] < week:
+            # Only the next week extends a span: a week between without usable bands is drawn without them.
+            if spans and spans[-1][2] == tuple(bounds) and weeks_between(spans[-1][1], week) == 1:
                 spans[-1][1] = week
             else:
                 spans.append([week, week, tuple(bounds)])

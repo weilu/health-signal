@@ -37,6 +37,13 @@ def test_new_weeks_append_and_equal_bounds_extend_the_span(tmp_path):
     assert sorted(t.loc[t["from"] == P[2], "lower_bound"]) == [11.0, 20.0, 40.0, 80.0]
 
 
+def test_equal_bounds_do_not_span_a_week_without_them(tmp_path):
+    # P[1] was observed but had no usable bands: the chart mustn't draw bands across it.
+    _write(tmp_path, [_row(P[0]), _row(P[1]), _row(P[2])], [(P[0], B), (P[2], B)])
+    t = pd.read_csv(tmp_path / "thresholds.csv")
+    assert sorted(set(zip(t["from"], t["to"]))) == [(P[0], P[0]), (P[2], P[2])]
+
+
 def test_resume_carries_a_dip_week(tmp_path):
     store = _write(tmp_path, [_row(P[0]), _row(P[2])], [(P[0], B), (P[2], B)])   # P[2]'s value 8 < 10: a dip
     assert store.resume(S, "aedseo") == SeasonState(True, 1, P[2])
