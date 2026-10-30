@@ -12,6 +12,7 @@ from .rules import SeasonState, weeks_between
 from .series import Series
 
 SETTINGS_FILE = "assessed_with.csv"
+CHECKPOINT_DIR = ".assess-checkpoint"
 _TMP = ".assess-tmp"
 _GROWTH = ("growth_rate", "growth_lower", "growth_upper")
 
@@ -53,16 +54,24 @@ def write_validated(files: dict[Path, tuple[list[str], list[list]]], validate: C
 
 
 class FeedStore:
-    """One feed's assessment tables as incremental state (spec §6.3.1)."""
+    """One feed's assessment tables as incremental state (spec §6.3.1). A run checkpoints into a side directory
+    and publishes over the served tables only once it completes, so a dashboard never serves a half-recomputed set."""
 
     def __init__(self, directory: str | Path, profile: Profile, *, full: bool):
         self.directory, self.profile, self.full = Path(directory), profile, full
+        self.checkpoint_dir = self.directory / CHECKPOINT_DIR
         self._rows: dict[tuple, dict[str, dict]] = {}
         self._spans: dict[tuple, list[list]] = {}   # key -> [[from, to, bounds], ...] in order
         self._settings: set[tuple[str, str, str]] | None = None
-        if full or not self.directory.is_dir():
+        if full:
+            # A fresh full run starts over; an interrupted run's partial work isn't part of it.
+            self.discard_checkpoint()
             return
-        source = AssessmentSource(self.directory, profile)
+        # An interrupted run's checkpoint holds the rows it started from plus what it graded since: resume from it.
+        origin = self.checkpoint_dir if (self.checkpoint_dir / "assessment.csv").is_file() else self.directory
+        if not origin.is_dir():
+            return
+        source = AssessmentSource(origin, profile)
         for r in source.assessments():
             row = {"period": r.period, "level": r.level, "provisional": r.provisional, "trend": r.trend,
                    **{g: getattr(r, g) for g in _GROWTH}, "phase": r.phase}
@@ -75,8 +84,8 @@ class FeedStore:
             levels = METHODS[key[2]].levels[1:]
             self._spans[key] = [[start, end, tuple(bounds[level] for level in levels)]
                                 for (start, end), bounds in sorted(by_span.items())]
-        if (self.directory / SETTINGS_FILE).is_file():
-            with (self.directory / SETTINGS_FILE).open(encoding="utf-8") as f:
+        if (origin / SETTINGS_FILE).is_file():
+            with (origin / SETTINGS_FILE).open(encoding="utf-8") as f:
                 self._settings = {(r["method"], r["setting"], r["value"]) for r in csv.DictReader(f)}
 
     def check_settings(self, settings: list[tuple[str, str, str]]) -> None:
@@ -130,7 +139,9 @@ class FeedStore:
             else:
                 spans.append([week, week, tuple(bounds)])
 
-    def write(self, settings: list[tuple[str, str, str]]) -> None:
+    def files(self, settings: list[tuple[str, str, str]], directory: Path | None = None) -> dict:
+        """The tables as {path: (header, rows)} under `directory` (the served one by default), for write_validated."""
+        directory = directory or self.directory
         dims = self.profile.dimension_keys
         assessment = []
         thresholds = []
@@ -147,13 +158,27 @@ class FeedStore:
             for start, end, bounds in self._spans[key]:
                 for level, bound in zip(METHODS[method].levels[1:], bounds):
                     thresholds.append([location, *(d.get(k) for k in dims), indicator, method, start, end, level, bound])
-        files = {
-            self.directory / "assessment.csv": (
+        return {
+            directory / "assessment.csv": (
                 ["location", "period", *dims, "indicator", "method", "level", "provisional", "trend", *_GROWTH, "phase"],
                 assessment),
-            self.directory / "thresholds.csv": (
+            directory / "thresholds.csv": (
                 ["location", *dims, "indicator", "method", "from", "to", "level", "lower_bound"], thresholds),
-            self.directory / SETTINGS_FILE: (["method", "setting", "value"], sorted(settings)),
+            directory / SETTINGS_FILE: (["method", "setting", "value"], sorted(settings)),
         }
-        self.directory.mkdir(parents=True, exist_ok=True)
-        write_validated(files, lambda drafts: AssessmentSource(next(iter(drafts.values())).parent, self.profile))
+
+    def validate(self, drafts: dict[Path, Path], directory: Path | None = None) -> None:
+        """Load this store's drafted tables with the app's own loader, which raises on anything it would reject."""
+        AssessmentSource(drafts[(directory or self.directory) / "assessment.csv"].parent, self.profile)
+
+    def checkpoint(self, settings: list[tuple[str, str, str]]) -> None:
+        write_validated(self.files(settings, self.checkpoint_dir),
+                        lambda drafts: self.validate(drafts, self.checkpoint_dir))
+
+    def discard_checkpoint(self) -> None:
+        shutil.rmtree(self.checkpoint_dir, ignore_errors=True)
+
+    def write(self, settings: list[tuple[str, str, str]]) -> None:
+        """Publish this store alone (a whole run publishes every store and its phases together)."""
+        write_validated(self.files(settings), self.validate)
+        self.discard_checkpoint()

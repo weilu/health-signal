@@ -7,7 +7,8 @@ from health_signal.analytics.store import SettingsChanged
 from health_signal.assessments import AssessmentSource, PhaseSource, PhaseStreamSource
 from health_signal.config import Config
 from health_signal.profile import ERVISS
-from analytics_support import FakeBackend, FlakyBackend, NeverFitsBackend, RecordingBackend, erviss_rows, write_feed
+from analytics_support import (ERVISS_HEADER, FakeBackend, FlakyBackend, NeverFitsBackend, RecordingBackend,
+                               erviss_rows, write_feed)
 
 
 def _config(tmp_path, streams=True, year_start_week=21, covid_too=False, analytics=None):
@@ -82,17 +83,67 @@ class CrashesOnSari(FakeBackend):
         return super().fit(data)
 
 
-def test_a_run_that_dies_partway_keeps_what_it_graded_and_resumes(tmp_path):
+def test_a_run_that_dies_partway_leaves_the_served_tables_and_resumes(tmp_path):
     cfg = _config(tmp_path)
-    with pytest.raises(RuntimeError, match="killed"):
-        assess(cfg, full=True, backend=CrashesOnSari)
-    saved = AssessmentSource(tmp_path / "a", ERVISS).assessments()
-    assert {r.indicator for r in saved} == {"ILIconsultationrate"}
     assess(cfg, backend=FakeBackend)
     files = [tmp_path / "a" / "assessment.csv", tmp_path / "a" / "thresholds.csv", tmp_path / "phase.csv"]
+    served = [f.read_bytes() for f in files]
+    with pytest.raises(RuntimeError, match="killed"):
+        assess(cfg, full=True, backend=CrashesOnSari)
+    # The dashboard keeps serving the last complete run; what the dead one graded waits in its checkpoint.
+    assert [f.read_bytes() for f in files] == served
+    checkpoint = AssessmentSource(tmp_path / "a" / ".assess-checkpoint", ERVISS).assessments()
+    assert {r.indicator for r in checkpoint} == {"ILIconsultationrate"}
+    assert assess(cfg, backend=FakeBackend).weeks == 6   # resumes: only SARI's weeks are left
     resumed = [f.read_bytes() for f in files]
+    assert not (tmp_path / "a" / ".assess-checkpoint").exists()
     assess(cfg, full=True, backend=FakeBackend)
     assert [f.read_bytes() for f in files] == resumed
+
+
+def test_a_feed_whose_inputs_vanish_stops_the_run_before_any_table_changes(tmp_path):
+    # Two assessed feeds: one emptied directory mustn't publish empty tables while the other still has series.
+    ili = write_feed(tmp_path / "c", erviss_rows("Greece", "ILIconsultationrate", "per_100k", [5, 6, 12, 30, 25, 9]))
+    sari = write_feed(tmp_path / "d", erviss_rows("Greece", "SARIrate", "per_100k", [4, 5, 11, 20, 22, 21],
+                                                  survtype="SARI syndromic"))
+    panels = [{"id": "ili", "query": {"feed": "ili", "indicator": "ILIconsultationrate",
+                                      "dimensions": {"survtype": "primary care sentinel", "age": "total"}}},
+              {"id": "sari", "query": {"feed": "sari", "indicator": "SARIrate",
+                                       "dimensions": {"survtype": "SARI syndromic", "age": "total"}}}]
+    cfg = Config.model_validate({
+        "schema_version": "1", "site": {"title": "T"}, "surveillance": {"year_start_week": 21},
+        "data": {"feeds": [{"id": "ili", "profile": "erviss", "dir": str(ili), "assessments": str(tmp_path / "a")},
+                           {"id": "sari", "profile": "erviss", "dir": str(sari), "assessments": str(tmp_path / "b")}]},
+        "targets": [{"id": "Influenza", "pages": [{"id": "clinical", "panels": panels}]}]})
+    assess(cfg, backend=FakeBackend)
+    before = (tmp_path / "b" / "assessment.csv").read_bytes()
+    (sari / "feed.csv").write_text(ERVISS_HEADER)
+    with pytest.raises(RuntimeError, match="sari"):
+        assess(cfg, full=True, backend=FakeBackend)
+    assert (tmp_path / "b" / "assessment.csv").read_bytes() == before
+
+
+def test_a_series_moving_from_waves_to_seasons_needs_a_full_run(tmp_path):
+    # ILI phased in waves while only influenza (a wave pathogen here) shows it; adding it to the COVID tab makes
+    # it seasonal. Its stored rows were phased in waves, so an incremental run would mix the two.
+    waves = {"wave_pathogens": ["Influenza"]}
+    assess(_config(tmp_path, streams=False, analytics=waves), backend=FakeBackend)
+    with pytest.raises(SettingsChanged, match="wave_series"):
+        assess(_config(tmp_path, streams=False, covid_too=True, analytics=waves), backend=FakeBackend)
+
+
+def test_a_phase_that_cannot_be_written_leaves_every_table_as_it_was(tmp_path):
+    assess(_config(tmp_path), backend=FakeBackend)
+    before = (tmp_path / "a" / "assessment.csv").read_bytes()
+    broken = {"pathogen": "Influenza", "location": "Cyprus", "streams": {"cases": "clinical/ili",
+                                                                          "admissions": "clinical/sari"}}
+    cfg = _config(tmp_path, streams=False, analytics={"phase_streams": [broken]})   # (re)writes the feed
+    feed = tmp_path / "c" / "feed.csv"
+    feed.write_text(feed.read_text() + erviss_rows("Greece", "ILIconsultationrate", "per_100k", [7],
+                                                   periods=["2021-W07"]))   # a new week the run would publish
+    with pytest.raises(ValueError, match="Cyprus"):
+        assess(cfg, backend=FakeBackend)
+    assert (tmp_path / "a" / "assessment.csv").read_bytes() == before
 
 
 def test_parallel_jobs_match_a_serial_run(tmp_path):
