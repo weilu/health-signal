@@ -6,6 +6,7 @@ object directly; `serve` is a development/demo convenience.
 """
 import argparse
 import logging
+import os
 import sys
 
 import uvicorn
@@ -42,6 +43,9 @@ def main(argv=None):
         uvicorn.run(create_app(load_config(args.config)), host=args.host, port=args.port)
         return
     logging.basicConfig(level=logging.INFO, format="%(message)s")
+    # A backfill can hold every core for a long time; at low priority (inherited by the workers) the machine it
+    # runs on stays usable. Only the command does this: the importable assess() leaves its caller's priority alone.
+    os.nice(10)
     try:
         assess(load_config(args.config), full=args.full, jobs=args.jobs)
     except (SettingsChanged, RuntimeError, ValueError) as e:

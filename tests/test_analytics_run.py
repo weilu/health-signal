@@ -61,6 +61,28 @@ def test_incremental_matches_a_full_rebuild(tmp_path):
     assert [(tmp_path / "a" / n).read_bytes() for n in ("assessment.csv", "thresholds.csv")] == incremental
 
 
+class CrashesOnSari(FakeBackend):
+    """Dies partway through a run, after the ILI series is graded: a killed process, not a week aedseo can't fit."""
+
+    def fit(self, data):
+        if data.values[0] == 4:   # the SARI series' first value
+            raise RuntimeError("killed")
+        return super().fit(data)
+
+
+def test_a_run_that_dies_partway_keeps_what_it_graded_and_resumes(tmp_path):
+    cfg = _config(tmp_path)
+    with pytest.raises(RuntimeError, match="killed"):
+        assess(cfg, full=True, backend=CrashesOnSari)
+    saved = AssessmentSource(tmp_path / "a", ERVISS).assessments()
+    assert {r.indicator for r in saved} == {"ILIconsultationrate"}
+    assess(cfg, backend=FakeBackend)
+    files = [tmp_path / "a" / "assessment.csv", tmp_path / "a" / "thresholds.csv", tmp_path / "phase.csv"]
+    resumed = [f.read_bytes() for f in files]
+    assess(cfg, full=True, backend=FakeBackend)
+    assert [f.read_bytes() for f in files] == resumed
+
+
 def test_parallel_jobs_match_a_serial_run(tmp_path):
     cfg = _config(tmp_path, streams=False)
     assess(cfg, backend=FakeBackend)
@@ -91,6 +113,16 @@ def test_a_run_where_aedseo_never_fits_fails_even_if_zeros_are_graded(tmp_path):
     feed.write_text(feed.read_text().replace(",5,per_100k", ",0,per_100k"))   # a reported zero grades without a fit
     with pytest.raises(RuntimeError, match="no week could be fitted"):
         assess(cfg, backend=NeverFitsBackend)
+
+
+def test_a_full_run_where_aedseo_never_fits_leaves_the_served_tables(tmp_path):
+    # A broken R install on a --full run must not checkpoint ungraded rows over good tables.
+    cfg = _config(tmp_path, streams=False)
+    assess(cfg, backend=FakeBackend)
+    before = (tmp_path / "a" / "assessment.csv").read_bytes()
+    with pytest.raises(RuntimeError, match="no week could be fitted"):
+        assess(cfg, full=True, backend=NeverFitsBackend)
+    assert (tmp_path / "a" / "assessment.csv").read_bytes() == before
 
 
 def test_incremental_matches_a_full_rebuild_across_an_unfittable_week(tmp_path):

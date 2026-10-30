@@ -1,7 +1,7 @@
 import logging
 import multiprocessing
 from collections.abc import Callable
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from contextlib import nullcontext
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -93,18 +93,30 @@ def assess(config: Config, *, full: bool = False, jobs: int = 1,
     weeks_done = graded = fitted = 0
     with ProcessPoolExecutor(max_workers=jobs, mp_context=multiprocessing.get_context("spawn")) if jobs > 1 \
             else nullcontext() as pool:
-        # Lazily, so a long backfill reports each series as it finishes rather than all at the end.
-        results = (pool.map(_fit_in_worker, [(factory, s, w, o) for s, w, o in jobs_to_run]) if pool
-                   else (assess_series(s, w, main_backend, **o) for s, w, o in jobs_to_run))
-        for (s, weeks, _), result in zip(jobs_to_run, results):
-            stores[s.feed].add(s, method, result)
-            weeks_done += len(weeks)
-            graded += result.graded
-            fitted += result.fitted
-            log.info("%s %s %s %s: %d weeks, %d graded", s.feed, s.location, s.indicator, s.dimensions,
-                     len(weeks), result.graded)
-            if not result.graded:
-                warnings.append(f"{s.feed} {s.location} {s.indicator} {s.dimensions}: no week could be graded")
+        # As each series finishes, not in submission order, so a long backfill reports and saves it straight away.
+        if pool:
+            futures = {pool.submit(_fit_in_worker, (factory, s, w, o)): (s, w) for s, w, o in jobs_to_run}
+            results = ((*futures[f], f.result()) for f in as_completed(futures))
+        else:
+            results = ((s, w, assess_series(s, w, main_backend, **o)) for s, w, o in jobs_to_run)
+        try:
+            for s, weeks, result in results:
+                stores[s.feed].add(s, method, result)
+                weeks_done += len(weeks)
+                graded += result.graded
+                fitted += result.fitted
+                log.info("%s %s %s %s: %d weeks, %d graded", s.feed, s.location, s.indicator, s.dimensions,
+                         len(weeks), result.graded)
+                if not result.graded:
+                    warnings.append(f"{s.feed} {s.location} {s.indicator} {s.dimensions}: no week could be graded")
+                if fitted:
+                    # A checkpoint, so an interrupted run resumes from here; only once aedseo has fitted
+                    # something, so a broken R never replaces good tables with ungraded ones.
+                    stores[s.feed].write(settings)
+        except BaseException:
+            if pool:
+                pool.shutdown(cancel_futures=True)   # don't grade the rest only to discard it
+            raise
     if weeks_done and not fitted:
         # Reported zeros still grade without a fit, so count fits: none at all is a systemic failure, not thin data.
         raise RuntimeError(f"no week could be fitted across {len(jobs_to_run)} series; check R/aedseo and the feeds' "
