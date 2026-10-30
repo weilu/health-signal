@@ -35,6 +35,14 @@ def _common_dimensions(rows: list[FeedRow]) -> dict[str, str]:
     return {k: v for k, v in first.items() if all(r.dimensions.get(k) == v for r in rows)}
 
 
+def _drift(rows: list[FeedRow]) -> str:
+    """What varies across the rows that should be one series: the dimensions and the unit, or "" if nothing."""
+    keys = {k for r in rows for k in r.dimensions}
+    varying = sorted(k for k in keys if len({r.dimensions.get(k, "") for r in rows}) > 1)
+    varying += ["unit"] if len({r.unit for r in rows}) > 1 else []
+    return ", ".join(varying)
+
+
 def _by_location(rows: list[FeedRow]) -> dict[str, list[FeedRow]]:
     out: dict[str, list[FeedRow]] = {}
     for row in sorted(rows, key=lambda r: r.period):
@@ -67,6 +75,12 @@ def assessed_series(config: Config, sources: dict[str, FileDataSource]):
                     if len({r.period for r in rows}) != len(rows):
                         warnings.append(f"{ref} at {location}: the query matches several rows per week; "
                                         f"pin more dimensions to assess it")
+                        continue
+                    # One row a week can still be different series in different weeks (e.g. one age group, then
+                    # another); graded as one, they'd mix populations or scales.
+                    if drift := _drift(rows):
+                        warnings.append(f"{ref} at {location}: the query matches different series over time "
+                                        f"({drift}); pin it to one to assess it")
                         continue
                     found = _series(query.feed, target.id, location, rows, source, ref, warnings)
                     if found is not None:
