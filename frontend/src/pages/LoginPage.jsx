@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { Paper, TextField, Button, Typography, Alert } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { LocaleToggle } from '../LocaleToggle.jsx'
+import { siteTitle } from '../config.js'
 
 export default function LoginPage({ config }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [error, setError] = useState(null)  // null | 'invalid' (401) | 'failed' (other/network)
   const [submitting, setSubmitting] = useState(false)
 
@@ -32,7 +33,7 @@ export default function LoginPage({ config }) {
 
   return (
     <Paper sx={{ p: 4, width: '100%', maxWidth: 400 }} elevation={2}>
-      <Typography variant="h5" component="h1" gutterBottom>{config.title}</Typography>
+      <Typography variant="h5" component="h1" gutterBottom>{siteTitle(config, i18n.resolvedLanguage)}</Typography>
       {error && <Alert severity="error" sx={{ mb: 2 }}>{t(error === 'invalid' ? 'login.error' : 'login.failed')}</Alert>}
       <form onSubmit={handleSubmit}>
         <TextField name="email" type="email" label={t('login.email')} fullWidth required margin="normal" autoComplete="email" autoFocus />

@@ -156,5 +156,11 @@
         "waves": "In a wave while both its community and admissions streams are active. A stream turns active when it rises above its disease threshold, and stays active until it falls back below it."
       }
     }
+  },
+  "dimensions": {
+    "age": {
+      "total": "All ages",
+      "unk": "Unknown age"
+    }
   }
 }

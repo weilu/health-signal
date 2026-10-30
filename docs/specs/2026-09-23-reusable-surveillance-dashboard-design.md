@@ -612,8 +612,10 @@ precedence over client-side routes.
   **library ships the base UI-string catalog** (generic chrome: nav, Status/Trend, "as of", login,
   buttons — en/el, extensible to more languages). The **consumer supplies only country-specific and
   data-driven strings** (pathogen display names, source subtitles, methodology text) and may override
-  library defaults. `/api/locales/{lang}` **deep-merges** library base + country overrides (country
-  wins) so no country re-translates the generic chrome.
+  library defaults. `/api/locales/{lang}` serves the country's file for that language (gated like `/api/config`, whose
+  structure it labels; the files live in `site.locales_dir`, checked at startup) and the browser
+  **deep-merges** it over the library's bundled base (country wins), so no country re-translates the
+  generic chrome. The merge is client-side because the base catalogue is bundled with the UI.
   - **Config carries keys, not translations.** `dashboard.yaml` holds structure + stable ids/i18n
     **keys**, never inline `{en, el}` maps. Targets, pages and panels derive their label key from their
     stable id by convention (`id: covid` → `targets.covid`, `id: clinical` → `pages.clinical`,

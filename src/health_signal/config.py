@@ -23,6 +23,8 @@ class SiteConfig(BaseModel):
     locales: list[str] = Field(default_factory=lambda: ["en"])
     # Path prefixes that bypass auth. Default empty = everything is locked (opt-in public).
     public_paths: list[str] = Field(default_factory=list)
+    # Server-only: the deployment's own UI text, <language>.json per offered language (spec §9).
+    locales_dir: Path | None = None
 
     @field_validator("public_paths")
     @classmethod

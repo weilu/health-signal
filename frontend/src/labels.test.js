@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { axisNumber, configLabel, reportingWeek, weekStamp } from './labels.js'
+import { axisNumber, configLabel, reportingWeek, seriesLabel, weekStamp } from './labels.js'
 
 const t = (key, opts) => (key === 'targets.covid' ? 'COVID-19' : opts?.defaultValue ?? '')
 
@@ -31,4 +31,13 @@ describe('axisNumber', () => {
     expect([50e12, 1.25e12, 1400, 0.45, 12].map(axisNumber('en'))).toEqual(['50T', '1.25T', '1.4K', '0.45', '12'])
     expect(axisNumber('el')(50e12)).toBe('50\u00a0τρισ.')   // a non-breaking space: the unit never wraps away
   })
+})
+
+describe('seriesLabel', () => {
+  const tr = (key, opts) => ({ 'dimensions.age.total': 'All ages', 'chart.unspecified': 'Unspecified' }[key]
+                              ?? opts?.defaultValue ?? key)
+  it("labels a split chart's line by its dimension value", () => expect(seriesLabel(tr, 'age', 'total')).toBe('All ages'))
+  it('keeps a value that has no label, such as a subtype code', () =>
+    expect(seriesLabel(tr, 'pathogensubtype', 'A(H3)')).toBe('A(H3)'))
+  it('names a missing value', () => expect(seriesLabel(tr, 'age', '')).toBe('Unspecified'))
 })

@@ -4,6 +4,12 @@ export function weekStamp(t, week) {
   return t('range.week', { week: n, year })
 }
 
+// A split chart's line, named by its dimension value: labelled where the library or the deployment gives the value
+// a name (age "total"), as itself otherwise (a code like "A(H3)" or "0-4" reads fine).
+export function seriesLabel(t, dimension, value) {
+  return value ? t(`dimensions.${dimension}.${value}`, { defaultValue: value }) : t('chart.unspecified')
+}
+
 // The stamp plus its parts, so a language can phrase it its own way (Greek bulletins: "εβδομάδα 41/2026").
 export function reportingWeek(t, week) {
   const [year, n] = week.split('-W')

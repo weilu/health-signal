@@ -1,5 +1,6 @@
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material'
 import { useTranslation } from 'react-i18next'
+import { weekStamp } from '../labels.js'
 
 export function SeriesTable({ periods, series, unit }) {
   const { t, i18n } = useTranslation()
@@ -18,7 +19,7 @@ export function SeriesTable({ periods, series, unit }) {
         <TableBody>
           {rows.map(({ p, i }) => (
             <TableRow key={p}>
-              <TableCell component="th" scope="row">{p}</TableCell>
+              <TableCell component="th" scope="row">{weekStamp(t, p)}</TableCell>
               {series.map((s) => (
                 <TableCell key={s.key} align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>
                   {s.qualities?.[i] ? t(`quality.${s.qualities[i]}`, { defaultValue: s.qualities[i] })

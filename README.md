@@ -89,6 +89,29 @@ data:
 `examples/greece.dashboard.yaml` uses this for EODY's series: rates per 1,000 admissions and consultations,
 the private-hospital network, and SARI's paediatric group, which EODY defines by hospital rather than age band.
 
+### Deployment text (i18n)
+
+The library ships its own interface text in English and Greek. A deployment supplies the rest: its target, page,
+panel and location names, and labels for any units its profile extensions add. Config carries only ids, each
+labelled by convention (`panels.<panel id>`, `pages.<page id>`, `targets.<target id>`, a location option's
+`label_key`, `unit.<unit>`, and `dimensions.<dimension>.<value>` for a split chart's lines). Put one `<language>.json` per offered language in a directory and point
+`site.locales_dir` at it:
+
+```yaml
+site:
+  locales: [en, el]
+  locales_dir: locales   # locales/en.json, locales/el.json
+```
+
+```json
+{ "panels": { "hospital_admissions": "Εισαγωγές σε νοσοκομείο" }, "unit": { "per_1000_admissions": "ανά 1.000 εισαγωγές" } }
+```
+
+After sign-in, the app fetches the file for the current language and merges it over the library's text. The
+deployment's text wins, so it can also reword a library string. A missing or malformed file for an offered
+language stops the app at startup; a label with no text shows its id. The Greece example's files are in
+`examples/locales/`.
+
 ### Status, Trend and phase (`health-signal assess`)
 
 The dashboard shows Status and Trend tiles, threshold bands and season or wave phases from tables it

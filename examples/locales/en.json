@@ -1,0 +1,52 @@
+{
+  "site": {
+    "title": "Greece Public Health Early Warning & Surveillance"
+  },
+  "targets": {
+    "SARS-CoV-2": "COVID-19",
+    "Influenza": "Influenza",
+    "RSV": "RSV"
+  },
+  "pages": {
+    "overview": "Overview",
+    "clinical": "Clinical",
+    "wastewater": "Wastewater"
+  },
+  "panels": {
+    "phase": "Season or wave",
+    "summary": "Summary",
+    "hospital_admissions": "Hospital admissions",
+    "icu_admissions": "ICU admissions",
+    "icu_admissions_a": "ICU admissions · influenza A",
+    "icu_admissions_b": "ICU admissions · influenza B",
+    "deaths": "Deaths",
+    "test_positivity": "Test positivity (all tests)",
+    "sari_positivity": "SARI test positivity",
+    "sentinel_positivity": "Sentinel primary-care test positivity",
+    "private_positivity": "Private-hospital test positivity",
+    "influenza_a_subtypes": "Influenza A subtypes",
+    "influenza_b_lineages": "Influenza B lineages",
+    "sari_rate": "SARI per 1,000 admissions",
+    "sari_rate_by_age": "SARI per 1,000 admissions, all ages and paediatric",
+    "ili_rate": "Influenza-like illness per 1,000 consultations",
+    "ww_load": "Wastewater viral load",
+    "ww_flu_a_load": "Influenza A in wastewater",
+    "ww_flu_b_load": "Influenza B in wastewater"
+  },
+  "locations": {
+    "national": "Greece",
+    "attica": "Attica"
+  },
+  "unit": {
+    "per_1000_admissions": "per 1,000 admissions",
+    "per_1000_consultations": "per 1,000 consultations"
+  },
+  "dimensions": {
+    "age": {
+      "paediatric": "Paediatric"
+    },
+    "survtype": {
+      "private hospital": "Private hospitals"
+    }
+  }
+}

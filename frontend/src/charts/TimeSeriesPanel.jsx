@@ -9,7 +9,7 @@ import { useMethod } from '../useMethod.js'
 import { StatusTrendTiles, TileGrid } from './StatusTrendTiles.jsx'
 import { ResourceBoundary } from '../ResourceBoundary.jsx'
 import { toChartModel } from '../series.js'
-import { configLabel, weekStamp } from '../labels.js'
+import { configLabel, seriesLabel, weekStamp } from '../labels.js'
 import { panelParams } from '../filters.js'
 import { SeriesTable } from './SeriesTable.jsx'
 import { TimeSeriesChart, useChartPalette } from './TimeSeriesChart.jsx'
@@ -60,7 +60,7 @@ export function TimeSeriesPanel({ panel, location, range, latest }) {
               : location ? t('chart.emptyAt', { location: location.label, ...span }) : t('chart.emptyIn', span)
             return <Alert severity={model.status === 'empty' ? 'info' : 'warning'}>{message}</Alert>
           }
-          const series = model.series.map((s) => ({ ...s, label: panel.series_by ? s.key || t('chart.unspecified') : title }))
+          const series = model.series.map((s) => ({ ...s, label: panel.series_by ? seriesLabel(t, panel.series_by, s.key) : title }))
           const unit = t(`unit.${model.unit}`, { defaultValue: model.unit })
           return asTable
             ? <SeriesTable periods={model.periods} series={series} unit={unit} />
