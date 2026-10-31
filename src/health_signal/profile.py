@@ -17,6 +17,11 @@ class FeedRow(BaseModel):
 def implies_message(indicator: str, dim: str, value: str) -> str:
     return f"indicator {indicator!r} carries no {dim}" if value == "" else f"indicator {indicator!r} implies {dim} {value!r}"
 
+class Denominator(BaseModel):
+    indicator: str  # the series whose value is this rate's exposure, same key otherwise
+    per: float      # the rate's scale: 100 for a percentage of tests
+
+
 class Profile(BaseModel):
     name: str
     version: str
@@ -27,9 +32,16 @@ class Profile(BaseModel):
     period_pattern: str  # granularity: week_range filters compare periods as strings, so format must be fixed
     required_dimensions: set[str] = set()
     qualities: set[str] = set()  # allowed `quality` values
+    # Qualities whose value is a stand-in, not a measurement (e.g. below the limit of detection): graded as the
+    # value, but fitted as a gap, so a non-detect's 0 doesn't read as a -100% fall and back (spec §6.3.1).
+    censored_qualities: set[str] = set()
     # indicator -> {dimension: value} it fixes, e.g. ODM measure fluA -> pathogen Influenza, so feeds join.
     # An empty value means the indicator carries no value for that dimension (PMMoV has no pathogen).
     indicator_implies: dict[str, dict[str, str]] = {}
+    count_units: set[str] = set()  # graded on aedseo's cases path; every other unit is a rate or load
+    # rate indicator -> its own denominator series, aedseo's exposure offset: growth of positivity must be
+    # modelled against tests, not population.
+    denominators: dict[str, Denominator] = {}
     # Indicators reported per pathogen: a series of one without a pathogen mixes every pathogen's figures.
     pathogen_specific: set[str] = set()
 
@@ -122,6 +134,8 @@ ERVISS = Profile(
     },
     period_pattern=r"\d{4}-W\d{2}",
     required_dimensions={"survtype", "age"},  # spec §6.2: only the pathogen fields are nullable
+    count_units={"count"},
+    denominators={"positivity": Denominator(indicator="tests", per=100)},
     # ILI, ARI and SARI rates are syndromic (no pathogen); everything else is reported per pathogen.
     pathogen_specific={"tests", "detections", "positivity", "hospitaladmissions", "ICUadmissions",
                        "ICUinpatients", "deaths"},
@@ -148,6 +162,7 @@ PHES_ODM = Profile(
     period_pattern=r"\d{4}-W\d{2}",
     required_dimensions={"aggregation"},
     qualities={"beLOD"},  # below LOD: the value is the producer's stand-in (0, LOD/2, …), not a measurement
+    censored_qualities={"beLOD"},
     indicator_implies={measure: {"pathogen": p} for measure, p in {**_ODM_PATHOGEN, "ppmv": ""}.items()},
 )
 

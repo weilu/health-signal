@@ -56,9 +56,7 @@ function phaseLabel(t, row, rows, method) {
   if (method.active_phases.includes(row.phase)) {
     return t('phase.since', { phase: t(`phase.${row.phase}`), week: weekStamp(t, phaseSince(rows, row.period, method.active_phases)) })
   }
-  // A year-round pathogen's quiet weeks read as between waves, not out of season.
-  const waves = row.phase === 'out_of_season' && rows.some((r) => r.phase === 'in_wave')
-  return t(waves ? 'phase.between_waves' : `phase.${row.phase}`)
+  return t(`phase.${row.phase}`)
 }
 
 export function PhasePanel({ panel, target, location, range, latest }) {
