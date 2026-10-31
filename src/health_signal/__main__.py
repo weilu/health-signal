@@ -21,13 +21,14 @@ _COMMANDS = ("serve", "assess")
 
 def _parse(argv=None):
     p = argparse.ArgumentParser(prog="health-signal", description="Run the health-signal dashboard.")
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--config", default="dashboard.yaml", help="Path to the dashboard config YAML.")
     commands = p.add_subparsers(dest="command", required=True)
-    serve = commands.add_parser("serve", help="Run the dashboard (the default).")
-    serve.add_argument("--config", default="dashboard.yaml", help="Path to the dashboard config YAML.")
+    serve = commands.add_parser("serve", parents=[common], help="Run the dashboard (the default).")
     serve.add_argument("--host", default="127.0.0.1", help="Bind host.")
     serve.add_argument("--port", type=int, default=8000, help="Bind port.")
-    run = commands.add_parser("assess", help="Write Status/Trend/phase tables from the feeds (needs R + aedseo).")
-    run.add_argument("--config", default="dashboard.yaml", help="Path to the dashboard config YAML.")
+    run = commands.add_parser("assess", parents=[common],
+                              help="Write Status/Trend/phase tables from the feeds (needs R + aedseo).")
     run.add_argument("--full", action="store_true", help="Recompute every week instead of only new ones.")
     run.add_argument("--jobs", type=int, default=1, help="Series assessed in parallel processes.")
     argv = list(sys.argv[1:] if argv is None else argv)
@@ -43,9 +44,8 @@ def main(argv=None):
         uvicorn.run(create_app(load_config(args.config)), host=args.host, port=args.port)
         return
     logging.basicConfig(level=logging.INFO, format="%(message)s")
-    # A backfill can hold every core for a long time; at low priority (inherited by the workers) the machine it
-    # runs on stays usable. Only the command does this: the importable assess() leaves its caller's priority alone.
-    if hasattr(os, "nice"):   # not on Windows, where the run just keeps its normal priority
+    # A backfill can hold every core for long; the workers inherit this. The CLI only: assess() is importable.
+    if hasattr(os, "nice"):   # absent on Windows
         os.nice(10)
     try:
         assess(load_config(args.config), full=args.full, jobs=args.jobs)

@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlencode
 
-from ..assessments import PhaseSource, PhaseStreamSource
+from ..assessments import PHASE_COLUMNS, STREAM_COLUMNS, PhaseSource, PhaseStreamSource
 from ..config import Config
 from ..datasource import FileDataSource
 from ..methods import AEDSEO
@@ -21,8 +21,6 @@ from .store import FeedStore, write_validated
 
 log = logging.getLogger("health_signal.analytics")
 
-_PHASE_COLUMNS = ["location", "pathogen", "period", "method", "phase"]
-_STREAM_COLUMNS = ["location", "pathogen", "method", "role", "feed", "series"]
 _worker_backend: Backend | None = None
 
 
@@ -68,47 +66,41 @@ def assess(config: Config, *, full: bool = False, jobs: int = 1,
     method = AEDSEO.name
     analytics = config.analytics
     wave_end = analytics.aedseo.wave_end
-    settings = [(method, "year_start_week", str(config.surveillance.year_start_week)),
-                (method, "min_seasons", str(analytics.min_seasons)),
-                *((method, "wave_pathogen", p) for p in sorted(analytics.wave_pathogens)),
-                (method, "steps_with_decrease", str(wave_end.steps_with_decrease)),
-                (method, "burden_level_decrease", wave_end.burden_level_decrease),
-                (method, "package_version", main_backend.version)]
-    # A series shown on several tabs is phased in waves only if every one of those pathogens circulates in waves,
-    # so e.g. ILI on the COVID tab doesn't put COVID's wave shading on the influenza tab's chart.
-    pathogens: dict[int, set[str]] = {}
-    for (pathogen, _, _), s in refs.items():
-        pathogens.setdefault(id(s), set()).add(pathogen)
-    in_waves = {id(s) for s in series if pathogens[id(s)] <= set(analytics.wave_pathogens)}
+    settings = [(method, setting, str(value)) for setting, value in {
+        "year_start_week": config.surveillance.year_start_week, "min_seasons": analytics.min_seasons,
+        "steps_with_decrease": wave_end.steps_with_decrease, "burden_level_decrease": wave_end.burden_level_decrease,
+        "package_version": main_backend.version}.items()]
+    settings += [(method, "wave_pathogen", p) for p in sorted(analytics.wave_pathogens)]
+
+    def in_waves(s: Series) -> bool:
+        # Only if every tab showing it is a wave pathogen: ILI on the COVID tab keeps influenza's seasons.
+        return s.pathogens <= set(analytics.wave_pathogens)
+
     stores = {f.id: FeedStore(f.assessments, profiles[f.id], full=full) for f in config.data.feeds if f.assessments}
-    # Which series are phased in waves is recorded too: one moving between waves and seasons (e.g. a panel added
-    # to another tab) has stored rows phased the other way, so it needs a full run like any changed setting.
+    # Phasing is recorded per series: one switching between waves and seasons needs --full.
     feed_settings = {feed: settings + sorted((method, "wave_series", _label(s))
-                                             for s in series if s.feed == feed and id(s) in in_waves)
+                                             for s in series if s.feed == feed and in_waves(s))
                      for feed in stores}
     for feed, store in stores.items():
-        # Before any fitting: a mismatch should cost nothing.
-        store.check_settings(feed_settings[feed])
-        store.check_wave_series([(_label(s), id(s) in in_waves) for s in series
+        store.check_settings(feed_settings[feed])   # before any fitting, so a mismatch costs nothing
+        store.check_wave_series([(_label(s), in_waves(s)) for s in series
                                  if s.feed == feed and store.last_week(s, method)])
         if full:
-            # Every feed's rebuild starts now, so a run that dies before reaching one still resumes it as a
-            # rebuild instead of from its old served rows.
+            # Every feed's rebuild starts now, so dying before a feed still resumes it as a rebuild.
             store.checkpoint(feed_settings[feed])
 
+    common = dict(method=AEDSEO, start_week=config.surveillance.year_start_week, min_seasons=analytics.min_seasons)
     jobs_to_run: list[tuple[Series, list[str], dict]] = []
     for s in series:
         store = stores[s.feed]
         last = store.resume_week(s, method)
         weeks = [p for p in s.periods if last is None or p > last]
         if weeks:
-            options = dict(method=AEDSEO, start_week=config.surveillance.year_start_week,
-                           min_seasons=analytics.min_seasons,
-                           waves=wave_end if id(s) in in_waves else None,
-                           state=store.resume(s, method))
-            jobs_to_run.append((s, weeks, options))
-    # Whether any series computed now already has fitted history: then weeks no fit can place are the data (a broken
-    # R raises BackendError and stops the run), so they are published ungraded rather than stopping it.
+            jobs_to_run.append((s, weeks, {**common, "waves": wave_end if in_waves(s) else None,
+                                           "state": store.resume(s, method)}))
+    # Slowest first (wave fits, then the longest), so the run doesn't end on one worker's long series.
+    jobs_to_run.sort(key=lambda job: (job[2]["waves"] is None, -len(job[1])))
+    # With prior fits, weeks no fit can place are the data (a broken R raises BackendError instead).
     history = any(stores[s.feed].last_week(s, method) for s, _, _ in jobs_to_run)
     weeks_done = graded = fitted = 0
     with ProcessPoolExecutor(max_workers=jobs, mp_context=multiprocessing.get_context("spawn")) if jobs > 1 \
@@ -129,24 +121,19 @@ def assess(config: Config, *, full: bool = False, jobs: int = 1,
                          len(weeks), result.graded)
                 if not result.graded:
                     warnings.append(f"{s.feed} {s.location} {s.indicator} {s.dimensions}: no week could be graded")
-                if fitted:
-                    # A checkpoint, so an interrupted run resumes from here; only once aedseo has fitted
-                    # something, so a broken R's ungraded rows are never what a resume builds on.
+                if fitted:   # checkpoint only after a real fit, so a resume never builds on unfitted rows
                     stores[s.feed].checkpoint(feed_settings[s.feed])
         except BaseException:
             if pool:
                 pool.shutdown(cancel_futures=True)   # don't grade the rest only to discard it
             raise
-    if weeks_done and not fitted and history:
+    if weeks_done and not fitted:
+        if not history:   # nothing fitted and nothing to stand on: publishing would replace good tables
+            raise RuntimeError(f"no week could be fitted across {len(jobs_to_run)} series; check R/aedseo and the "
+                               f"feeds' history (aedseo needs a complete past season)")
         warnings.append(f"no new week could be fitted across {len(jobs_to_run)} series (too little usable history); "
                         f"they are published as not graded and fitted again next run")
-    if weeks_done and not fitted and not history:
-        # Reported zeros still grade without a fit, so count fits with usable bands: none at all is a systemic
-        # failure, not thin data.
-        raise RuntimeError(f"no week could be fitted across {len(jobs_to_run)} series; check R/aedseo and the feeds' "
-                           f"history (aedseo needs a complete past season)")
-    # Every table is drafted and validated before any served one is replaced, so a failure anywhere (a phase
-    # stream, one feed's table) leaves the dashboard on its last complete run.
+    # All drafted and validated before any served table is replaced: a failure anywhere leaves the last run up.
     files = {}
     for feed, store in stores.items():
         files |= store.files(feed_settings[feed])
@@ -168,6 +155,10 @@ def assess(config: Config, *, full: bool = False, jobs: int = 1,
     return Summary(len(series), weeks_done, graded, warnings)
 
 
+def _table(columns: list[str], rows: list[dict]) -> tuple[list[str], list[list]]:
+    return columns, sorted([row[c] for c in columns] for row in rows)
+
+
 def _label(s: Series) -> str:
     return f"{s.location} {s.indicator} {urlencode(sorted(s.dimensions.items()))}"
 
@@ -187,10 +178,5 @@ def _phase_files(config: Config, refs: dict, stores: dict[str, FeedStore], profi
         phases += pathogen_phases(entry, by_role, waves=entry.pathogen in config.analytics.wave_pathogens)
         streams += stream_rows(entry, resolved)
     phase_path, stream_path = Path(config.data.phases), Path(config.data.phase_streams)
-    files = {
-        phase_path: (_PHASE_COLUMNS, [[r[c] for c in _PHASE_COLUMNS]
-                                      for r in sorted(phases, key=lambda r: [r[c] for c in _PHASE_COLUMNS])]),
-        stream_path: (_STREAM_COLUMNS, [[r[c] for c in _STREAM_COLUMNS]
-                                        for r in sorted(streams, key=lambda r: [r[c] for c in _STREAM_COLUMNS])]),
-    }
+    files = {phase_path: _table(PHASE_COLUMNS, phases), stream_path: _table(STREAM_COLUMNS, streams)}
     return files, lambda drafts: (PhaseSource(drafts[phase_path]), PhaseStreamSource(drafts[stream_path], profiles))

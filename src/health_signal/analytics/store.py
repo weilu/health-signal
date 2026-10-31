@@ -4,7 +4,7 @@ import shutil
 from collections.abc import Callable
 from pathlib import Path
 
-from ..assessments import AssessmentSource
+from ..assessments import ASSESSMENT_COLUMNS, GROWTH, THRESHOLD_COLUMNS, AssessmentSource
 from ..methods import METHODS
 from ..profile import Profile
 from .engine import SeriesResult
@@ -14,7 +14,6 @@ from .series import Series
 SETTINGS_FILE = "assessed_with.csv"
 CHECKPOINT_DIR = ".assess-checkpoint"
 _TMP = ".assess-tmp"
-_GROWTH = ("growth_rate", "growth_lower", "growth_upper")
 
 
 class SettingsChanged(Exception):
@@ -74,7 +73,7 @@ class FeedStore:
         source = AssessmentSource(origin, profile)
         for r in source.assessments():
             row = {"period": r.period, "level": r.level, "provisional": r.provisional, "trend": r.trend,
-                   **{g: getattr(r, g) for g in _GROWTH}, "phase": r.phase}
+                   **{g: getattr(r, g) for g in GROWTH}, "phase": r.phase}
             self._rows.setdefault(_key(r.location, r.indicator, r.method, r.dimensions), {})[r.period] = row
         spans: dict[tuple, dict[tuple[str, str], dict[str, float]]] = {}
         for t in source.thresholds():
@@ -116,7 +115,8 @@ class FeedStore:
                                   f"(wave_series); run assess --full to recompute it")
 
     def _series_key(self, series: Series, method: str) -> tuple:
-        return _key(series.location, series.indicator, method, series.dimensions)
+        location, indicator, dimensions = series.key
+        return location, indicator, method, dimensions
 
     def last_week(self, series: Series, method: str) -> str | None:
         rows = self._rows.get(self._series_key(series, method))
@@ -175,7 +175,7 @@ class FeedStore:
             for period in sorted(self._rows[key]):
                 row = self._rows[key][period]
                 assessment.append([location, period, *(d.get(k) for k in dims), indicator, method, row["level"],
-                                   row["provisional"], row["trend"], *(row[g] for g in _GROWTH), row["phase"]])
+                                   row["provisional"], row["trend"], *(row[g] for g in GROWTH), row["phase"]])
         for key in sorted(self._spans):
             location, indicator, method, items = key
             d = dict(items)
@@ -183,11 +183,9 @@ class FeedStore:
                 for level, bound in zip(METHODS[method].levels[1:], bounds):
                     thresholds.append([location, *(d.get(k) for k in dims), indicator, method, start, end, level, bound])
         return {
-            directory / "assessment.csv": (
-                ["location", "period", *dims, "indicator", "method", "level", "provisional", "trend", *_GROWTH, "phase"],
-                assessment),
-            directory / "thresholds.csv": (
-                ["location", *dims, "indicator", "method", "from", "to", "level", "lower_bound"], thresholds),
+            # The loader's columns, with this profile's dimensions after the location (and period).
+            directory / "assessment.csv": (ASSESSMENT_COLUMNS[:2] + dims + ASSESSMENT_COLUMNS[2:], assessment),
+            directory / "thresholds.csv": (THRESHOLD_COLUMNS[:1] + dims + THRESHOLD_COLUMNS[1:], thresholds),
             directory / SETTINGS_FILE: (["method", "setting", "value"], sorted(settings)),
         }
 
@@ -201,8 +199,3 @@ class FeedStore:
 
     def discard_checkpoint(self) -> None:
         shutil.rmtree(self.checkpoint_dir, ignore_errors=True)
-
-    def write(self, settings: list[tuple[str, str, str]]) -> None:
-        """Publish this store alone (a whole run publishes every store and its phases together)."""
-        write_validated(self.files(settings), self.validate)
-        self.discard_checkpoint()

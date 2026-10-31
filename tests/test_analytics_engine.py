@@ -15,14 +15,29 @@ from analytics_support import BandsBackend, FakeBackend, RecordingBackend, weeks
 
 def _series(values):
     p = weeks(2021, len(values))
-    return Series("clinical", "Influenza", "Greece", "ILIconsultationrate", {"age": "total"}, "per_100k",
+    return Series("clinical", {"Influenza"}, "Greece", "ILIconsultationrate", {"age": "total"}, "per_100k",
                   p, values, "incidence", [100.0] * len(values), 1.0)
 
 
-def _run(values, weeks_to_do=None, waves=None, state=SeasonState()):
-    s = _series(values)
-    return assess_series(s, weeks_to_do or s.periods, FakeBackend(), method=AEDSEO, start_week=21,
+def _assess(s, backend=None, weeks_to_do=None, waves=None, state=SeasonState()):
+    return assess_series(s, weeks_to_do or s.periods, backend or FakeBackend(), method=AEDSEO, start_week=21,
                          min_seasons=3, waves=waves, state=state)
+
+
+def _run(values, **options):
+    return _assess(_series(values), **options)
+
+
+class _RError(Exception):
+    pass
+
+
+def _bare_r(**attrs):
+    # No R needed: only the bridge's handling of what R returns or raises is exercised.
+    backend = RAedseo.__new__(RAedseo)
+    backend._RError = _RError
+    vars(backend).update(attrs)
+    return backend
 
 
 def test_each_week_is_graded_from_data_up_to_it():
@@ -48,9 +63,6 @@ def test_wave_pathogens_use_the_wave_pair():
 
 def test_a_missing_threshold_is_the_data_but_an_r_error_is_a_broken_backend():
     # aedseo reports too little history as an NA threshold; it raises only when R or the call itself is broken.
-    class RError(Exception):
-        pass
-
     class Aedseo:
         def __init__(self, result):
             self.result = result
@@ -60,12 +72,10 @@ def test_a_missing_threshold_is_the_data_but_an_r_error_is_a_broken_backend():
                 raise self.result
             return self.result
 
-    backend = RAedseo.__new__(RAedseo)   # no R needed: only the error mapping is exercised
-    backend._RError, backend._numbers = RError, lambda frame, column: [frame]
-    backend._aedseo = Aedseo(math.nan)
+    backend = _bare_r(_numbers=lambda frame, column: [frame], _aedseo=Aedseo(math.nan))
     with pytest.raises(FitError, match="no disease threshold"):
         backend._threshold(None, {})
-    backend._aedseo = Aedseo(RError("could not find function"))
+    backend._aedseo = Aedseo(_RError("could not find function"))
     with pytest.raises(BackendError, match="could not find function"):
         backend._threshold(None, {})
 
@@ -73,22 +83,18 @@ def test_a_missing_threshold_is_the_data_but_an_r_error_is_a_broken_backend():
 def test_a_failed_onset_or_wave_fit_is_unavailable_not_a_negative():
     # Raising would drop the week's already-computed bands; returning "no alarm" or "between waves" would
     # publish a false phase.
-    class RError(Exception):
-        pass
-
     class Failing:
         def seasonal_onset(self, *args, **kwargs):
-            raise RError("fit failed")
+            raise _RError("fit failed")
 
         def combined_seasonal_output(self, *args, **kwargs):
-            raise RError("can't segment")
+            raise _RError("can't segment")
 
     class Base:
         def as_data_frame(self, frame):
             return frame
 
-    backend = RAedseo.__new__(RAedseo)   # no R needed: only the error handling is exercised
-    backend._aedseo, backend._base, backend._RError = Failing(), Base(), RError
+    backend = _bare_r(_aedseo=Failing(), _base=Base())
     growth, alarm = backend._onset(None, 1.0, {}, date(2025, 1, 6))
     assert all(math.isnan(g) for g in growth) and alarm is None
     assert backend._wave(None, 1.0, {}, date(2025, 1, 6), WaveEnd()) is None
@@ -108,9 +114,7 @@ def test_a_week_aedseo_cannot_fit_grades_only_a_reported_zero():
 @pytest.mark.parametrize("waves", [None, WaveEnd()])
 def test_unusable_bands_give_no_grade_phase_or_threshold_rows(bands, waves):
     # Waves too: a week with no level mustn't still tell the pathogen overview it is in a wave or between waves.
-    s = _series([5, 6, 12, 30])
-    res = assess_series(s, s.periods, BandsBackend(bands), method=AEDSEO, start_week=21, min_seasons=3,
-                        waves=waves, state=SeasonState())
+    res = _run([5, 6, 12, 30], backend=BandsBackend(bands), waves=waves)
     assert [(r["level"], r["phase"]) for r in res.rows] == [(None, None)] * 4 and res.bounds == []
 
 
@@ -120,8 +124,7 @@ def test_a_censored_week_reaches_aedseo_as_a_gap_but_is_still_graded():
     s = _series([12, 30, 0, 25])
     s.censored = [False, False, True, False]
     backend = RecordingBackend()
-    res = assess_series(s, s.periods, backend, method=AEDSEO, start_week=21, min_seasons=3, waves=None,
-                        state=SeasonState())
+    res = _assess(s, backend)
     assert math.isnan(backend.inputs[-1].values[2]) and backend.inputs[-1].values[3] == 25
     assert [r["level"] for r in res.rows[2:]] == ["very_low", "medium"]
 
@@ -132,5 +135,5 @@ def test_a_week_is_scaled_from_its_own_history_not_later_values():
     s = _series([150.0, 200.0, 120.0, 0.5])
     s.scaled = True
     backend = RecordingBackend()
-    assess_series(s, s.periods, backend, method=AEDSEO, start_week=21, min_seasons=3, waves=None, state=SeasonState())
+    _assess(s, backend)
     assert [i.scale for i in backend.inputs] == [1.0, 1.0, 1.0, 1000.0]

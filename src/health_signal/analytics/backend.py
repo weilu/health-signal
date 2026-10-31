@@ -1,3 +1,4 @@
+import math
 from dataclasses import dataclass
 from datetime import date
 from typing import Protocol
@@ -24,6 +25,9 @@ class FitInput:
     kind: str                     # "count" or "incidence"
     season_start: int
     waves: WaveEnd | None         # how a wave ends; None for a series phased in seasons
+
+
+NO_BANDS = (math.nan,) * 4
 
 
 @dataclass(frozen=True)
