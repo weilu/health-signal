@@ -69,13 +69,15 @@ def test_the_title_in_each_language_reaches_the_sign_in_page_and_nothing_else_do
     ui.mkdir()
     (ui / "index.html").write_text("<html><head></head><body></body></html>", encoding="utf-8")
     monkeypatch.setattr("health_signal.app._UI_DIR", ui)
-    cfg = _config(tmp_path, {"en": {"site": {"title": "Surveillance"}, "panels": {"deaths": "Deaths"}},
+    cfg = _config(tmp_path, {"en": {"site": {"title": "Surveillance", "contact": "Internal desk"},
+                                    "panels": {"deaths": "Deaths"}},
                              "el": {"site": {"title": "Επιτήρηση"}, "panels": {"deaths": "Θάνατοι"}}})
     cfg.site.public_paths = ["/"]
     body = _client(cfg, DenyAll()).get("/").text
     bootstrap = json.loads(re.search(r"window.__HS_CONFIG__ = (.*?);</script>", body).group(1))
     assert bootstrap["text"] == {"en": {"site": {"title": "Surveillance"}}, "el": {"site": {"title": "Επιτήρηση"}}}
     assert "Deaths" not in body and "Θάνατοι" not in body and "\\u0398" not in body
+    assert "Internal desk" not in body   # only the title, not the rest of the site text
 
 
 def test_the_locales_dir_is_not_sent_to_the_browser(tmp_path):

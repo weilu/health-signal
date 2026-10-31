@@ -34,5 +34,6 @@ def _check_text(catalogue: dict, file: str, prefix: str = "") -> None:
 
 
 def public_text(overlays: dict[str, dict]) -> dict[str, dict]:
-    """Each language's `site` text (its title), the only part of a deployment's text shown before sign-in."""
-    return {lang: {"site": text["site"]} for lang, text in overlays.items() if "site" in text}
+    """Each language's site title: an allowlist, as the rest of a deployment's text is shown only after sign-in."""
+    return {lang: {"site": {"title": text["site"]["title"]}} for lang, text in overlays.items()
+            if isinstance(text.get("site"), dict) and "title" in text["site"]}
