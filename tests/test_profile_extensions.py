@@ -11,7 +11,7 @@ from analytics_support import ERVISS_HEADER, write_feed
 from auth_stubs import AllowAll
 
 _GR = {"extends": "erviss", "units": ["per_1000_admissions"], "dimension_vocab": {"survtype": ["private hospital"]},
-       "denominators": [{"indicator": "SARIrate", "unit": "per_1000_admissions", "denominator": "hospitaladmissions",
+       "denominators": [{"rate": "SARIrate", "unit": "per_1000_admissions", "denominator": "hospitaladmissions",
                          "per": 1000}]}
 _ROWS = ("Greece,2021-W01,private hospital,Influenza,,,total,positivity,12.5,percent\n"
          "Greece,2021-W01,SARI syndromic,,,,total,SARIrate,40,per_1000_admissions\n")

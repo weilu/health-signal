@@ -57,7 +57,6 @@ export function TimeSeriesChart({ periods, series, unit, bands = [], levels = []
     layout: { padding: { right: labelRoom } },
     scales: {
       // Room between week labels, so a narrow chart skips some rather than running them together.
-      // Weeks read as everywhere else in the app (W27 2025, Εβδ. 27/2025), not as ISO codes.
       x: { grid: { display: false }, border: { color: rule }, ticks: { color: ink2, font, maxTicksLimit: 10, maxRotation: 0, autoSkipPadding: 16,
                                                                      callback(value) { return weekStamp(t, this.getLabelForValue(value)) } } },
       y: {

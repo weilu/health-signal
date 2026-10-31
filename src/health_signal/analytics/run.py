@@ -52,7 +52,7 @@ def assess(config: Config, *, full: bool = False, jobs: int = 1,
                            "to 2-52 (e.g. 21 for W21-W20 respiratory seasons)")
     factory = backend or RAedseo
     main_backend = factory()
-    profiles = {f.id: config.profile(f.profile) for f in config.data.feeds}
+    profiles = config.feed_profiles()
     sources = {f.id: FileDataSource(f.dir, profiles[f.id]) for f in config.data.feeds}
     series, refs, warnings = assessed_series(config, sources)
     # Per feed: an emptied or mis-mounted feed dir looks like this, and publishing would replace its good tables

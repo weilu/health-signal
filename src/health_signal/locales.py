@@ -31,3 +31,8 @@ def _check_text(catalogue: dict, file: str, prefix: str = "") -> None:
             _check_text(value, file, f"{prefix}{key}.")
         elif not isinstance(value, str):
             raise ValueError(f"{file}: {prefix}{key} must be text or a group of keys, not {type(value).__name__}")
+
+
+def public_text(overlays: dict[str, dict]) -> dict[str, dict]:
+    """Each language's `site` text (its title), the only part of a deployment's text shown before sign-in."""
+    return {lang: {"site": text["site"]} for lang, text in overlays.items() if "site" in text}

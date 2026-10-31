@@ -14,5 +14,4 @@ export function useDeploymentText(enabled) {
   useEffect(() => {
     if (query.data) addDeploymentText(lng, query.data)
   }, [lng, query.data])
-  return query
 }

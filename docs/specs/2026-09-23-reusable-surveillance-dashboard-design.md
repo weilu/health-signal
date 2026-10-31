@@ -199,7 +199,7 @@ profiles:
     units: [per_1000_admissions]
     dimension_vocab: {survtype: [private hospital]}
     denominators:
-      - {indicator: SARIrate, unit: per_1000_admissions, denominator: hospitaladmissions, per: 1000}
+      - {rate: SARIrate, unit: per_1000_admissions, denominator: hospitaladmissions, per: 1000}
 data:
   feeds:
     - {id: clinical, profile: erviss_gr, dir: data/clinical}

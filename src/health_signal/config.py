@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import (BaseModel, ConfigDict, Field, PositiveFloat, PositiveInt, PrivateAttr, computed_field,
+from pydantic import (BaseModel, ConfigDict, Field, PositiveInt, PrivateAttr, computed_field,
                       field_validator, model_validator)
 
 from .methods import METHODS
@@ -189,12 +189,7 @@ class FeedConfig(BaseModel):
 
 
 
-class DenominatorRule(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    indicator: str            # the rate
-    unit: str | None = None   # only the rate's rows in this unit
-    denominator: str          # the indicator whose value is the rate's exposure
-    per: PositiveFloat
+_ADDITIVE = ("indicators", "units", "qualities", "count_units", "censored_qualities", "pathogen_specific")
 
 
 class ProfileExtension(BaseModel):
@@ -208,7 +203,7 @@ class ProfileExtension(BaseModel):
     count_units: set[str] = set()
     censored_qualities: set[str] = set()
     pathogen_specific: set[str] = set()
-    denominators: list[DenominatorRule] = []
+    denominators: list[Denominator] = []
 
     @field_validator("extends")
     @classmethod
@@ -229,23 +224,18 @@ class ProfileExtension(BaseModel):
             if dim not in vocab:
                 raise ValueError(f"profile {name!r}: dimension {dim!r} of {base.name} is already unconstrained")
             vocab[dim] = vocab[dim] | values
-        indicators, units = base.indicators | self.indicators, base.units | self.units
+        # Every additive set field the same way, so a new one can't be left out.
+        added = {f: getattr(base, f) | getattr(self, f) for f in _ADDITIVE}
         for rule in self.denominators:
-            if rule.indicator not in indicators:
-                raise ValueError(f"profile {name!r}: denominator rule for unknown indicator {rule.indicator!r}")
-            if rule.denominator not in indicators:
+            if rule.rate not in added["indicators"]:
+                raise ValueError(f"profile {name!r}: denominator rule for unknown indicator {rule.rate!r}")
+            if rule.denominator not in added["indicators"]:
                 raise ValueError(f"profile {name!r}: denominator {rule.denominator!r} is not an indicator")
-            if rule.unit is not None and rule.unit not in units:
-                raise ValueError(f"profile {name!r}: unit {rule.unit!r} of the {rule.indicator} rule is not a unit")
+            if rule.unit is not None and rule.unit not in added["units"]:
+                raise ValueError(f"profile {name!r}: unit {rule.unit!r} of the {rule.rate} rule is not a unit")
         return base.model_copy(update={
-            "name": name, "version": f"{base.version}+{name}", "indicators": indicators, "units": units,
-            "dimension_vocab": vocab, "qualities": base.qualities | self.qualities,
-            "count_units": base.count_units | self.count_units,
-            "censored_qualities": base.censored_qualities | self.censored_qualities,
-            "pathogen_specific": base.pathogen_specific | self.pathogen_specific,
-            "denominators": [*base.denominators, *(Denominator(rate=r.indicator, unit=r.unit, indicator=r.denominator,
-                                                               per=r.per) for r in self.denominators)],
-        })
+            "name": name, "version": f"{base.version}+{name}", **added, "dimension_vocab": vocab,
+            "denominators": [*base.denominators, *self.denominators]})
 
 
 class PhaseStreamsEntry(BaseModel):
@@ -344,6 +334,9 @@ class Config(BaseModel):
     def profile(self, name: str) -> Profile:
         return self._profiles[name]
 
+    def feed_profiles(self) -> dict[str, Profile]:
+        return {f.id: self.profile(f.profile) for f in self.data.feeds} if self.data else {}
+
     @model_validator(mode="after")
     def _unique_pages(self) -> "Config":
         # Target ids key tabs and derived paths.
@@ -355,7 +348,7 @@ class Config(BaseModel):
     @model_validator(mode="after")
     def _panels_match_their_feeds(self) -> "Config":
         # Checked here, not on the panel: only the config knows which profile a feed id means.
-        profiles = {f.id: self.profile(f.profile) for f in self.data.feeds} if self.data else {}
+        profiles = self.feed_profiles()
         for target in self.targets:
             for page in target.pages:
                 for panel in page.panels:
@@ -414,16 +407,20 @@ class Config(BaseModel):
         dims = self.profile(feed.profile).canonical(query.indicator, query.dimensions)
         return query.feed, query.indicator, tuple(sorted(dims.items()))
 
-    def _client_panel(self, panel: Panel, shared: dict[tuple, list[str]], page: Page) -> dict:
+    def _client_page(self, target: Target, page: Page, shared: dict[tuple, list[str]]) -> dict:
+        keys = {p.id: key for p in page.panels if p.query and (key := self._canonical_query(p.query))}
+        return {**page.model_dump(mode="json"), "path": page_path(target.id, page.id),
+                "panels": [self._client_panel(x, shared, keys) for x in page.panels]}
+
+    def _client_panel(self, panel: Panel, shared: dict[tuple, list[str]], page_keys: dict[str, tuple]) -> dict:
         out = panel.model_dump(mode="json")
-        key = self._canonical_query(panel.query) if panel.query else None
+        key = page_keys.get(panel.id)
         if key is None:
             return out
         feed, indicator, dims = key
         # A default name the library can label (spec §9): the indicator, plus only the values that tell this panel
         # from the page's other panels of the same indicator. A deployment's panels.<id> text overrides it.
-        others = [dict(k[2]) for p in page.panels if p is not panel and p.query
-                  and (k := self._canonical_query(p.query)) and k[:2] == (feed, indicator)]
+        others = [dict(k[2]) for pid, k in page_keys.items() if pid != panel.id and k[:2] == (feed, indicator)]
         out["name"] = {"indicator": indicator,
                        "dimensions": {d: v for d, v in dims if any(o.get(d) != v for o in others)}}
         profile = self.profile(next(f.profile for f in self.data.feeds if f.id == feed))
@@ -457,8 +454,7 @@ class Config(BaseModel):
             **self.bootstrap_config(),
             "targets": [
                 {**t.model_dump(mode="json"),
-                 "pages": [{**p.model_dump(mode="json"), "path": page_path(t.id, p.id),
-                            "panels": [self._client_panel(x, shared, p) for x in p.panels]} for p in t.pages]}
+                 "pages": [self._client_page(t, p, shared) for p in t.pages]}
                 for t in self.targets
             ],
             # The client keeps reading the year start beside the range settings it shapes.

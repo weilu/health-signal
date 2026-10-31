@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, PositiveFloat
 
 
 class FeedRow(BaseModel):
@@ -18,9 +18,10 @@ def implies_message(indicator: str, dim: str, value: str) -> str:
     return f"indicator {indicator!r} carries no {dim}" if value == "" else f"indicator {indicator!r} implies {dim} {value!r}"
 
 class Denominator(BaseModel):
+    model_config = ConfigDict(extra="forbid")   # an extension spells these in config
     rate: str                # the rate indicator modelled against it
-    indicator: str           # the series whose value is the rate's exposure, same key otherwise
-    per: float               # the rate's scale: 100 for a percentage of tests
+    denominator: str         # the indicator whose value is the rate's exposure, same series key otherwise
+    per: PositiveFloat       # the rate's scale: 100 for a percentage of tests
     unit: str | None = None  # only the rate's rows in this unit (one indicator, two measures); None = any unit
 
 
@@ -41,8 +42,7 @@ class Profile(BaseModel):
     # An empty value means the indicator carries no value for that dimension (PMMoV has no pathogen).
     indicator_implies: dict[str, dict[str, str]] = {}
     count_units: set[str] = set()  # graded on aedseo's cases path; every other unit is a rate or load
-    # rate indicator -> its own denominator series, aedseo's exposure offset: growth of positivity must be
-    # modelled against tests, not population.
+    # aedseo's exposure offset: positivity grows against tests, not population.
     denominators: list[Denominator] = []
     # Indicators reported per pathogen: a series of one without a pathogen mixes every pathogen's figures.
     pathogen_specific: set[str] = set()
@@ -142,7 +142,7 @@ ERVISS = Profile(
     period_pattern=r"\d{4}-W\d{2}",
     required_dimensions={"survtype", "age"},  # spec §6.2: only the pathogen fields are nullable
     count_units={"count"},
-    denominators=[Denominator(rate="positivity", indicator="tests", per=100)],
+    denominators=[Denominator(rate="positivity", denominator="tests", per=100)],
     # ILI, ARI and SARI rates are syndromic (no pathogen); everything else is reported per pathogen.
     pathogen_specific={"tests", "detections", "positivity", "hospitaladmissions", "ICUadmissions",
                        "ICUinpatients", "deaths"},

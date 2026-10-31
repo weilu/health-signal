@@ -6,9 +6,6 @@ export function getConfig() {
     branding: c.branding || {},
     defaultLocale: c.defaultLocale || 'en',
     locales: c.locales || ['en'],
-    titles: c.titles || {},
+    text: c.text || {},   // the deployment's text shown before sign-in (its title), by language
   }
 }
-
-// The deployment's title in a language, from its own text; the configured title where it gives none.
-export const siteTitle = (config, lng) => config.titles[lng] ?? config.title

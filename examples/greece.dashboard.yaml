@@ -49,8 +49,8 @@ profiles:
     units: [per_1000_admissions, per_1000_consultations]
     dimension_vocab: { survtype: [private hospital], age: [paediatric] }
     denominators:
-      - { indicator: SARIrate, unit: per_1000_admissions, denominator: hospitaladmissions, per: 1000 }
-      - { indicator: ILIconsultationrate, unit: per_1000_consultations, denominator: consultations, per: 1000 }
+      - { rate: SARIrate, unit: per_1000_admissions, denominator: hospitaladmissions, per: 1000 }
+      - { rate: ILIconsultationrate, unit: per_1000_consultations, denominator: consultations, per: 1000 }
 
 # One directory per feed, each validated against its profile. Paths are the deployment's; this repo
 # ships no data.

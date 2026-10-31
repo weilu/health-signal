@@ -6,7 +6,7 @@ import '@fontsource/ibm-plex-sans/600.css'
 import { ThemeProvider, CssBaseline } from '@mui/material'
 import { I18nextProvider } from 'react-i18next'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { getConfig, siteTitle } from './config.js'
+import { getConfig } from './config.js'
 import { buildTheme } from './theme.js'
 import { initI18n } from './i18n.js'
 import App from './App.jsx'
@@ -21,9 +21,9 @@ const queryClient = new QueryClient({
 })
 
 const cfg = getConfig()
-const i18n = initI18n({ defaultLocale: cfg.defaultLocale, locales: cfg.locales })
+const i18n = initI18n({ defaultLocale: cfg.defaultLocale, locales: cfg.locales, text: cfg.text })
 // The browser tab follows the language, like the header.
-const applyTitle = () => { document.title = siteTitle(cfg, i18n.resolvedLanguage) }
+const applyTitle = () => { document.title = i18n.t('site.title', { defaultValue: cfg.title }) }
 applyTitle()
 i18n.on('languageChanged', applyTitle)
 createRoot(document.getElementById('root')).render(

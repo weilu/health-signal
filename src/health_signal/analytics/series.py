@@ -115,11 +115,11 @@ def _series(feed: str, location: str, rows: list[FeedRow], source: FileDataSourc
         # The rate's whole identity, not just the dimensions it shares: a dimension blank on the rate (e.g. no
         # influenza type) would otherwise match a narrower series' denominator (influenza A's tests).
         weekly = {r.period: r.value
-                  for r in source.query(location=location, indicator=denominator.indicator, **dims)
+                  for r in source.query(location=location, indicator=denominator.denominator, **dims)
                   if all(r.dimensions.get(k, "") == dims.get(k, "") for k in {*r.dimensions, *dims})}
         periods = [p for p in periods if weekly.get(p, 0) > 0]   # a rate without its denominator isn't modelled
         if not periods:
-            warnings.append(f"{ref} at {location}: no {denominator.indicator} to model its rate against")
+            warnings.append(f"{ref} at {location}: no {denominator.denominator} to model its rate against")
             return None
         kind, exposure, per, scaled = "incidence", [weekly[p] for p in periods], denominator.per, False
     return Series(feed, set(), location, first.indicator, dims, first.unit, periods, [values[p] for p in periods],

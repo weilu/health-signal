@@ -74,7 +74,7 @@ def test_the_title_in_each_language_reaches_the_sign_in_page_and_nothing_else_do
     cfg.site.public_paths = ["/"]
     body = _client(cfg, DenyAll()).get("/").text
     bootstrap = json.loads(re.search(r"window.__HS_CONFIG__ = (.*?);</script>", body).group(1))
-    assert bootstrap["titles"] == {"en": "Surveillance", "el": "Επιτήρηση"}
+    assert bootstrap["text"] == {"en": {"site": {"title": "Surveillance"}}, "el": {"site": {"title": "Επιτήρηση"}}}
     assert "Deaths" not in body and "Θάνατοι" not in body and "\\u0398" not in body
 
 
@@ -94,8 +94,7 @@ def test_the_greece_example_labels_everything_it_shows_in_every_language():
              for v in values}
     for lang in cfg.site.locales:
         # What the browser shows: the library's text with the deployment's merged over it.
-        catalog = _merged(_library(lang), json.loads((Path("examples") / cfg.site.locales_dir / f"{lang}.json")
-                                                     .read_text(encoding="utf-8")))
+        catalog = _merged(_library(lang), _example_text(cfg, lang))
         missing = sorted(k for k in keys if not _has(catalog, k))
         assert not missing, f"{lang}: {missing}"
 
@@ -105,7 +104,7 @@ def test_the_greece_example_names_only_panels_it_has():
     cfg = load_config("examples/greece.dashboard.yaml")
     panels = {x.id for t in cfg.targets for p in t.pages for x in p.panels}
     for lang in cfg.site.locales:
-        named = json.loads((Path("examples") / cfg.site.locales_dir / f"{lang}.json").read_text(encoding="utf-8"))
+        named = _example_text(cfg, lang)
         assert set(named.get("panels", {})) <= panels, f"{lang}: {sorted(set(named['panels']) - panels)}"
 
 
@@ -126,6 +125,10 @@ def test_the_library_names_every_pathogen_indicator_and_named_value_of_its_profi
     keys |= {f"dimensionNames.{d}" for profile in PROFILES.values() for d in profile.dimension_keys}
     missing = sorted(k for k in keys if not _has(catalog, k))
     assert not missing, f"{lang}: {missing}"
+
+
+def _example_text(cfg, lang):
+    return json.loads((Path("examples") / cfg.site.locales_dir / f"{lang}.json").read_text(encoding="utf-8"))
 
 
 def _library(lang):

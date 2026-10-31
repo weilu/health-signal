@@ -14,7 +14,6 @@ import { configLabel, reportingWeek } from './labels.js'
 import { activePage } from './nav.js'
 import { selectedLocation, selectedRange, withFilters } from './filters.js'
 import { useDeploymentText } from './useDeploymentText.js'
-import { siteTitle } from './config.js'
 
 const rule = { borderBottom: 1, borderColor: 'divider' }
 
@@ -38,7 +37,7 @@ function AppRoutes({ view, location, range, latest }) {
 
 // Inside the Router so useLocation works.
 function Shell({ config }) {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const { pathname, search } = useLocation()
   const [logoutFailed, setLogoutFailed] = useState(false)
   const onLogin = pathname === '/login'
@@ -94,7 +93,7 @@ function Shell({ config }) {
           {/* Filters wrap under the title when the row runs out of room. */}
           <Toolbar disableGutters sx={{ flexWrap: 'wrap', columnGap: 4, rowGap: 2, py: 2 }}>
             <Box sx={{ flexGrow: 1 }}>
-              <Typography variant="h5" component="h1">{siteTitle(config, i18n.resolvedLanguage)}</Typography>
+              <Typography variant="h5" component="h1">{t('site.title', { defaultValue: config.title })}</Typography>
               {periods && (
                 <Typography variant="body2" color="text.secondary">{t('filters.reportingWeek', reportingWeek(t, periods.last))}</Typography>
               )}
