@@ -5,20 +5,18 @@ from datetime import date, timedelta
 import numpy as np
 
 from ..config import WaveEnd
-from .backend import BackendError, FitError, FitInput, WeekFit
+from .backend import NO_BANDS, BackendError, FitError, FitInput, WeekFit
 
 # The aedseo paper's validated settings (SSI; medRxiv 2025, doi:10.1101/2025.11.18.25340240): k, the families
 # and decay_factor are aedseo's defaults; n_peak=3 and conf_levels=0.975 (Supplement S5) override its 6 and 0.95.
 _ONSET = dict(family="quasipoisson", k=5)
 _BURDEN = dict(family="lnorm", n_peak=3, decay_factor=0.8, conf_levels=0.975)
-# combined_seasonal_output refits the onset and burden levels itself, and a wave ends against those bands, so it
-# gets the same settings as the bands we draw and grade by (its `family` is the onset's; the burden's is
-# `family_quant`). How a wave ends comes from config (analytics.aedseo.wave_end).
+# combined_seasonal_output refits the onset and bands itself and ends waves against them: give it the settings we
+# grade by. How a wave ends comes from config (analytics.aedseo.wave_end).
 _WAVES = dict(family=_ONSET["family"], k=_ONSET["k"],
               family_quant=_BURDEN["family"], **{k: v for k, v in _BURDEN.items() if k != "family"},
               multiple_waves=True)
 _NAN3 = (math.nan,) * 3
-_NAN4 = (math.nan,) * 4
 
 
 def load_r():
@@ -75,18 +73,16 @@ class RAedseo:
                 aedseo.seasonal_burden_levels(tsd, disease_threshold=tdis, **season, **_BURDEN).rx2("values"),
                 dtype=float))
         except self._RError:
-            bands = _NAN4   # burden levels need a complete previous season
+            bands = NO_BANDS   # burden levels need a complete previous season
         growth, alarm = self._onset(tsd, tdis, season, data.dates[-1])
         in_wave = self._wave(tsd, tdis, season, data.dates[-1], data.waves) if data.waves else None
-        bands = tuple(b / data.scale for b in bands) if len(bands) == 4 else _NAN4
+        bands = tuple(b / data.scale for b in bands) if len(bands) == 4 else NO_BANDS
         return WeekFit(bands, growth, alarm, in_wave)
 
     def _threshold(self, tsd, season) -> float:
         try:
             tdis = float(self._numbers(self._aedseo.estimate_disease_threshold(tsd, **season), "disease_threshold")[0])
-        except self._RError as e:
-            # aedseo returns NA for too little history (checked down to all-NA input); raising means R or the call
-            # itself is broken, which a run must not publish as weeks that merely couldn't be graded.
+        except self._RError as e:   # never thin data, which is an NA threshold: see BackendError
             raise BackendError(f"aedseo's estimate_disease_threshold failed: {e}") from e
         if not math.isfinite(tdis):
             raise FitError("no disease threshold")

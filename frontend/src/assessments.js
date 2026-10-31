@@ -102,9 +102,8 @@ export function phaseRuns(rows, range, activePhases) {
                    ongoing: !!x.ongoing }))
 }
 
-// A panel's {indicator, ...dimensions} against a phase stream's series, in any parameter order. A stream names its
-// series as the data pins it, so it may fix a dimension the panel's query leaves implicit; a single-series panel's
-// query resolves to one series, so every value it does state must agree.
+// A panel's {indicator, ...dimensions} against a phase stream's series. Only the values the query states must
+// agree: a stream also pins the dimensions a single-series query leaves implicit.
 export function sameSeries(feed, params, stream) {
   return feed === stream.feed && Object.entries(params).every(([k, v]) => stream.series[k] === v)
 }

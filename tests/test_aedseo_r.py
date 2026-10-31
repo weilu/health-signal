@@ -101,8 +101,8 @@ def test_a_week_is_graded_the_same_whatever_data_follows_it(backend):
     # As-of rows (spec §6.3.1): adding later weeks never changes an earlier week's grade.
     dates, values = _seasons()
     periods = [f"{d.isocalendar()[0]}-W{d.isocalendar()[1]:02d}" for d in dates]
-    short = Series("f", "Influenza", "L", "x", {}, "count", periods[:-2], list(values[:-2]), "count")
-    long_ = Series("f", "Influenza", "L", "x", {}, "count", periods, list(values), "count")
+    short = Series("f", {"Influenza"}, "L", "x", {}, "count", periods[:-2], list(values[:-2]), "count")
+    long_ = Series("f", {"Influenza"}, "L", "x", {}, "count", periods, list(values), "count")
     weeks = periods[-5:-2]
     options = dict(method=AEDSEO, start_week=21, min_seasons=3, waves=None, state=SeasonState())
     assert assess_series(short, weeks, backend, **options).rows == assess_series(long_, weeks, backend, **options).rows

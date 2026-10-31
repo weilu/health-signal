@@ -1,15 +1,17 @@
 import math
 from dataclasses import dataclass
-from datetime import date
 
+from ..assessments import GROWTH
 from ..config import WaveEnd
 from ..methods import Method
-from .backend import Backend, FitError, FitInput
-from .rules import SeasonState, completed_seasons, level_for, season_phase, trend_for, value_scale, wave_phase
+from .backend import NO_BANDS, Backend, FitError, FitInput, WeekFit
+from .rules import SeasonState, completed_seasons, level_for, monday, season_phase, trend_for, value_scale, wave_phase
 from .series import Series
 
 
-_NO_BANDS = (math.nan,) * 4
+# A week aedseo can't fit is graded like one it fits without bands: still a row, so a tile describes this week
+# rather than an older one (a reported zero is the lowest burden either way).
+_NO_FIT = WeekFit(NO_BANDS, (math.nan,) * 3, None, None)
 
 
 @dataclass
@@ -25,12 +27,7 @@ def _usable(thresholds: tuple[float, ...]) -> tuple[float, ...]:
     # Bands that are partly missing or don't rise can't grade, phase or draw consistently: treat them as none,
     # so the grade, the phase and the stored bounds always agree (and an incremental resume finds its floor).
     finite = all(math.isfinite(t) for t in thresholds)
-    return thresholds if finite and all(a < b for a, b in zip(thresholds, thresholds[1:])) else _NO_BANDS
-
-
-def _monday(period: str) -> date:
-    year, week = period.split("-W")
-    return date.fromisocalendar(int(year), int(week), 1)
+    return thresholds if finite and all(a < b for a, b in zip(thresholds, thresholds[1:])) else NO_BANDS
 
 
 def assess_series(series: Series, weeks: list[str], backend: Backend, *, method: Method, start_week: int,
@@ -44,35 +41,27 @@ def assess_series(series: Series, weeks: list[str], backend: Backend, *, method:
         n = index[week] + 1
         # From this week's history only, so a later, smaller value can't change how this week was fitted.
         scale = value_scale(fitted_values[:n]) if series.scaled else 1.0
-        data = FitInput(tuple(_monday(p) for p in series.periods[:n]), tuple(fitted_values[:n]),
+        data = FitInput(tuple(monday(p) for p in series.periods[:n]), tuple(fitted_values[:n]),
                         tuple(series.exposure[:n]), series.per, scale, series.kind, start_week, waves)
         value = series.values[n - 1]
-        provisional = completed_seasons(series.periods[:n], start_week) < min_seasons
         try:
             fit = backend.fit(data)
         except FitError:
-            # Still a row, so a tile describes this week rather than an older graded one. A reported zero is
-            # the lowest burden even where aedseo can't fit; a positive value it can't place is left ungraded.
-            level = method.levels[0] if value == 0 else None
-            rows.append({"period": week, "level": level, "provisional": provisional, "trend": "inconclusive",
-                         "growth_rate": None, "growth_lower": None, "growth_upper": None, "phase": None})
-            graded += level is not None
-            continue
+            fit = _NO_FIT
         thresholds = _usable(fit.thresholds)
-        fitted += thresholds is not _NO_BANDS
+        has_bands = thresholds is not NO_BANDS
         level = level_for(value, thresholds, method.levels)
         trend, growth = trend_for(*fit.growth)
         if waves is not None:
             # As for seasons: a week without usable bands has no level, so it says nothing about waves either.
-            phase = wave_phase(fit.in_wave) if thresholds is not _NO_BANDS else None
+            phase = wave_phase(fit.in_wave) if has_bands else None
         else:
             phase, state = season_phase(state, week, value, thresholds[0], fit.alarm)
         rows.append({"period": week, "level": level,
-                     "provisional": provisional,
-                     "trend": trend, "growth_rate": growth[0] if growth else None,
-                     "growth_lower": growth[1] if growth else None, "growth_upper": growth[2] if growth else None,
-                     "phase": phase})
-        if thresholds is not _NO_BANDS:
+                     "provisional": completed_seasons(series.periods[:n], start_week) < min_seasons,
+                     "trend": trend, **dict(zip(GROWTH, growth or (None,) * 3)), "phase": phase})
+        if has_bands:
             bounds.append((week, thresholds))
+        fitted += has_bands
         graded += level is not None
     return SeriesResult(rows, bounds, state, graded, fitted)

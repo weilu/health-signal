@@ -52,9 +52,12 @@ def value_scale(values: list[float]) -> float:
     return float(10 ** max(0, math.ceil(math.log10(100 / min(positive)))))
 
 
+def monday(period: str) -> date:
+    return date.fromisocalendar(*_week(period), 1)
+
+
 def weeks_between(a: str, b: str) -> int:
-    (year_a, week_a), (year_b, week_b) = _week(a), _week(b)
-    return (date.fromisocalendar(year_b, week_b, 1) - date.fromisocalendar(year_a, week_a, 1)).days // 7
+    return (monday(b) - monday(a)).days // 7
 
 
 MAX_DIP = 1      # below-threshold weeks a season survives: a brief lull, not its end

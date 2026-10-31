@@ -230,9 +230,7 @@ def test_parallel_jobs_match_a_serial_run(tmp_path):
 
 def test_nothing_gradeable_fails_the_run(tmp_path):
     cfg = _config(tmp_path, streams=False)
-    (tmp_path / "c" / "feed.csv").write_text(
-        "location,period,survtype,pathogen,pathogentype,pathogensubtype,age,indicator,value,unit\n"
-        "Greece,2021-W01,primary care sentinel,,,,total,ILIconsultationrate,5,per_100k\n")
+    write_feed(tmp_path / "c", erviss_rows("Greece", "ILIconsultationrate", "per_100k", [5]))
     with pytest.raises(RuntimeError, match="no week could be fitted"):
         assess(cfg, backend=FakeBackend)
 

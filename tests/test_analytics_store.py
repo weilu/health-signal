@@ -4,13 +4,13 @@ import pytest
 from health_signal.analytics.engine import SeriesResult
 from health_signal.analytics.rules import SeasonState
 from health_signal.analytics.series import Series
-from health_signal.analytics.store import FeedStore, SettingsChanged
+from health_signal.analytics.store import FeedStore, SettingsChanged, write_validated
 from health_signal.profile import ERVISS
 from analytics_support import weeks
 
 SETTINGS = [("aedseo", "year_start_week", "21"), ("aedseo", "min_seasons", "3"), ("aedseo", "package_version", "fake-1")]
 P = weeks(2021, 4)
-S = Series("clinical", "Influenza", "Greece", "ILIconsultationrate", {"survtype": "primary care sentinel", "age": "total"},
+S = Series("clinical", {"Influenza"}, "Greece", "ILIconsultationrate", {"survtype": "primary care sentinel", "age": "total"},
            "per_100k", P, [12, 30, 8, 7], "incidence", [1.0] * 4, 1.0)
 B = (10.0, 20.0, 40.0, 80.0)
 
@@ -24,7 +24,7 @@ def _write(tmp_path, rows, bounds, full=False):
     store = FeedStore(tmp_path, ERVISS, full=full)
     store.check_settings(SETTINGS)
     store.add(S, "aedseo", SeriesResult(rows, bounds, SeasonState(), len(rows)))
-    store.write(SETTINGS)
+    write_validated(store.files(SETTINGS), store.validate)   # as a run publishes
     return FeedStore(tmp_path, ERVISS, full=False)
 
 

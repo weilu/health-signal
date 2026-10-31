@@ -2,11 +2,12 @@ from collections.abc import Callable
 from urllib.parse import urlencode
 
 from ..config import PhaseStreamsEntry
+from ..methods import AEDSEO
 from .series import Series
 
-ACTIVE = ("in_season", "in_wave")
 # Each phase-producing method's own combining rule (spec §6.3.1): aedseo's is SSI's, every stream active.
-RULES: dict[str, Callable[[list[str]], bool]] = {"aedseo": lambda phases: all(p in ACTIVE for p in phases)}
+RULES: dict[str, Callable[[list[str]], bool]] = {
+    AEDSEO.name: lambda phases: all(p in AEDSEO.active_phases for p in phases)}
 
 
 def pathogen_phases(entry: PhaseStreamsEntry, by_role: dict[str, dict[str, str | None]], waves: bool) -> list[dict]:

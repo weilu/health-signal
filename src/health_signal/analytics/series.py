@@ -9,7 +9,7 @@ from ..profile import FeedRow
 @dataclass
 class Series:
     feed: str
-    pathogen: str
+    pathogens: set[str]   # every tab showing it: phased in waves only if all of them are wave pathogens
     location: str
     indicator: str
     dimensions: dict[str, str]
@@ -85,13 +85,15 @@ def assessed_series(config: Config, sources: dict[str, FileDataSource]):
                         warnings.append(f"{ref} at {location}: the query matches different series over time "
                                         f"({drift}); pin it to one to assess it")
                         continue
-                    found = _series(query.feed, target.id, location, rows, source, ref, warnings)
+                    found = _series(query.feed, location, rows, source, ref, warnings)
                     if found is not None:
-                        refs[(target.id, location, ref)] = series.setdefault((found.feed, found.key), found)
+                        shared = series.setdefault((found.feed, found.key), found)
+                        shared.pathogens.add(target.id)
+                        refs[(target.id, location, ref)] = shared
     return list(series.values()), refs, warnings
 
 
-def _series(feed: str, pathogen: str, location: str, rows: list[FeedRow], source: FileDataSource, ref: str,
+def _series(feed: str, location: str, rows: list[FeedRow], source: FileDataSource, ref: str,
             warnings: list[str]) -> Series | None:
     profile = source.profile
     first = rows[0]
@@ -103,24 +105,22 @@ def _series(feed: str, pathogen: str, location: str, rows: list[FeedRow], source
         warnings.append(f"{ref} at {location}: {first.unit} readings are logarithmic and aedseo grades linear "
                         f"values; publish them linear (e.g. gcL) to assess them")
         return None
-    if first.unit in profile.count_units:
-        return Series(feed, pathogen, location, first.indicator, dims, first.unit, periods,
-                      [values[p] for p in periods], "count", censored=[p in censored for p in periods])
     denominator = profile.denominator_for(first.indicator, first.unit)
-    if denominator is None:
+    if first.unit in profile.count_units:
+        kind, exposure, per, scaled = "count", [], 1.0, False
+    elif denominator is None:
         # A rate or load with no denominator series: a constant exposure, which cancels in the growth model.
-        return Series(feed, pathogen, location, first.indicator, dims, first.unit, periods,
-                      [values[p] for p in periods], "incidence", [1.0] * len(periods), 1.0,
-                      True, [p in censored for p in periods])
-    # The rate's whole identity, not just the dimensions it shares: a dimension blank on the rate (e.g. no
-    # influenza type) would otherwise match a narrower series' denominator (influenza A's tests).
-    denominators = [r for r in source.query(location=location, indicator=denominator.indicator, **dims)
-                    if all(r.dimensions.get(k, "") == dims.get(k, "") for k in {*r.dimensions, *dims})]
-    exposure = {r.period: r.value for r in denominators}
-    periods = [p for p in periods if exposure.get(p, 0) > 0]   # a rate without its denominator isn't modelled
-    if not periods:
-        warnings.append(f"{ref} at {location}: no {denominator.indicator} to model its rate against")
-        return None
-    return Series(feed, pathogen, location, first.indicator, dims, first.unit, periods,
-                  [values[p] for p in periods], "incidence", [exposure[p] for p in periods], denominator.per,
-                  censored=[p in censored for p in periods])
+        kind, exposure, per, scaled = "incidence", [1.0] * len(periods), 1.0, True
+    else:
+        # The rate's whole identity, not just the dimensions it shares: a dimension blank on the rate (e.g. no
+        # influenza type) would otherwise match a narrower series' denominator (influenza A's tests).
+        weekly = {r.period: r.value
+                  for r in source.query(location=location, indicator=denominator.indicator, **dims)
+                  if all(r.dimensions.get(k, "") == dims.get(k, "") for k in {*r.dimensions, *dims})}
+        periods = [p for p in periods if weekly.get(p, 0) > 0]   # a rate without its denominator isn't modelled
+        if not periods:
+            warnings.append(f"{ref} at {location}: no {denominator.indicator} to model its rate against")
+            return None
+        kind, exposure, per, scaled = "incidence", [weekly[p] for p in periods], denominator.per, False
+    return Series(feed, set(), location, first.indicator, dims, first.unit, periods, [values[p] for p in periods],
+                  kind, exposure, per, scaled, [p in censored for p in periods])
