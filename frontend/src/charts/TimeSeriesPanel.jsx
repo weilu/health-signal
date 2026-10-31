@@ -9,7 +9,7 @@ import { useMethod } from '../useMethod.js'
 import { StatusTrendTiles, TileGrid } from './StatusTrendTiles.jsx'
 import { ResourceBoundary } from '../ResourceBoundary.jsx'
 import { toChartModel } from '../series.js'
-import { configLabel, seriesLabel, weekStamp } from '../labels.js'
+import { panelLabel, seriesLabel, weekStamp } from '../labels.js'
 import { panelParams } from '../filters.js'
 import { SeriesTable } from './SeriesTable.jsx'
 import { TimeSeriesChart, useChartPalette } from './TimeSeriesChart.jsx'
@@ -44,7 +44,7 @@ export function TimeSeriesPanel({ panel, location, range, latest }) {
     levels: method.levels,
     shading: activeWeeks(assessedRows, method.active_phases),
   } : {}
-  const title = configLabel(t, panel.label_key, panel.id)
+  const title = panelLabel(t, panel)
   const card = (
     <Paper component="section" variant="outlined" aria-label={title} sx={{ p: 2, minWidth: 0 }}>
       <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>

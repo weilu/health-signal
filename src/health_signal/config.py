@@ -414,12 +414,18 @@ class Config(BaseModel):
         dims = self.profile(feed.profile).canonical(query.indicator, query.dimensions)
         return query.feed, query.indicator, tuple(sorted(dims.items()))
 
-    def _client_panel(self, panel: Panel, shared: dict[tuple, list[str]]) -> dict:
+    def _client_panel(self, panel: Panel, shared: dict[tuple, list[str]], page: Page) -> dict:
         out = panel.model_dump(mode="json")
         key = self._canonical_query(panel.query) if panel.query else None
         if key is None:
             return out
         feed, indicator, dims = key
+        # A default name the library can label (spec §9): the indicator, plus only the values that tell this panel
+        # from the page's other panels of the same indicator. A deployment's panels.<id> text overrides it.
+        others = [dict(k[2]) for p in page.panels if p is not panel and p.query
+                  and (k := self._canonical_query(p.query)) and k[:2] == (feed, indicator)]
+        out["name"] = {"indicator": indicator,
+                       "dimensions": {d: v for d, v in dims if any(o.get(d) != v for o in others)}}
         profile = self.profile(next(f.profile for f in self.data.feeds if f.id == feed))
         # Canonical, as phase streams are, so the summary compares a panel with a stream like for like.
         out["query"]["dimensions"] = dict(dims)
@@ -452,7 +458,7 @@ class Config(BaseModel):
             "targets": [
                 {**t.model_dump(mode="json"),
                  "pages": [{**p.model_dump(mode="json"), "path": page_path(t.id, p.id),
-                            "panels": [self._client_panel(x, shared) for x in p.panels]} for p in t.pages]}
+                            "panels": [self._client_panel(x, shared, p) for x in p.panels]} for p in t.pages]}
                 for t in self.targets
             ],
             # The client keeps reading the year start beside the range settings it shapes.

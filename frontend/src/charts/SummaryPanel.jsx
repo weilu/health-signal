@@ -6,7 +6,7 @@ import { fetchAssessments, fetchPhaseStreams } from '../api.js'
 import { combinedState, levelTone, pickInRange, sameSeries, toneColor } from '../assessments.js'
 import { panelParams, withFilters } from '../filters.js'
 import { groupPanels } from '../groups.js'
-import { configLabel, weekStamp } from '../labels.js'
+import { panelLabel, weekStamp } from '../labels.js'
 import { useMethod } from '../useMethod.js'
 import { phaseQuery } from './PhasePanel.jsx'
 
@@ -31,7 +31,7 @@ export function SummaryPanel({ panel, target, location, range, latest }) {
   const rows = entries
     .map((e, i) => ({ ...e, data: results[i].data }))
     .filter((e) => e.data?.length)
-  const title = configLabel(t, panel.label_key, panel.id)
+  const title = panelLabel(t, panel)
   const groups = groupPanels(t, rows, { panelOf: (r) => r.panel, alwaysSource: true })
   if (state === 'unauth') return <Navigate to="/login" replace />
   return (
@@ -91,7 +91,7 @@ export function SummaryPanel({ panel, target, location, range, latest }) {
                       <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                         <Link component={RouterLink} to={withFilters(page.path, search)} underline="hover" color="inherit"
                           sx={{ '&::after': { content: '""', position: 'absolute', inset: 0 } }}>
-                          {configLabel(t, p.label_key, p.id)}
+                          {panelLabel(t, p)}
                         </Link>
                         {stream && <Chip size="small" variant="outlined" color="primary" label={t(`role.${stream.role}`, { defaultValue: stream.role })} />}
                       </Stack>

@@ -84,12 +84,11 @@ def test_the_locales_dir_is_not_sent_to_the_browser(tmp_path):
 
 
 def test_the_greece_example_labels_everything_it_shows_in_every_language():
-    # A panel added to the example without its label would show its raw id; a unit or dimension value its profile
-    # extension adds would show its code.
+    # A page or location added to the example without its label would show its raw id; a unit or dimension value its
+    # profile extension adds would show its code. Panels need no label: the library names them from their query.
     cfg = load_config("examples/greece.dashboard.yaml")
     keys = {"site.title"} | {t.label_key for t in cfg.targets} | {o.label_key for o in cfg.filters.location.options}
     keys |= {p.label_key for t in cfg.targets for p in t.pages}
-    keys |= {x.label_key for t in cfg.targets for p in t.pages for x in p.panels}
     keys |= {f"unit.{u}" for ext in cfg.profiles.values() for u in ext.units}
     keys |= {f"dimensions.{d}.{v}" for ext in cfg.profiles.values() for d, values in ext.dimension_vocab.items()
              for v in values}
@@ -101,18 +100,30 @@ def test_the_greece_example_labels_everything_it_shows_in_every_language():
         assert not missing, f"{lang}: {missing}"
 
 
+def test_the_greece_example_names_only_panels_it_has():
+    # A renamed or removed panel would leave its name behind, silently unused.
+    cfg = load_config("examples/greece.dashboard.yaml")
+    panels = {x.id for t in cfg.targets for p in t.pages for x in p.panels}
+    for lang in cfg.site.locales:
+        named = json.loads((Path("examples") / cfg.site.locales_dir / f"{lang}.json").read_text(encoding="utf-8"))
+        assert set(named.get("panels", {})) <= panels, f"{lang}: {sorted(set(named['panels']) - panels)}"
+
+
 # Dimensions whose values are words a reader needs named; the others (age bands, subtype codes) read as themselves.
-NAMED_DIMENSIONS = {"survtype", "aggregation", "fraction"}
+NAMED_DIMENSIONS = {"survtype", "pathogentype", "aggregation", "fraction"}
 
 
 @pytest.mark.parametrize("lang", ["en", "el"])
-def test_the_library_names_every_pathogen_and_its_profiles_named_values(lang):
+def test_the_library_names_every_pathogen_indicator_and_named_value_of_its_profiles(lang):
     # A deployment shouldn't have to retype what the library defines; it may still reword any of it under the
     # same key.
     catalog = _library(lang)
     keys = {f"targets.{p}" for p in PATHOGENS}
     keys |= {f"dimensions.{d}.{v}" for profile in PROFILES.values() for d, values in profile.dimension_vocab.items()
              if d in NAMED_DIMENSIONS for v in values}
+    # Panels are named by their indicator by default, and a split panel by the dimension it splits on.
+    keys |= {f"indicators.{i}" for profile in PROFILES.values() for i in profile.indicators}
+    keys |= {f"dimensionNames.{d}" for profile in PROFILES.values() for d in profile.dimension_keys}
     missing = sorted(k for k in keys if not _has(catalog, k))
     assert not missing, f"{lang}: {missing}"
 

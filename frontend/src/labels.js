@@ -4,6 +4,22 @@ export function weekStamp(t, week) {
   return t('range.week', { week: n, year })
 }
 
+// A panel's title: the deployment's own (panels.<id>) where it gives one, else a name the library can build from
+// the panel's query (its indicator, plus what sets it apart on its page), or its kind for a panel without one.
+export function panelLabel(t, panel) {
+  return t(panel.label_key, { defaultValue: defaultPanelName(t, panel) })
+}
+
+function defaultPanelName(t, panel) {
+  if (!panel.name) return t(`panelTypes.${panel.type}`, { defaultValue: panel.id })
+  const { indicator, dimensions } = panel.name
+  const name = [t(`indicators.${indicator}`, { defaultValue: indicator }),
+                ...Object.entries(dimensions).map(([d, v]) => t(`dimensions.${d}.${v}`, { defaultValue: v }))].join(' · ')
+  return panel.series_by
+    ? t('chart.byDimension', { name, dimension: t(`dimensionNames.${panel.series_by}`, { defaultValue: panel.series_by }) })
+    : name
+}
+
 // A split chart's line, named by its dimension value: labelled where the library or the deployment gives the value
 // a name (age "total"), as itself otherwise (a code like "A(H3)" or "0-4" reads fine).
 export function seriesLabel(t, dimension, value) {

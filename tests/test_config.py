@@ -415,3 +415,27 @@ def test_client_panels_carry_their_summary_group():
     assert groups == {"ili": {"feed": "clinical", "kind": "syndromic", "targets": ["Influenza", "RSV"]},
                       "adm": {"feed": "clinical", "kind": "pathogen_specific", "targets": ["Influenza"]},
                       "ww": {"feed": "wastewater", "kind": "pathogen_specific", "targets": ["Influenza"]}}
+
+
+def test_a_panel_is_named_by_its_indicator_and_what_sets_it_apart_on_its_page():
+    # The library can label indicators and dimension values but not a deployment's panel ids, so a panel's default
+    # name is built from its query: its indicator, plus only the values that tell it from same-indicator panels.
+    pos = lambda survtype: {"feed": "clinical", "indicator": "positivity",
+                            "dimensions": {"survtype": survtype, "pathogen": "Influenza", "age": "total"}}
+    icu = lambda ptype: {"feed": "clinical", "indicator": "ICUadmissions",
+                         "dimensions": {"survtype": "non-sentinel", "pathogen": "Influenza", "pathogentype": ptype,
+                                        "age": "total"}}
+    adm = {"feed": "clinical", "indicator": "hospitaladmissions",
+           "dimensions": {"survtype": "non-sentinel", "pathogen": "Influenza", "age": "total"}}
+    cfg = Config(schema_version="1", site=SiteConfig(title="T"), data=_FEEDS, targets=[
+        Target(id="Influenza", pages=[Page(id="c", panels=[
+            Panel(id="sari", query=pos("SARI virological")), Panel(id="sentinel", query=pos("primary care sentinel")),
+            Panel(id="icu_a", query=icu("Influenza A")), Panel(id="icu_b", query=icu("Influenza B")),
+            Panel(id="adm", query=adm), Panel(id="overview", type="summary")])])])
+    names = {p["id"]: p.get("name") for p in cfg.client_config()["targets"][0]["pages"][0]["panels"]}
+    assert names == {"sari": {"indicator": "positivity", "dimensions": {"survtype": "SARI virological"}},
+                     "sentinel": {"indicator": "positivity", "dimensions": {"survtype": "primary care sentinel"}},
+                     "icu_a": {"indicator": "ICUadmissions", "dimensions": {"pathogentype": "Influenza A"}},
+                     "icu_b": {"indicator": "ICUadmissions", "dimensions": {"pathogentype": "Influenza B"}},
+                     "adm": {"indicator": "hospitaladmissions", "dimensions": {}},
+                     "overview": None}

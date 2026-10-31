@@ -52,7 +52,8 @@
     "mixedUnits": "Οι εγγραφές έχουν διαφορετικές μονάδες μέτρησης ({{units}}) και δεν μπορούν να απεικονιστούν στον ίδιο άξονα. Περιορίστε το ερώτημα της ενότητας.",
     "ambiguous": "Περισσότερες από μία εγγραφές ανά σειρά για την εβδομάδα {{period}}. Περιορίστε το ερώτημα (π.χ. pathogentype) ή ορίστε series_by.",
     "mixedSeries": "Εγγραφές με διαφορετική τιμή «{{field}}» θα ενώνονταν σε μία γραμμή. Περιορίστε το ερώτημα της ενότητας ή ορίστε series_by.",
-    "tooManySeries": "{{count}} σειρές είναι περισσότερες από όσες μπορούν να διακριθούν με χρώμα. Περιορίστε το ερώτημα της ενότητας."
+    "tooManySeries": "{{count}} σειρές είναι περισσότερες από όσες μπορούν να διακριθούν με χρώμα. Περιορίστε το ερώτημα της ενότητας.",
+    "byDimension": "{{name}} ανά {{dimension}}"
   },
   "quality": {
     "beLOD": "κάτω από το όριο ανίχνευσης"
@@ -182,11 +183,58 @@
       "sol": "Στερεή φάση",
       "mix": "Μικτή",
       "mul": "Πολλαπλές φάσεις"
+    },
+    "pathogentype": {
+      "Influenza": "Γρίπη",
+      "Influenza A": "Γρίπη Α",
+      "Influenza B": "Γρίπη Β",
+      "Influenza untyped": "Γρίπη, χωρίς τυποποίηση",
+      "RSV": "RSV",
+      "RSV untyped": "RSV, χωρίς τυποποίηση",
+      "RSV-A": "RSV-A",
+      "RSV-B": "RSV-B",
+      "SARS-CoV-2": "SARS-CoV-2"
     }
   },
   "targets": {
     "SARS-CoV-2": "COVID-19",
     "Influenza": "Γρίπη",
     "RSV": "RSV"
+  },
+  "indicators": {
+    "ILIconsultationrate": "Γριπώδης συνδρομή",
+    "ARIconsultationrate": "Οξεία λοίμωξη αναπνευστικού",
+    "SARIrate": "Κρούσματα SARI",
+    "tests": "Δείγματα",
+    "detections": "Θετικά δείγματα",
+    "positivity": "Θετικότητα δειγμάτων",
+    "hospitaladmissions": "Εισαγωγές σε νοσοκομείο",
+    "ICUadmissions": "Εισαγωγές σε ΜΕΘ",
+    "ICUinpatients": "Νοσηλευόμενοι σε ΜΕΘ",
+    "deaths": "Θάνατοι",
+    "cov": "SARS-CoV-2 στα λύματα",
+    "covN1": "SARS-CoV-2 (N1) στα λύματα",
+    "covN2": "SARS-CoV-2 (N2) στα λύματα",
+    "covE": "SARS-CoV-2 (E) στα λύματα",
+    "fluA": "Γρίπη Α στα λύματα",
+    "fluB": "Γρίπη Β στα λύματα",
+    "rsvMe": "RSV στα λύματα",
+    "rsvAMe": "RSV A στα λύματα",
+    "rsvB": "RSV B στα λύματα",
+    "rsvAB": "RSV A και B στα λύματα",
+    "ppmv": "PMMoV (δείκτης κοπρανώδους φορτίου) στα λύματα"
+  },
+  "dimensionNames": {
+    "survtype": "τύπο επιτήρησης",
+    "pathogen": "παθογόνο",
+    "pathogentype": "τύπο",
+    "pathogensubtype": "υπότυπο",
+    "age": "ηλικιακή ομάδα",
+    "aggregation": "συνάθροιση",
+    "fraction": "φάση"
+  },
+  "panelTypes": {
+    "summary": "Σύνοψη",
+    "phase": "Εποχή ή κύμα"
   }
 }
