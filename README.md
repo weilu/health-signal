@@ -12,7 +12,7 @@ and languages.
 
 `health-signal` is a [FastAPI](https://fastapi.tiangolo.com/) application that serves a React
 ([MUI](https://mui.com/)) single-page app plus a gated JSON API. It ships a respiratory profile
-first (ECDC/WHO **ERVISS** clinical indicators + US CDC **NWSS** wastewater); further domains
+first (ECDC/WHO **ERVISS** clinical indicators + **PHES-ODM** wastewater); further domains
 (e.g. AMR, vaccine-preventable diseases) are added as configuration plus a schema profile, not a
 fork. It is packaged as a Python library that a country's own repository configures and deploys
 (for example, to Posit Connect).
@@ -60,6 +60,62 @@ locales), translation overrides, and a data feed adhering to the contract. See
 [`examples/greece.dashboard.yaml`](examples/greece.dashboard.yaml) for a worked example —
 `branding.theme` is a [MUI theme-options](https://mui.com/material-ui/customization/theming/) object
 merged over the library's neutral default, so a government restyles with no rebuild.
+
+### Data feeds and profiles
+
+Each feed in `data.feeds` names a **profile**: the columns, indicators, units and dimension values its CSVs
+must use, checked when the app starts. Two are built in: `erviss` (ECDC/WHO ERVISS respiratory indicators,
+vocabulary pinned to its published dataset) and `phes_odm` (PHES-ODM v3 wastewater measures).
+
+A country whose own series mostly fit a built-in profile can **extend** it in config rather than in the
+library. Extensions are additive, so data valid under the base stays valid. They may add indicators, units,
+dimension values, qualities, count and censored units, pathogen-specific indicators and denominators; they
+may not add a dimension, extend the shared pathogen list, extend another extension, or reuse a built-in's name.
+An extended profile reports its version as `<base version>+<name>`.
+
+```yaml
+profiles:
+  erviss_gr:
+    extends: erviss
+    units: [per_1000_admissions]
+    dimension_vocab: { survtype: [private hospital] }
+    denominators:   # a rate in this unit is modelled against admissions, not as a constant exposure
+      - { rate: SARIrate, unit: per_1000_admissions, denominator: hospitaladmissions, per: 1000 }
+data:
+  feeds:
+    - { id: clinical, profile: erviss_gr, dir: data/clinical, assessments: data/clinical/assessed }
+```
+
+`examples/greece.dashboard.yaml` uses this for EODY's series: rates per 1,000 admissions and consultations,
+the private-hospital network, and SARI's paediatric group, which EODY defines by hospital rather than age band.
+
+### Deployment text (i18n)
+
+The library ships its own interface text in English and Greek, including names for everything it defines: the
+pathogens targets are keyed by, and the indicators, units and named dimension values of its built-in profiles.
+A panel is therefore named by default from its query: its indicator, plus the values that set it apart from the
+page's other panels of that indicator (e.g. "Test positivity · SARI virological"), or "by <dimension>" for a split
+panel. A deployment supplies the rest: its page and location names, labels for any units or dimension values its
+profile extensions add, and, optionally, its own panel names. Both use the same keys, so a deployment can also
+reword any library text, or a panel's default name, by setting its key. Config carries only ids, each
+labelled by convention (`pages.<page id>`, `targets.<target id>`, a location option's `label_key`, `unit.<unit>`,
+`dimensions.<dimension>.<value>` for a split chart's lines, and `panels.<panel id>` to replace a panel's default name). Put one `<language>.json` per offered language in a directory and point
+`site.locales_dir` at it:
+
+```yaml
+site:
+  locales: [en, el]
+  locales_dir: locales   # locales/en.json, locales/el.json
+```
+
+```json
+{ "panels": { "hospital_admissions": "Εισαγωγές σε νοσοκομείο" }, "unit": { "per_1000_admissions": "ανά 1.000 εισαγωγές" } }
+```
+
+After sign-in, the app fetches the file for the current language and merges it over the library's text. The
+deployment's text wins, so it can also reword a library string. A missing or malformed file for an offered
+language stops the app at startup; a label with no text shows its id. The Greece example's files are in
+`examples/locales/`.
 
 ### Status, Trend and phase (`health-signal assess`)
 
@@ -137,8 +193,8 @@ npm --prefix frontend ci && npm --prefix frontend run build
 frontend dependency, use `npm --prefix frontend install <pkg>` instead and commit the updated lockfile.
 
 Then wrap `create_app` in a module and serve it. Each feed in `data.feeds` must be an existing
-directory: put that profile's CSV files in it (`data/clinical` for ERVISS rows, `data/wastewater` for
-PHES-ODM rows); left empty, the dashboard starts and every panel says there's no data. Auth needs a
+directory: put that profile's CSV files in it (`data/clinical` for ERVISS-shaped rows, read with the
+example's `erviss_gr` extension; `data/wastewater` for PHES-ODM rows); left empty, the dashboard starts and every panel says there's no data. Auth needs a
 secret and at least one account (email → argon2 hash):
 
 ```bash

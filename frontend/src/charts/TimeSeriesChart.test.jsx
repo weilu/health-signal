@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { cleanup, render } from '@testing-library/react'
 import { AlignedCharts, useAlignedAxis } from './AlignedCharts.jsx'
 import { TimeSeriesChart } from './TimeSeriesChart.jsx'
+import { initI18n } from '../i18n.js'
 
 // Chart.js needs a real canvas; the options the chart builds are what this test checks.
 const drawn = []
@@ -27,4 +28,12 @@ it('fits its y-axis to the widest in its group', async () => {
   const scale = { width: 40 }
   drawn.at(-1).scales.y.afterFit(scale)
   expect(scale.width).toBe(120)
+})
+
+it('labels weeks on the axis and in the tooltip as the rest of the app does, in its language', () => {
+  initI18n({ defaultLocale: 'el', locales: ['en', 'el'] })
+  render(<TimeSeriesChart periods={['2025-W27', '2025-W28']} series={[{ label: 'x', values: [1, 2] }]} unit="count" />)
+  const { x } = drawn.at(-1).scales
+  expect(x.ticks.callback.call({ getLabelForValue: (i) => ['2025-W27', '2025-W28'][i] }, 0)).toBe('Εβδ. 27/2025')
+  expect(drawn.at(-1).plugins.tooltip.callbacks.title([{ label: '2025-W28' }])).toBe('Εβδ. 28/2025')
 })

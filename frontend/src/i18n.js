@@ -39,15 +39,23 @@ export function setLocale(lng) {
   }
 }
 
+// A deployment's own text over the library's, deep: it adds keys (panel names) and overrides library ones.
+export function addDeploymentText(lng, catalogue) {
+  i18n.addResourceBundle(lng, 'translation', catalogue, true, true)
+}
+
 // defaultLocale/locales are guaranteed non-empty upstream (server -> getConfig); no re-defaulting here.
-export function initI18n({ defaultLocale, locales }) {
+export function initI18n({ defaultLocale, locales, text = {} }) {
   i18n.use(initReactI18next).init({
     resources: pickResources(catalogs, locales),
     // A persisted choice wins over the config default; fallback follows the default, not hardcoded 'en'.
     lng: storedLocale(locales) || defaultLocale,
     fallbackLng: defaultLocale,
     interpolation: { escapeValue: false },
+    // Re-render when a deployment's text arrives after the first paint, not only on a language switch.
+    react: { bindI18nStore: 'added' },
   })
+  for (const [lng, catalogue] of Object.entries(text)) addDeploymentText(lng, catalogue)
   // Reflect the RESOLVED language (after fallback) on <html lang> for assistive tech.
   if (typeof document !== 'undefined') {
     const applyLang = () => { document.documentElement.lang = i18n.resolvedLanguage || defaultLocale }

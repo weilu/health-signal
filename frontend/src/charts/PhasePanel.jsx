@@ -4,7 +4,7 @@ import { Alert, Box, Button, Paper, Stack, Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { fetchData, fetchPhases, fetchPhaseStreams } from '../api.js'
 import { activeWeeks, phaseRuns, phaseSince, pickInRange } from '../assessments.js'
-import { configLabel, weekStamp } from '../labels.js'
+import { panelLabel, weekStamp } from '../labels.js'
 import { ResourceBoundary } from '../ResourceBoundary.jsx'
 import { toChartModel } from '../series.js'
 import { useMethod } from '../useMethod.js'
@@ -65,7 +65,7 @@ export function PhasePanel({ panel, target, location, range, latest }) {
   const base = phaseQuery(target, location, method)
   const phases = useQuery({ queryKey: ['phases', base], queryFn: () => fetchPhases(base), enabled: !!method })
   const streams = useQuery({ queryKey: ['phase-streams', base], queryFn: () => fetchPhaseStreams(base), enabled: !!method })
-  const title = configLabel(t, panel.label_key, panel.id)
+  const title = panelLabel(t, panel)
   const rows = phases.data ?? []
   // A declared phase can stand without observation feeds, so no dashboard range: its own weeks bound it then.
   const span = range ?? (rows.length ? { from: rows.reduce((m, r) => (r.period < m ? r.period : m), rows[0].period),

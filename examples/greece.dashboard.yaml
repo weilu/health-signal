@@ -8,6 +8,9 @@ site:
   locales: [en, el]
   # Path prefixes that bypass auth; [] = everything behind login.
   public_paths: []
+  # This dashboard's own text (tab, panel and location names, its profile's extra units), en.json and el.json
+  # over the library's catalogue; relative to where the app runs, like the data dirs.
+  locales_dir: locales
 
 branding:
   theme:
@@ -36,12 +39,25 @@ filters:
 surveillance:
   year_start_week: 21
 
+# The clinical feed is EODY's weekly series in ERVISS's shape. ERVISS's vocabulary lacks some of them: SARI
+# per 1,000 admissions and ILI per 1,000 consultations (each modelled against its own denominator), the
+# private-hospital network, and SARI's paediatric group, which EODY defines by hospital rather than age band.
+profiles:
+  erviss_gr:
+    extends: erviss
+    indicators: [consultations]
+    units: [per_1000_admissions, per_1000_consultations]
+    dimension_vocab: { survtype: [private hospital], age: [paediatric] }
+    denominators:
+      - { rate: SARIrate, unit: per_1000_admissions, denominator: hospitaladmissions, per: 1000 }
+      - { rate: ILIconsultationrate, unit: per_1000_consultations, denominator: consultations, per: 1000 }
+
 # One directory per feed, each validated against its profile. Paths are the deployment's; this repo
 # ships no data.
 data:
   feeds:
-    - { id: clinical,   profile: erviss,   dir: data/clinical,   assessments: data/clinical/assessed }
-    - { id: wastewater, profile: phes_odm, dir: data/wastewater, assessments: data/wastewater/assessed }
+    - { id: clinical,   profile: erviss_gr, dir: data/clinical,  assessments: data/clinical/assessed }
+    - { id: wastewater, profile: phes_odm,  dir: data/wastewater, assessments: data/wastewater/assessed }
   # Written by `health-signal assess` from analytics.phase_streams below.
   phases: data/phase.csv
   phase_streams: data/phase_streams.csv
@@ -66,8 +82,8 @@ analytics:
 # Wastewater pages show the flow- and population-normalised load (floMean, gene copies/day per 100k)
 # per PHES-ODM measure (generic codes until assay targets are pinned). Raw concentration (me) stays in
 # the feed but isn't charted: it moves with dilution, so it misleads read on its own.
-# Clinical pages show the pilot's clinical indicators where ERVISS has the data. Labels are i18n keys. Each
-# query should match one row per series per week (checked against ERVISS); series_by splits it.
+# Clinical pages show the pilot's clinical indicators, in ERVISS's vocabulary plus erviss_gr's. Labels are
+# i18n keys. Each query should match one row per series per week; series_by splits it.
 targets:
   - id: SARS-CoV-2
     pages:
@@ -83,6 +99,8 @@ targets:
             query: { feed: clinical, indicator: ICUadmissions, dimensions: { survtype: non-sentinel, pathogen: SARS-CoV-2, age: total } }
           - id: deaths
             query: { feed: clinical, indicator: deaths, dimensions: { survtype: non-sentinel, pathogen: SARS-CoV-2, age: total } }
+          - id: test_positivity
+            query: { feed: clinical, indicator: positivity, dimensions: { survtype: non-sentinel, pathogen: SARS-CoV-2, age: total } }
           - id: sari_positivity
             query: { feed: clinical, indicator: positivity, dimensions: { survtype: SARI virological, pathogen: SARS-CoV-2, age: total } }
           - id: sentinel_positivity
@@ -108,14 +126,18 @@ targets:
         panels:
           - id: hospital_admissions
             query: { feed: clinical, indicator: hospitaladmissions, dimensions: { survtype: non-sentinel, pathogen: Influenza, age: total } }
-          - id: icu_admissions
-            query: { feed: clinical, indicator: ICUadmissions, dimensions: { survtype: non-sentinel, pathogen: Influenza, age: total } }
+          - id: icu_admissions_a
+            query: { feed: clinical, indicator: ICUadmissions, dimensions: { survtype: non-sentinel, pathogen: Influenza, pathogentype: Influenza A, age: total } }
+          - id: icu_admissions_b
+            query: { feed: clinical, indicator: ICUadmissions, dimensions: { survtype: non-sentinel, pathogen: Influenza, pathogentype: Influenza B, age: total } }
           - id: deaths
             query: { feed: clinical, indicator: deaths, dimensions: { survtype: non-sentinel, pathogen: Influenza, age: total } }
           - id: sari_positivity
             query: { feed: clinical, indicator: positivity, dimensions: { survtype: SARI virological, pathogen: Influenza, pathogentype: Influenza, pathogensubtype: total, age: total } }
           - id: sentinel_positivity
             query: { feed: clinical, indicator: positivity, dimensions: { survtype: primary care sentinel, pathogen: Influenza, pathogentype: Influenza, pathogensubtype: total, age: total } }
+          - id: private_positivity
+            query: { feed: clinical, indicator: positivity, dimensions: { survtype: private hospital, pathogen: Influenza, pathogentype: Influenza, pathogensubtype: total, age: total } }
           - id: influenza_a_subtypes
             query: { feed: clinical, indicator: detections, dimensions: { survtype: primary care sentinel, pathogen: Influenza, pathogentype: Influenza A, age: total } }
             series_by: pathogensubtype
@@ -147,6 +169,8 @@ targets:
             query: { feed: clinical, indicator: positivity, dimensions: { survtype: SARI virological, pathogen: RSV, pathogentype: RSV, age: total } }
           - id: sentinel_positivity
             query: { feed: clinical, indicator: positivity, dimensions: { survtype: primary care sentinel, pathogen: RSV, pathogentype: RSV, age: total } }
+          - id: private_positivity
+            query: { feed: clinical, indicator: positivity, dimensions: { survtype: private hospital, pathogen: RSV, pathogentype: RSV, age: total } }
           - id: sari_rate
             query: { feed: clinical, indicator: SARIrate, dimensions: { survtype: SARI syndromic, age: total } }
           - id: sari_rate_by_age

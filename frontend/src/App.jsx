@@ -13,6 +13,7 @@ import { LocaleToggle } from './LocaleToggle.jsx'
 import { configLabel, reportingWeek } from './labels.js'
 import { activePage } from './nav.js'
 import { selectedLocation, selectedRange, withFilters } from './filters.js'
+import { useDeploymentText } from './useDeploymentText.js'
 
 const rule = { borderBottom: 1, borderColor: 'divider' }
 
@@ -42,6 +43,7 @@ function Shell({ config }) {
   const onLogin = pathname === '/login'
   const configQuery = useQuery({ queryKey: ['config'], queryFn: fetchConfig, enabled: !onLogin })
   const periodsQuery = useQuery({ queryKey: ['periods'], queryFn: fetchPeriods, enabled: !onLogin })
+  useDeploymentText(!onLogin)
 
   async function handleLogout() {
     // Only the server can clear the httpOnly cookie, so redirect only on a confirmed 303.
@@ -91,7 +93,7 @@ function Shell({ config }) {
           {/* Filters wrap under the title when the row runs out of room. */}
           <Toolbar disableGutters sx={{ flexWrap: 'wrap', columnGap: 4, rowGap: 2, py: 2 }}>
             <Box sx={{ flexGrow: 1 }}>
-              <Typography variant="h5" component="h1">{config.title}</Typography>
+              <Typography variant="h5" component="h1">{t('site.title', { defaultValue: config.title })}</Typography>
               {periods && (
                 <Typography variant="body2" color="text.secondary">{t('filters.reportingWeek', reportingWeek(t, periods.last))}</Typography>
               )}

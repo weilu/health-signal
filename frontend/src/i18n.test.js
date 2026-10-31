@@ -50,3 +50,20 @@ describe('initI18n', () => {
     expect(localStorage.getItem('hs.locale')).toBe('el')
   })
 })
+
+describe("a deployment's text available before sign-in", () => {
+  beforeEach(() => localStorage.clear())
+
+  // First: seeded text stays in i18next's shared store across re-initialisation (the app initialises once).
+  it('falls back to the configured title where the deployment names it in no language', () => {
+    const i18n = initI18n({ defaultLocale: 'en', locales: ['en', 'el'] })
+    expect(i18n.t('site.title', { defaultValue: 'Configured' })).toBe('Configured')
+  })
+  it('names the site in each language, like any other label', () => {
+    const i18n = initI18n({ defaultLocale: 'en', locales: ['en', 'el'],
+                            text: { en: { site: { title: 'Surveillance' } }, el: { site: { title: 'Επιτήρηση' } } } })
+    expect(i18n.t('site.title')).toBe('Surveillance')
+    setLocale('el')
+    expect(i18n.t('site.title')).toBe('Επιτήρηση')
+  })
+})

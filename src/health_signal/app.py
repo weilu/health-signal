@@ -13,7 +13,8 @@ from .assessments import (AssessmentRow, AssessmentSource, PhaseRow, PhaseSource
 from .auth import AuthProvider, User
 from .config import Config
 from .datasource import DataSource, FileDataSource
-from .profile import PROFILES, FeedRow
+from .locales import load_overlays, public_text
+from .profile import FeedRow
 
 _WEEK = r"^\d{4}-W\d{2}$"  # ISO year-week; a malformed value 422s instead of reaching the source
 _FIXED_PARAMS = {"feed", "location", "indicator", "week_from", "week_to"}
@@ -39,13 +40,12 @@ def render_index(page: str, config_payload: dict, base_href: str = "/") -> str:
     return re.sub(r"<head[^>]*>", lambda m: m.group(0) + base, page, count=1) if "<head" in page else base + page
 
 
-def _serve_spa(config: Config, request: Request) -> Response:
+def _serve_spa(request: Request, bootstrap: dict) -> Response:
     index = _UI_DIR / "index.html"
     if not index.is_file():
         return HTMLResponse(_PLACEHOLDER)
-    # Only the bootstrap slice (safe pre-login); the full view-model is gated behind /api/config.
     base_href = request.scope.get("root_path", "").rstrip("/") + "/"
-    return HTMLResponse(render_index(index.read_text(encoding="utf-8"), config.bootstrap_config(), base_href))
+    return HTMLResponse(render_index(index.read_text(encoding="utf-8"), bootstrap, base_href))
 
 
 def _require_one_location(data_sources: dict, phase_source: PhaseSource | None) -> None:
@@ -67,14 +67,19 @@ def create_app(
     data_sources: dict[str, DataSource] | None = None,
 ) -> FastAPI:
     app = FastAPI(title=config.site.title)
+    overlays = load_overlays(config.site.locales_dir, config.site.locales)
+    # Only the slice safe pre-login (the view-model is gated behind /api/config), with the deployment's public text:
+    # sign-in renders before its gated text can load.
+    bootstrap = {**config.bootstrap_config(), "text": public_text(overlays)}
     provider = auth_provider if auth_provider is not None else _auth.from_env()
     provider.install(app)
     feeds = config.data.feeds if config.data else []
+    profiles = config.feed_profiles()
     if data_sources is None:
-        data_sources = {f.id: FileDataSource(f.dir, PROFILES[f.profile]) for f in feeds}
-    assessment_sources = {f.id: AssessmentSource(f.assessments, PROFILES[f.profile]) for f in feeds if f.assessments}
+        data_sources = {f.id: FileDataSource(f.dir, profiles[f.id]) for f in feeds}
+    assessment_sources = {f.id: AssessmentSource(f.assessments, profiles[f.id]) for f in feeds if f.assessments}
     phase_source = PhaseSource(config.data.phases) if config.data and config.data.phases else None
-    stream_source = (PhaseStreamSource(config.data.phase_streams, {f.id: PROFILES[f.profile] for f in feeds})
+    stream_source = (PhaseStreamSource(config.data.phase_streams, profiles)
                      if config.data and config.data.phase_streams else None)
     if config.filters.location is None:
         _require_one_location(data_sources, phase_source)
@@ -108,6 +113,13 @@ def create_app(
     @app.get("/api/config")
     def get_config(user: User = Depends(require_auth)) -> dict:
         return config.client_config()
+
+    @app.get("/api/locales/{language}")
+    def get_locale(language: str, user: User = Depends(require_auth)) -> dict:
+        # Gated like /api/config: this text labels the structure only signed-in users are sent.
+        if language not in config.site.locales:
+            raise HTTPException(status_code=404, detail=f"{language!r} is not one of this dashboard's languages")
+        return overlays.get(language, {})
 
     def _feed_dimensions(feed: str, request: Request, fixed: set[str] = _FIXED_PARAMS) -> dict[str, str]:
         # Dimension filters come from the feed's profile, so a new profile needs no route change.
@@ -219,9 +231,9 @@ def create_app(
             raise HTTPException(status_code=404, detail="Not found")
 
         if is_public(full_path):
-            return _serve_spa(config, request)
+            return _serve_spa(request, bootstrap)
         if await provider.current_user(request) is not None:
-            return _serve_spa(config, request)
+            return _serve_spa(request, bootstrap)
         return RedirectResponse(url="/login", status_code=303)
 
     return app

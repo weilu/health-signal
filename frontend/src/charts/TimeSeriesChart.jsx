@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { CategoryScale, Chart as ChartJS, Legend, LinearScale, LineElement, PointElement, Tooltip } from 'chart.js'
 import { Line } from 'react-chartjs-2'
 import { bandAlpha, levelTone } from '../assessments.js'
-import { axisNumber } from '../labels.js'
+import { axisNumber, weekStamp } from '../labels.js'
 import { isolated } from '../series.js'
 import { useAlignedAxis } from './AlignedCharts.jsx'
 import { crosshair, endLabels, phaseShading, thresholdBands } from './plugins.js'
@@ -57,7 +57,8 @@ export function TimeSeriesChart({ periods, series, unit, bands = [], levels = []
     layout: { padding: { right: labelRoom } },
     scales: {
       // Room between week labels, so a narrow chart skips some rather than running them together.
-      x: { grid: { display: false }, border: { color: rule }, ticks: { color: ink2, font, maxTicksLimit: 10, maxRotation: 0, autoSkipPadding: 16 } },
+      x: { grid: { display: false }, border: { color: rule }, ticks: { color: ink2, font, maxTicksLimit: 10, maxRotation: 0, autoSkipPadding: 16,
+                                                                     callback(value) { return weekStamp(t, this.getLabelForValue(value)) } } },
       y: {
         title: { display: true, text: unit, color: ink2, font },
         grid: { color: rule, lineWidth: 1 }, border: { display: false },
@@ -76,6 +77,7 @@ export function TimeSeriesChart({ periods, series, unit, bands = [], levels = []
         usePointStyle: true, backgroundColor: theme.palette.background.paper, titleColor: ink, bodyColor: ink,
         borderColor: rule, borderWidth: 1, titleFont: font, bodyFont: font,
         callbacks: {
+          title: (items) => (items.length ? weekStamp(t, items[0].label) : ''),
           label: (c) => {
             if (c.parsed.y == null) return null
             const q = c.dataset.qualities?.[c.dataIndex]

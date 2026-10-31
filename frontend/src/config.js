@@ -6,5 +6,6 @@ export function getConfig() {
     branding: c.branding || {},
     defaultLocale: c.defaultLocale || 'en',
     locales: c.locales || ['en'],
+    text: c.text || {},   // the deployment's text shown before sign-in (its title), by language
   }
 }

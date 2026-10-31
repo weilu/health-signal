@@ -21,8 +21,11 @@ const queryClient = new QueryClient({
 })
 
 const cfg = getConfig()
-document.title = cfg.title
-const i18n = initI18n({ defaultLocale: cfg.defaultLocale, locales: cfg.locales })
+const i18n = initI18n({ defaultLocale: cfg.defaultLocale, locales: cfg.locales, text: cfg.text })
+// The browser tab follows the language, like the header.
+const applyTitle = () => { document.title = i18n.t('site.title', { defaultValue: cfg.title }) }
+applyTitle()
+i18n.on('languageChanged', applyTitle)
 createRoot(document.getElementById('root')).render(
   <ThemeProvider theme={buildTheme(cfg.branding)}>
     <CssBaseline />

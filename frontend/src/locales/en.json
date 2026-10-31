@@ -52,7 +52,8 @@
     "mixedUnits": "These rows mix units ({{units}}), so they can't share one axis. Narrow the panel's query.",
     "ambiguous": "More than one row per series in {{period}}. Narrow the panel's query (e.g. pathogentype) or set series_by.",
     "mixedSeries": "Rows with different {{field}} would share one line. Narrow the panel's query or set series_by.",
-    "tooManySeries": "{{count}} series are more than colour can tell apart. Narrow the panel's query."
+    "tooManySeries": "{{count}} series are more than colour can tell apart. Narrow the panel's query.",
+    "byDimension": "{{name}} by {{dimension}}"
   },
   "quality": {
     "beLOD": "below detection limit"
@@ -156,5 +157,84 @@
         "waves": "In a wave while both its community and admissions streams are active. A stream turns active when it rises above its disease threshold, and stays active until it falls back below it."
       }
     }
+  },
+  "dimensions": {
+    "age": {
+      "total": "All ages",
+      "unk": "Unknown age"
+    },
+    "survtype": {
+      "primary care sentinel": "Primary care sentinel",
+      "primary care syndromic": "Primary care syndromic",
+      "non-sentinel": "Non-sentinel",
+      "SARI syndromic": "SARI syndromic",
+      "SARI virological": "SARI virological"
+    },
+    "aggregation": {
+      "me": "Mean",
+      "med": "Median",
+      "gmn": "Geometric mean",
+      "floMean": "Flow-weighted mean",
+      "pmmovNorm": "PMMoV-normalised",
+      "pmFloMean": "PMMoV-normalised flow-weighted mean"
+    },
+    "fraction": {
+      "liq": "Liquid",
+      "sol": "Solids",
+      "mix": "Mixed",
+      "mul": "Multiple fractions"
+    },
+    "pathogentype": {
+      "Influenza": "Influenza",
+      "Influenza A": "Influenza A",
+      "Influenza B": "Influenza B",
+      "Influenza untyped": "Influenza, untyped",
+      "RSV": "RSV",
+      "RSV untyped": "RSV, untyped",
+      "RSV-A": "RSV-A",
+      "RSV-B": "RSV-B",
+      "SARS-CoV-2": "SARS-CoV-2"
+    }
+  },
+  "targets": {
+    "SARS-CoV-2": "COVID-19",
+    "Influenza": "Influenza",
+    "RSV": "RSV"
+  },
+  "indicators": {
+    "ILIconsultationrate": "Influenza-like illness rate",
+    "ARIconsultationrate": "Acute respiratory infection rate",
+    "SARIrate": "SARI rate",
+    "tests": "Tests",
+    "detections": "Detections",
+    "positivity": "Test positivity",
+    "hospitaladmissions": "Hospital admissions",
+    "ICUadmissions": "ICU admissions",
+    "ICUinpatients": "ICU inpatients",
+    "deaths": "Deaths",
+    "cov": "SARS-CoV-2 in wastewater",
+    "covN1": "SARS-CoV-2 (N1) in wastewater",
+    "covN2": "SARS-CoV-2 (N2) in wastewater",
+    "covE": "SARS-CoV-2 (E) in wastewater",
+    "fluA": "Influenza A in wastewater",
+    "fluB": "Influenza B in wastewater",
+    "rsvMe": "RSV in wastewater",
+    "rsvAMe": "RSV A in wastewater",
+    "rsvB": "RSV B in wastewater",
+    "rsvAB": "RSV A and B in wastewater",
+    "ppmv": "PMMoV (faecal strength) in wastewater"
+  },
+  "dimensionNames": {
+    "survtype": "surveillance type",
+    "pathogen": "pathogen",
+    "pathogentype": "type",
+    "pathogensubtype": "subtype",
+    "age": "age group",
+    "aggregation": "aggregation",
+    "fraction": "fraction"
+  },
+  "panelTypes": {
+    "summary": "Summary",
+    "phase": "Season or wave"
   }
 }

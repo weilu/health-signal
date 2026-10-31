@@ -1,0 +1,37 @@
+{
+  "site": {
+    "title": "Έγκαιρη Προειδοποίηση και Επιτήρηση Δημόσιας Υγείας στην Ελλάδα"
+  },
+  "pages": {
+    "overview": "Επισκόπηση",
+    "clinical": "Κλινικά δεδομένα",
+    "wastewater": "Λύματα"
+  },
+  "panels": {
+    "test_positivity": "Θετικότητα δειγμάτων (όλα τα τεστ)",
+    "sari_positivity": "Θετικότητα δειγμάτων SARI",
+    "sentinel_positivity": "Θετικότητα δειγμάτων Sentinel ΠΦΥ",
+    "private_positivity": "Θετικότητα δειγμάτων ιδιωτικών νοσοκομείων",
+    "influenza_a_subtypes": "Υπότυποι γρίπης Α",
+    "influenza_b_lineages": "Γενεαλογικές σειρές γρίπης Β",
+    "sari_rate": "Κρούσματα SARI ανά 1.000 εισαγωγές",
+    "sari_rate_by_age": "Κρούσματα SARI ανά 1.000 εισαγωγές, σύνολο και παιδικός πληθυσμός",
+    "ili_rate": "Γριπώδης συνδρομή ανά 1.000 επισκέψεις"
+  },
+  "locations": {
+    "national": "Ελλάδα",
+    "attica": "Αττική"
+  },
+  "unit": {
+    "per_1000_admissions": "ανά 1.000 εισαγωγές",
+    "per_1000_consultations": "ανά 1.000 επισκέψεις"
+  },
+  "dimensions": {
+    "age": {
+      "paediatric": "Παιδικός πληθυσμός"
+    },
+    "survtype": {
+      "private hospital": "Ιδιωτικά νοσοκομεία"
+    }
+  }
+}
