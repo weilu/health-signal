@@ -161,6 +161,32 @@
     "age": {
       "total": "All ages",
       "unk": "Unknown age"
+    },
+    "survtype": {
+      "primary care sentinel": "Primary care sentinel",
+      "primary care syndromic": "Primary care syndromic",
+      "non-sentinel": "Non-sentinel",
+      "SARI syndromic": "SARI syndromic",
+      "SARI virological": "SARI virological"
+    },
+    "aggregation": {
+      "me": "Mean",
+      "med": "Median",
+      "gmn": "Geometric mean",
+      "floMean": "Flow-weighted mean",
+      "pmmovNorm": "PMMoV-normalised",
+      "pmFloMean": "PMMoV-normalised flow-weighted mean"
+    },
+    "fraction": {
+      "liq": "Liquid",
+      "sol": "Solids",
+      "mix": "Mixed",
+      "mul": "Multiple fractions"
     }
+  },
+  "targets": {
+    "SARS-CoV-2": "COVID-19",
+    "Influenza": "Influenza",
+    "RSV": "RSV"
   }
 }

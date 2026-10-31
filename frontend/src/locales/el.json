@@ -161,6 +161,32 @@
     "age": {
       "total": "Όλες οι ηλικίες",
       "unk": "Άγνωστη ηλικία"
+    },
+    "survtype": {
+      "primary care sentinel": "Sentinel ΠΦΥ",
+      "primary care syndromic": "Συνδρομική επιτήρηση ΠΦΥ",
+      "non-sentinel": "Εκτός δικτύων επιτήρησης",
+      "SARI syndromic": "SARI (συνδρομική επιτήρηση)",
+      "SARI virological": "SARI (εργαστηριακή επιτήρηση)"
+    },
+    "aggregation": {
+      "me": "Μέσος όρος",
+      "med": "Διάμεσος",
+      "gmn": "Γεωμετρικός μέσος",
+      "floMean": "Μέσος σταθμισμένος με τη ροή",
+      "pmmovNorm": "Κανονικοποιημένο με PMMoV",
+      "pmFloMean": "Κανονικοποιημένος με PMMoV μέσος σταθμισμένος με τη ροή"
+    },
+    "fraction": {
+      "liq": "Υγρή φάση",
+      "sol": "Στερεή φάση",
+      "mix": "Μικτή",
+      "mul": "Πολλαπλές φάσεις"
     }
+  },
+  "targets": {
+    "SARS-CoV-2": "COVID-19",
+    "Influenza": "Γρίπη",
+    "RSV": "RSV"
   }
 }

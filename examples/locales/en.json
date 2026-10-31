@@ -2,11 +2,6 @@
   "site": {
     "title": "Greece Public Health Early Warning & Surveillance"
   },
-  "targets": {
-    "SARS-CoV-2": "COVID-19",
-    "Influenza": "Influenza",
-    "RSV": "RSV"
-  },
   "pages": {
     "overview": "Overview",
     "clinical": "Clinical",

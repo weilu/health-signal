@@ -91,8 +91,10 @@ the private-hospital network, and SARI's paediatric group, which EODY defines by
 
 ### Deployment text (i18n)
 
-The library ships its own interface text in English and Greek. A deployment supplies the rest: its target, page,
-panel and location names, and labels for any units its profile extensions add. Config carries only ids, each
+The library ships its own interface text in English and Greek, including names for everything it defines: the
+pathogens targets are keyed by, and the units and named dimension values of its built-in profiles. A deployment
+supplies the rest: its page, panel and location names, and labels for any units or dimension values its profile
+extensions add. Both use the same keys, so a deployment can also reword any library text by setting its key. Config carries only ids, each
 labelled by convention (`panels.<panel id>`, `pages.<page id>`, `targets.<target id>`, a location option's
 `label_key`, `unit.<unit>`, and `dimensions.<dimension>.<value>` for a split chart's lines). Put one `<language>.json` per offered language in a directory and point
 `site.locales_dir` at it:

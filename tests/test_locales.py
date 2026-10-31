@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 
 from health_signal import create_app, load_config
 from health_signal.config import Config
+from health_signal.profile import PATHOGENS, PROFILES
 from auth_stubs import AllowAll, DenyAll
 
 
@@ -93,9 +94,38 @@ def test_the_greece_example_labels_everything_it_shows_in_every_language():
     keys |= {f"dimensions.{d}.{v}" for ext in cfg.profiles.values() for d, values in ext.dimension_vocab.items()
              for v in values}
     for lang in cfg.site.locales:
-        catalog = json.loads((Path("examples") / cfg.site.locales_dir / f"{lang}.json").read_text(encoding="utf-8"))
+        # What the browser shows: the library's text with the deployment's merged over it.
+        catalog = _merged(_library(lang), json.loads((Path("examples") / cfg.site.locales_dir / f"{lang}.json")
+                                                     .read_text(encoding="utf-8")))
         missing = sorted(k for k in keys if not _has(catalog, k))
         assert not missing, f"{lang}: {missing}"
+
+
+# Dimensions whose values are words a reader needs named; the others (age bands, subtype codes) read as themselves.
+NAMED_DIMENSIONS = {"survtype", "aggregation", "fraction"}
+
+
+@pytest.mark.parametrize("lang", ["en", "el"])
+def test_the_library_names_every_pathogen_and_its_profiles_named_values(lang):
+    # A deployment shouldn't have to retype what the library defines; it may still reword any of it under the
+    # same key.
+    catalog = _library(lang)
+    keys = {f"targets.{p}" for p in PATHOGENS}
+    keys |= {f"dimensions.{d}.{v}" for profile in PROFILES.values() for d, values in profile.dimension_vocab.items()
+             if d in NAMED_DIMENSIONS for v in values}
+    missing = sorted(k for k in keys if not _has(catalog, k))
+    assert not missing, f"{lang}: {missing}"
+
+
+def _library(lang):
+    return json.loads(Path(f"frontend/src/locales/{lang}.json").read_text(encoding="utf-8"))
+
+
+def _merged(base, over):
+    out = dict(base)
+    for key, value in over.items():
+        out[key] = _merged(out[key], value) if isinstance(value, dict) and isinstance(out.get(key), dict) else value
+    return out
 
 
 def _has(catalog, key):
