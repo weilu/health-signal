@@ -10,7 +10,7 @@ site:
   public_paths: []
   # This dashboard's own text (tab, panel and location names, its profile's extra units), en.json and el.json
   # over the library's catalogue; relative to where the app runs, like the data dirs.
-  locales_dir: locales
+  locales_dir: examples/locales
 
 branding:
   theme:

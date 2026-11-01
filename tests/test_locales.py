@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 
 from health_signal import create_app, load_config
 from health_signal.config import Config
+from health_signal.locales import load_overlays
 from health_signal.profile import PATHOGENS, PROFILES
 from auth_stubs import AllowAll, DenyAll
 
@@ -101,6 +102,11 @@ def test_the_greece_example_labels_everything_it_shows_in_every_language():
         assert not missing, f"{lang}: {missing}"
 
 
+def test_the_greece_example_finds_its_text_from_the_repo_root_where_the_readme_runs_it():
+    cfg = load_config("examples/greece.dashboard.yaml")
+    assert set(load_overlays(cfg.site.locales_dir, cfg.site.locales)) == set(cfg.site.locales)
+
+
 def test_the_greece_example_names_and_describes_only_panels_it_has():
     # A renamed or removed panel would leave its name or subtitle behind, silently unused.
     cfg = load_config("examples/greece.dashboard.yaml")
@@ -136,7 +142,7 @@ def test_the_library_names_every_pathogen_indicator_and_named_value_of_its_profi
 
 
 def _example_text(cfg, lang):
-    return json.loads((Path("examples") / cfg.site.locales_dir / f"{lang}.json").read_text(encoding="utf-8"))
+    return json.loads((cfg.site.locales_dir / f"{lang}.json").read_text(encoding="utf-8"))
 
 
 def _library(lang):
