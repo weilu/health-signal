@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Navigate } from 'react-router-dom'
 import { Alert, Button, Paper, Stack, Typography } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import { useTranslation } from 'react-i18next'
 import { fetchAssessments, fetchData, fetchThresholds } from '../api.js'
 import { activeWeeks, bandsFor, combinedState, ofSeries, pickInRange, plottedSeries, singleSeries } from '../assessments.js'
@@ -52,7 +53,11 @@ export function TimeSeriesPanel({ panel, target, location, range, latest }) {
       <Stack direction="row" spacing={2} sx={{ alignItems: 'flex-start', justifyContent: 'space-between', mb: 1 }}>
         <div>
           <Typography variant="h6" component="h2">{heading}</Typography>
-          {subtitle && <Typography variant="body2" color="text.secondary">{subtitle}</Typography>}
+          {subtitle && (
+            <Typography variant="body2" sx={{ fontStyle: 'italic', color: (theme) => alpha(theme.palette.text.secondary, 0.85) }}>
+              {subtitle}
+            </Typography>
+          )}
         </div>
         <Button size="small" sx={{ flexShrink: 0 }} onClick={() => setAsTable((v) => !v)}>
           {t(asTable ? 'chart.showChart' : 'chart.showTable')}
