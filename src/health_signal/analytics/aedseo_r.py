@@ -27,9 +27,8 @@ def load_r():
         from rpy2.robjects.packages import importr  # noqa: PLC0415
         return ro, importr("aedseo"), importr("base"), importr("utils"), RRuntimeError
     except Exception as e:  # noqa: BLE001 - any R/rpy2 init failure gets the same actionable message
-        raise RuntimeError("assess needs R with the aedseo package via rpy2: install R, run "
-                           "install aedseo in R as the README says, `pip install health-signal[analytics]`, "
-                           "and set R_HOME") from e
+        raise RuntimeError("assess needs R with the aedseo package via rpy2: install R and aedseo as the README "
+                           "says, `pip install health-signal[analytics]`, and set R_HOME") from e
 
 
 def build_version(version: str, remote_sha: str | None) -> str:
