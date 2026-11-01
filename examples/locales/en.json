@@ -14,9 +14,9 @@
     "private_positivity": "Private-hospital test positivity",
     "influenza_a_subtypes": "Influenza A subtypes",
     "influenza_b_lineages": "Influenza B lineages",
-    "sari_rate": "SARI per 1,000 admissions",
-    "sari_rate_by_age": "SARI per 1,000 admissions, all ages and paediatric",
-    "ili_rate": "Influenza-like illness per 1,000 consultations"
+    "sari_rate": "SARI per 1,000 admissions, all ages",
+    "ili_rate": "Influenza-like illness per 1,000 consultations",
+    "sari_rate_paediatric": "SARI per 1,000 admissions, paediatric"
   },
   "locations": {
     "national": "Greece",
@@ -53,11 +53,11 @@
     "ww_load": "Daily composite samples from the Psyttalia WWTP (NKUA Analytical Chemistry lab), as weekly means; normalized to copies/100K inhabitants (Galani et al. 2022, §2.4).",
     "ww_flu_a_load": "Daily composite samples from the Psyttalia WWTP (NKUA Analytical Chemistry lab), as weekly means; normalized to copies/100K inhabitants (Galani et al. 2022, §2.4).",
     "ww_flu_b_load": "Daily composite samples from the Psyttalia WWTP (NKUA Analytical Chemistry lab), as weekly means; normalized to copies/100K inhabitants (Galani et al. 2022, §2.4).",
-    "sari_rate_by_age": "Weekly SARI cases per 1,000 admissions ('Incidence' = SARI ÷ admissions × 1000) at EODY's 14-hospital SARI sentinel network. Multi-pathogen syndromic.",
-    "sari_rate_by_age_Attica": "Weekly SARI cases per 1,000 admissions ('Incidence' = SARI ÷ admissions × 1000) at the {{location}} hospitals in EODY's 14-hospital SARI sentinel network. Multi-pathogen syndromic.",
     "SARS-CoV-2": {
       "hospital_admissions": "Weekly new {{pathogen}} admissions from EODY's active-surveillance network of 84 hospitals. Weeks prior to 2025-W44 come from EODY's prior all-hospital network.",
       "hospital_admissions_Attica": "Weekly new {{pathogen}} admissions from the {{location}} hospitals in EODY's 84-hospital active-surveillance network. Weeks prior to 2025-W44 come from EODY's prior all-hospital network."
-    }
+    },
+    "sari_rate_paediatric": "Weekly SARI cases per 1,000 admissions ('Incidence' = SARI ÷ admissions × 1000) at EODY's 14-hospital SARI sentinel network. Multi-pathogen syndromic.",
+    "sari_rate_paediatric_Attica": "Weekly SARI cases per 1,000 admissions ('Incidence' = SARI ÷ admissions × 1000) at the {{location}} hospitals in EODY's 14-hospital SARI sentinel network. Multi-pathogen syndromic."
   }
 }

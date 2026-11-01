@@ -108,9 +108,8 @@ targets:
             query: { feed: clinical, indicator: positivity, dimensions: { survtype: primary care sentinel, pathogen: SARS-CoV-2, age: total } }
           - id: sari_rate
             query: { feed: clinical, indicator: SARIrate, dimensions: { survtype: SARI syndromic, age: total } }
-          - id: sari_rate_by_age
-            query: { feed: clinical, indicator: SARIrate, dimensions: { survtype: SARI syndromic } }
-            series_by: age
+          - id: sari_rate_paediatric
+            query: { feed: clinical, indicator: SARIrate, dimensions: { survtype: SARI syndromic, age: paediatric } }
           - id: ili_rate
             query: { feed: clinical, indicator: ILIconsultationrate, dimensions: { survtype: primary care syndromic, age: total } }
       - id: wastewater
@@ -148,9 +147,8 @@ targets:
             series_by: pathogensubtype
           - id: sari_rate
             query: { feed: clinical, indicator: SARIrate, dimensions: { survtype: SARI syndromic, age: total } }
-          - id: sari_rate_by_age
-            query: { feed: clinical, indicator: SARIrate, dimensions: { survtype: SARI syndromic } }
-            series_by: age
+          - id: sari_rate_paediatric
+            query: { feed: clinical, indicator: SARIrate, dimensions: { survtype: SARI syndromic, age: paediatric } }
           - id: ili_rate
             query: { feed: clinical, indicator: ILIconsultationrate, dimensions: { survtype: primary care syndromic, age: total } }
       - id: wastewater
@@ -177,9 +175,8 @@ targets:
             query: { feed: clinical, indicator: positivity, dimensions: { survtype: private hospital, pathogen: RSV, pathogentype: RSV, age: total } }
           - id: sari_rate
             query: { feed: clinical, indicator: SARIrate, dimensions: { survtype: SARI syndromic, age: total } }
-          - id: sari_rate_by_age
-            query: { feed: clinical, indicator: SARIrate, dimensions: { survtype: SARI syndromic } }
-            series_by: age
+          - id: sari_rate_paediatric
+            query: { feed: clinical, indicator: SARIrate, dimensions: { survtype: SARI syndromic, age: paediatric } }
           - id: ili_rate
             query: { feed: clinical, indicator: ILIconsultationrate, dimensions: { survtype: primary care syndromic, age: total } }
       - id: wastewater
