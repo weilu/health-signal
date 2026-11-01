@@ -45,12 +45,17 @@ export function TimeSeriesChart({ periods, series, unit, bands = [], levels = []
   const log = scale === 'log'
   // A zero (e.g. a non-detect's stand-in) has no place on a log axis: a gap in the line, marked at the floor.
   const floor = log ? series.flatMap((s, i) => s.values.flatMap((v, j) => (v != null && v <= 0 ? [[i, j]] : []))) : []
+  // One line has nothing to tell apart, so it's drawn in ink like the text, with a dot at each reported week;
+  // several take the palette, dotted only where a week stands alone.
+  const single = series.length === 1
+  const colours = single ? [ink] : palette
   const data = {
     labels: periods,
     datasets: series.map((s, i) => ({
-      label: s.label, data: log ? s.values.map((v) => (v > 0 ? v : null)) : s.values, qualities: s.qualities, borderColor: palette[i], backgroundColor: palette[i],
-      borderWidth: 2, borderCapStyle: 'round', borderJoinStyle: 'round',
-      pointRadius: (c) => (isolated(c.dataset.data, c.dataIndex) ? 3 : 0),
+      label: s.label, data: log ? s.values.map((v) => (v > 0 ? v : null)) : s.values, qualities: s.qualities,
+      borderColor: colours[i], backgroundColor: colours[i], pointBackgroundColor: colours[i], pointBorderColor: colours[i],
+      borderWidth: single ? 1.8 : 2, borderCapStyle: 'round', borderJoinStyle: 'round',
+      pointRadius: (c) => (single || isolated(c.dataset.data, c.dataIndex) ? 3 : 0),
       pointHoverRadius: 4, pointHoverBorderWidth: 2, pointHoverBorderColor: theme.palette.background.paper,
     })),
   }
@@ -102,7 +107,7 @@ export function TimeSeriesChart({ periods, series, unit, bands = [], levels = []
       thresholdBands: { bands, colour: bandColour, labelFor: (level) => t(`level.${level}`), lineColour: alpha(ink2, 0.5), labelColour: ink2, font: `11px ${theme.typography.fontFamily}` },
       phaseShading: { weeks: shading, colour: alpha(theme.palette.text.primary, 0.06) },
       endLabels: { enabled: labelled, color: ink2, font: labelFont },
-      floorMarkers: { points: floor, colours: palette },
+      floorMarkers: { points: floor, colours },
     },
   }
   return (

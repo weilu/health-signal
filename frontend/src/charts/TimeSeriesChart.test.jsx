@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { cleanup, render } from '@testing-library/react'
 import { AlignedCharts, useAlignedAxis } from './AlignedCharts.jsx'
 import { TimeSeriesChart } from './TimeSeriesChart.jsx'
+import { createTheme } from '@mui/material/styles'
 import { initI18n } from '../i18n.js'
 
 // Chart.js needs a real canvas; the options the chart builds are what this test checks.
@@ -66,4 +67,19 @@ it('keeps a linear chart as it was', () => {
   render(<TimeSeriesChart periods={['2025-W01', '2025-W02']} series={[{ label: 'x', values: [0, 3] }]} unit="count" />)
   expect(drawn.at(-1).scales.y.type).toBe('linear')
   expect(fed.at(-1).datasets[0].data).toEqual([0, 3])
+})
+
+it("draws a single series in the theme's ink with a dot at every week; several keep their palette", () => {
+  // One line has nothing to tell apart, so it reads as text does; the dots show which weeks reported.
+  const ink = createTheme().palette.text.primary
+  render(<TimeSeriesChart periods={['2025-W01', '2025-W02', '2025-W03']} series={[{ label: 'x', values: [1, 2, 3] }]}
+                          unit="count" />)
+  const [one] = fed.at(-1).datasets
+  expect([one.borderColor, one.pointBackgroundColor]).toEqual([ink, ink])
+  expect([0, 1, 2].map((dataIndex) => one.pointRadius({ dataset: one, dataIndex }))).toEqual([3, 3, 3])
+  render(<TimeSeriesChart periods={['2025-W01', '2025-W02']} unit="count"
+                          series={'abcde'.split('').map((label) => ({ label, values: [1, 2] }))} />)
+  const [a] = fed.at(-1).datasets
+  expect(a.borderColor).not.toBe(ink)
+  expect(a.pointRadius({ dataset: a, dataIndex: 0 })).toBe(0)
 })
