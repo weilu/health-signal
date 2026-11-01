@@ -8,15 +8,15 @@
     "wastewater": "Wastewater"
   },
   "panels": {
-    "test_positivity": "Test positivity (all tests)",
+    "test_positivity": "All-test positivity",
     "sari_positivity": "SARI test positivity",
     "sentinel_positivity": "Sentinel primary-care test positivity",
     "private_positivity": "Private-hospital test positivity",
     "influenza_a_subtypes": "Influenza A subtypes",
     "influenza_b_lineages": "Influenza B lineages",
-    "sari_rate": "SARI per 1,000 admissions, all ages",
+    "sari_rate": "SARI per 1,000 admissions · all ages",
     "ili_rate": "Influenza-like illness per 1,000 consultations",
-    "sari_rate_paediatric": "SARI per 1,000 admissions, paediatric"
+    "sari_rate_paediatric": "SARI per 1,000 admissions · paediatric"
   },
   "locations": {
     "national": "Greece",
@@ -35,37 +35,37 @@
     }
   },
   "subtitles": {
-    "hospital_admissions": "Weekly new {{pathogen}} admissions from EODY's active-surveillance network of 84 hospitals.\nEODY weekly bulletin · Διάγραμμα 8 · Section Γ.1",
-    "hospital_admissions_Attica": "Weekly new {{pathogen}} admissions from the {{location}} hospitals in EODY's 84-hospital active-surveillance network.\nEODY weekly bulletin · Διάγραμμα 8 · Section Γ.1",
-    "icu_admissions": "Weekly {{pathogen}} ICU admissions from EODY's comprehensive active surveillance of laboratory-confirmed severe cases.\nEODY weekly bulletin · Διάγραμμα 9 · Section Γ.2",
-    "icu_admissions_a": "Weekly Influenza A ICU admissions (all A subtypes) from EODY's comprehensive active surveillance of laboratory-confirmed severe cases.\nEODY weekly bulletin · Διάγραμμα 9 · Section Γ.2",
-    "icu_admissions_b": "Weekly Influenza B ICU admissions from EODY's comprehensive active surveillance of laboratory-confirmed severe cases.\nEODY weekly bulletin · Διάγραμμα 9 · Section Γ.2",
-    "deaths": "Weekly {{pathogen}} deaths from EODY's active mortality-surveillance system (laboratory-confirmed).\nEODY weekly bulletin · Διάγραμμα 13 · Section Δ.2",
-    "test_positivity": "Weekly % of all SARS-CoV-2 tests positive (RT-PCR + rapid antigen), National COVID-19 Registry.\nEODY weekly bulletin · Διάγραμμα 7 · Section Β.2",
-    "sari_positivity": "Weekly % of SARI samples positive for {{pathogen}}, EODY 14-hospital SARI sentinel network.\nEODY weekly bulletin · Διάγραμμα 6β · Section Β.1.3",
-    "sari_positivity_Attica": "Weekly % of SARI samples positive for {{pathogen}}, the {{location}} hospitals in EODY's 14-hospital SARI sentinel network.\nEODY weekly bulletin · Διάγραμμα 6β · Section Β.1.3",
-    "sentinel_positivity": "Weekly % of ILI samples positive for {{pathogen}}, EODY primary-care sentinel network (~100 physicians).\nEODY weekly bulletin · Διάγραμμα 5β · Section Β.1.1",
+    "hospital_admissions": "Weekly new {{pathogen}} admissions from EODY's active-surveillance network of 84 hospitals. (EODY weekly bulletin, Διάγραμμα 8, section Γ.1)",
+    "hospital_admissions_Attica": "Weekly new {{pathogen}} admissions from the {{location}} hospitals in EODY's 84-hospital active-surveillance network. (EODY weekly bulletin, Διάγραμμα 8, section Γ.1)",
+    "icu_admissions": "Weekly {{pathogen}} ICU admissions from EODY's comprehensive active surveillance of laboratory-confirmed severe cases. (EODY weekly bulletin, Διάγραμμα 9, section Γ.2)",
+    "icu_admissions_a": "Weekly Influenza A ICU admissions (all A subtypes) from EODY's comprehensive active surveillance of laboratory-confirmed severe cases. (EODY weekly bulletin, Διάγραμμα 9, section Γ.2)",
+    "icu_admissions_b": "Weekly Influenza B ICU admissions from EODY's comprehensive active surveillance of laboratory-confirmed severe cases. (EODY weekly bulletin, Διάγραμμα 9, section Γ.2)",
+    "deaths": "Weekly {{pathogen}} deaths from EODY's active mortality-surveillance system (laboratory-confirmed). (EODY weekly bulletin, Διάγραμμα 13, section Δ.2)",
+    "test_positivity": "Weekly % of all SARS-CoV-2 tests positive (RT-PCR + rapid antigen), National COVID-19 Registry. (EODY weekly bulletin, Διάγραμμα 7, section Β.2)",
+    "sari_positivity": "Weekly % of SARI samples positive for {{pathogen}}, EODY 14-hospital SARI sentinel network. (EODY weekly bulletin, Διάγραμμα 6β, section Β.1.3)",
+    "sari_positivity_Attica": "Weekly % of SARI samples positive for {{pathogen}}, the {{location}} hospitals in EODY's 14-hospital SARI sentinel network. (EODY weekly bulletin, Διάγραμμα 6β, section Β.1.3)",
+    "sentinel_positivity": "Weekly % of ILI samples positive for {{pathogen}}, EODY primary-care sentinel network (~100 physicians). (EODY weekly bulletin, Διάγραμμα 5β, section Β.1.1)",
     "private_positivity": "Weekly % of multiplex samples positive for {{pathogen}}, EODY's 7-private-hospital network.",
     "private_positivity_Attica": "Weekly % of multiplex samples positive for {{pathogen}}, the {{location}} hospitals in EODY's 7-private-hospital network.",
-    "sari_rate": "Weekly SARI cases per 1,000 admissions ('Incidence' = SARI ÷ admissions × 1000) at EODY's 14-hospital SARI sentinel network. Multi-pathogen syndromic.\nEODY weekly bulletin · Διάγραμμα 3 · Section Α.2",
-    "sari_rate_Attica": "Weekly SARI cases per 1,000 admissions ('Incidence' = SARI ÷ admissions × 1000) at the {{location}} hospitals in EODY's 14-hospital SARI sentinel network. Multi-pathogen syndromic.\nEODY weekly bulletin · Διάγραμμα 3 · Section Α.2",
-    "ili_rate": "Weekly influenza-like illness (ILI) rate per 1,000 sentinel visits, population-weighted (ELSTAT 2011 census), EODY primary-care sentinel network (~100 physicians). Multi-pathogen syndromic.\nEODY weekly bulletin · Διάγραμμα 1 · Section Α.1",
+    "sari_rate": "Weekly SARI cases per 1,000 admissions ('Incidence' = SARI ÷ admissions × 1000) at EODY's 14-hospital SARI sentinel network. Multi-pathogen syndromic. (EODY weekly bulletin, Διάγραμμα 3, section Α.2)",
+    "sari_rate_Attica": "Weekly SARI cases per 1,000 admissions ('Incidence' = SARI ÷ admissions × 1000) at the {{location}} hospitals in EODY's 14-hospital SARI sentinel network. Multi-pathogen syndromic. (EODY weekly bulletin, Διάγραμμα 3, section Α.2)",
+    "ili_rate": "Weekly influenza-like illness (ILI) rate per 1,000 sentinel visits, population-weighted (ELSTAT 2011 census), EODY primary-care sentinel network (~100 physicians). Multi-pathogen syndromic. (EODY weekly bulletin, Διάγραμμα 1, section Α.1)",
     "ww_load": "Daily composite samples from the Psyttalia WWTP (NKUA Analytical Chemistry lab), as weekly means; normalized to copies/100K inhabitants (Galani et al. 2022, §2.4).",
     "ww_flu_a_load": "Daily composite samples from the Psyttalia WWTP (NKUA Analytical Chemistry lab), as weekly means; normalized to copies/100K inhabitants (Galani et al. 2022, §2.4).",
     "ww_flu_b_load": "Daily composite samples from the Psyttalia WWTP (NKUA Analytical Chemistry lab), as weekly means; normalized to copies/100K inhabitants (Galani et al. 2022, §2.4).",
     "SARS-CoV-2": {
-      "hospital_admissions": "Weekly new {{pathogen}} admissions from EODY's active-surveillance network of 84 hospitals. Weeks prior to 2025-W44 come from EODY's prior all-hospital network.\nEODY weekly bulletin · Διάγραμμα 8 · Section Γ.1",
-      "hospital_admissions_Attica": "Weekly new {{pathogen}} admissions from the {{location}} hospitals in EODY's 84-hospital active-surveillance network. Weeks prior to 2025-W44 come from EODY's prior all-hospital network.\nEODY weekly bulletin · Διάγραμμα 8 · Section Γ.1"
+      "hospital_admissions": "Weekly new {{pathogen}} admissions from EODY's active-surveillance network of 84 hospitals. Weeks prior to 2025-W44 come from EODY's prior all-hospital network. (EODY weekly bulletin, Διάγραμμα 8, section Γ.1)",
+      "hospital_admissions_Attica": "Weekly new {{pathogen}} admissions from the {{location}} hospitals in EODY's 84-hospital active-surveillance network. Weeks prior to 2025-W44 come from EODY's prior all-hospital network. (EODY weekly bulletin, Διάγραμμα 8, section Γ.1)"
     },
-    "sari_rate_paediatric": "Weekly SARI cases per 1,000 admissions ('Incidence' = SARI ÷ admissions × 1000) at EODY's 14-hospital SARI sentinel network. Multi-pathogen syndromic.\nEODY weekly bulletin · Διάγραμμα 4 · Section Α.2",
-    "sari_rate_paediatric_Attica": "Weekly SARI cases per 1,000 admissions ('Incidence' = SARI ÷ admissions × 1000) at the {{location}} hospitals in EODY's 14-hospital SARI sentinel network. Multi-pathogen syndromic.\nEODY weekly bulletin · Διάγραμμα 4 · Section Α.2",
+    "sari_rate_paediatric": "Weekly SARI cases per 1,000 admissions ('Incidence' = SARI ÷ admissions × 1000) at EODY's 14-hospital SARI sentinel network. Multi-pathogen syndromic. (EODY weekly bulletin, Διάγραμμα 4, section Α.2)",
+    "sari_rate_paediatric_Attica": "Weekly SARI cases per 1,000 admissions ('Incidence' = SARI ÷ admissions × 1000) at the {{location}} hospitals in EODY's 14-hospital SARI sentinel network. Multi-pathogen syndromic. (EODY weekly bulletin, Διάγραμμα 4, section Α.2)",
     "Influenza": {
-      "private_positivity": "Weekly % of multiplex samples positive for {{pathogen}}, EODY's 7-private-hospital network.\nEODY weekly bulletin · Διάγραμμα 22 · Section Ζ",
-      "private_positivity_Attica": "Weekly % of multiplex samples positive for {{pathogen}}, the {{location}} hospitals in EODY's 7-private-hospital network.\nEODY weekly bulletin · Διάγραμμα 22 · Section Ζ"
+      "private_positivity": "Weekly % of multiplex samples positive for {{pathogen}}, EODY's 7-private-hospital network. (EODY weekly bulletin, Διάγραμμα 22, section Ζ)",
+      "private_positivity_Attica": "Weekly % of multiplex samples positive for {{pathogen}}, the {{location}} hospitals in EODY's 7-private-hospital network. (EODY weekly bulletin, Διάγραμμα 22, section Ζ)"
     },
     "RSV": {
-      "private_positivity": "Weekly % of multiplex samples positive for {{pathogen}}, EODY's 7-private-hospital network.\nEODY weekly bulletin · Διάγραμμα 23 · Section Ζ",
-      "private_positivity_Attica": "Weekly % of multiplex samples positive for {{pathogen}}, the {{location}} hospitals in EODY's 7-private-hospital network.\nEODY weekly bulletin · Διάγραμμα 23 · Section Ζ"
+      "private_positivity": "Weekly % of multiplex samples positive for {{pathogen}}, EODY's 7-private-hospital network. (EODY weekly bulletin, Διάγραμμα 23, section Ζ)",
+      "private_positivity_Attica": "Weekly % of multiplex samples positive for {{pathogen}}, the {{location}} hospitals in EODY's 7-private-hospital network. (EODY weekly bulletin, Διάγραμμα 23, section Ζ)"
     }
   }
 }
