@@ -12,6 +12,11 @@ import { crosshair, endLabels, floorMarkers, phaseShading, thresholdBands } from
 
 ChartJS.register(CategoryScale, LinearScale, LogarithmicScale, LineElement, PointElement, Tooltip, Legend)
 
+function oneTwoFive(value) {
+  const mantissa = value / 10 ** Math.floor(Math.log10(value) + 1e-9)
+  return [1, 2, 5].some((m) => Math.abs(mantissa - m) < 1e-6)
+}
+
 export function useChartPalette() {
   const theme = useTheme()
   return theme.palette.chart?.[theme.palette.mode] ?? []
@@ -66,9 +71,11 @@ export function TimeSeriesChart({ periods, series, unit, bands = [], levels = []
         type: log ? 'logarithmic' : 'linear',
         // On its own line: a long unit plus "log scale" would clip.
         title: { display: true, text: log ? [unit, t('chart.logScale')] : unit, color: ink2, font },
-        grid: { color: rule, lineWidth: 1 }, border: { display: false },
-        // On a log axis 1, 2 and 5 of each decade: labels even within one decade, without crowding several.
-        ticks: { color: ink2, font, callback: (v) => (!log || [1, 2, 5].some((m) => Math.abs(v / 10 ** Math.floor(Math.log10(v) + 1e-9) - m) < 1e-6) ? tick(v) : '') },
+        // Grid lines and labels at 1, 2 and 5 of each decade on a log axis: some even within one decade, without
+        // crowding several; Chart.js's other minor ticks would only clutter it.
+        grid: { color: (c) => (!log || oneTwoFive(c.tick.value) ? rule : 'transparent'), lineWidth: 1 },
+        border: { display: false },
+        ticks: { color: ink2, font, callback: (v) => (!log || oneTwoFive(v) ? tick(v) : '') },
         // Stacked charts share the widest y-axis, so their plots start at the same x and weeks line up.
         afterFit: (scale) => {
           onAxisWidth(scale.width)

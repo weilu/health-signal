@@ -49,6 +49,9 @@ it('puts a log chart on a log axis, labelled at 1, 2 and 5 of each decade and na
   expect(y.title.text).toEqual(['copies', 'log scale'])   // two lines: a long unit mustn't clip
   // A range inside one decade still gets labels; the 3s, 4s… between them would crowd them.
   expect([1e10, 1.3e10, 2e10, 3e10, 5e10].map(y.ticks.callback)).toEqual(['10B', '', '20B', '', '50B'])
+  // Grid lines only where there's a label: a line at every 3, 4, 6… of each decade is clutter.
+  const line = (value) => y.grid.color({ tick: { value } })
+  expect([line(1e10), line(3e10), line(5e10)].map((c) => c === 'transparent')).toEqual([false, true, false])
 })
 
 it('leaves a below-detection week out of a log line but marks it at the floor', () => {
