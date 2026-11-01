@@ -84,6 +84,8 @@
     "trend": "Τάση",
     "asOf": "Στις {{week}} · {{source}}",
     "asOfPast": "Στις {{week}} · {{source}} · όχι η τελευταία εβδομάδα",
+    "source": "{{source}}",
+    "sourcePast": "{{source}} · όχι η τελευταία εβδομάδα",
     "noneInRange": "Καμία αξιολόγηση σε αυτό το διάστημα",
     "provisional": "Προσωρινό",
     "ungraded": "Χωρίς βαθμονόμηση",

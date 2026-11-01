@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { asOfFooter, growthText } from './StatusTrendTiles.jsx'
+import { asOfFooter, growthText, sourceFooter } from './StatusTrendTiles.jsx'
 
 // Echoes keys and their options, so the test sees what the footer asks i18n for.
 const t = (key, options) => (options ? `${key}(${Object.entries(options).map(([k, v]) => `${k}=${v}`).join(',')})` : key)
@@ -25,5 +25,14 @@ describe('growthText', () => {
   })
   it('names the week when it is not the latest', () => {
     expect(growthText(t, { asOf: '2025-W40', current: false }, row)).toContain('context=past')
+  })
+})
+
+describe('sourceFooter', () => {
+  // The trend tile's week is in its sentence, but a cropped tile must still say it isn't the latest.
+  it('names the source, and says when the week is not the latest', () => {
+    expect(sourceFooter(t, { asOf: '2026-W26', current: true }, 'aedseo', 'trend'))
+      .toBe('assessment.source(source=methods.aedseo.sources.trend(defaultValue=aedseo))')
+    expect(sourceFooter(t, { asOf: '2025-W40', current: false }, 'aedseo', 'trend')).toContain('assessment.sourcePast(')
   })
 })

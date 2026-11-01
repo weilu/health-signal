@@ -84,6 +84,8 @@
     "trend": "Trend",
     "asOf": "As of {{week}} · {{source}}",
     "asOfPast": "As of {{week}} · {{source}} · not the latest week",
+    "source": "{{source}}",
+    "sourcePast": "{{source}} · not the latest week",
     "noneInRange": "No assessment in this range",
     "provisional": "Provisional",
     "ungraded": "Not graded",

@@ -48,9 +48,15 @@ export function asOfFooter(t, pick, method, tile) {
   return t(pick.current ? 'assessment.asOf' : 'assessment.asOfPast', { week: weekStamp(t, pick.asOf), source })
 }
 
+// For a tile whose sentence already gives the week: just the source, and whether the week is the latest.
+export function sourceFooter(t, pick, method, tile) {
+  const source = t(`methods.${method}.sources.${tile}`, { defaultValue: method })
+  return t(pick.current ? 'assessment.source' : 'assessment.sourcePast', { source })
+}
+
 // The interval alone: it decides the label (stable when it holds 0), so a point estimate would only invite a
 // reading the label doesn't make. Worded by the method, whose window it is; the week named only when looking back,
-// so the trend tile's footer needs no "as of" (the status tile beside it has one).
+// so the trend tile's footer needs no "as of" (sourceFooter).
 export function growthText(t, pick, row) {
   return t(`methods.${row.method}.growth`, { lower: pct(row.growth_lower), upper: pct(row.growth_upper),
                                             week: weekStamp(t, pick.asOf), context: pick.current ? undefined : 'past' })
@@ -73,7 +79,7 @@ export function StatusTrendTiles({ pick, method }) {
           {row.provisional && <Chip size="small" variant="outlined" label={t('assessment.provisional')} />}
         </Stack>
       </Tile>
-      <Tile title={t('assessment.trend')} current={current} footer={t(`methods.${row.method}.sources.trend`, { defaultValue: row.method })}>
+      <Tile title={t('assessment.trend')} current={current} footer={sourceFooter(t, pick, row.method, 'trend')}>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
           {row.trend && <TrendMark trend={row.trend} size={28} />}
           <Typography variant="h5" component="p" sx={{ color: trend === 'neutral' ? 'text.secondary' : toneColor(trend) }}>
