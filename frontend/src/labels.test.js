@@ -40,6 +40,9 @@ describe('seriesLabel', () => {
   it('keeps a value that has no label, such as a subtype code', () =>
     expect(seriesLabel(tr, 'pathogensubtype', 'A(H3)')).toBe('A(H3)'))
   it('names a missing value', () => expect(seriesLabel(tr, 'age', '')).toBe('Unspecified'))
+  it('names a pathogen as its tab does, from the shared registry', () =>
+    expect(seriesLabel((key, opts) => ({ 'targets.Influenza': 'Γρίπη' }[key] ?? opts?.defaultValue), 'pathogen', 'Influenza'))
+      .toBe('Γρίπη'))
 })
 
 describe('panelLabel', () => {

@@ -36,9 +36,11 @@ export function chartSubtitle(t, panel, target, location) {
              defaultValue: '' })
 }
 
-// Unlabelled values read as themselves: codes like "A(H3)" or "0-4" need no name.
+// Unlabelled values read as themselves: codes like "A(H3)" or "0-4" need no name. Pathogens are named once, in
+// the registry the tabs use.
 export function seriesLabel(t, dimension, value) {
-  return value ? t(`dimensions.${dimension}.${value}`, { defaultValue: value }) : t('chart.unspecified')
+  if (!value) return t('chart.unspecified')
+  return t(dimension === 'pathogen' ? `targets.${value}` : `dimensions.${dimension}.${value}`, { defaultValue: value })
 }
 
 // The stamp plus its parts, so a language can phrase it its own way (Greek bulletins: "εβδομάδα 41/2026").
