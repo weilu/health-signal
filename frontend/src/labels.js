@@ -19,6 +19,23 @@ function defaultPanelName(t, panel) {
     : name
 }
 
+// The tab's pathogen and the selected location, so a chart keeps its context once the tabs scroll away; the
+// server says whether the pathogen belongs (not for a syndromic series, or one whose name already says it).
+export function chartTitle(t, panel, target, location) {
+  const name = panelLabel(t, panel)
+  const pathogen = panel.name?.pathogen && configLabel(t, target.label_key, target.id)
+  const form = pathogen && location ? 'full' : pathogen ? 'pathogen' : location ? 'location' : null
+  return form ? t(`chart.title.${form}`, { name, pathogen, location: location?.label }) : name
+}
+
+// A deployment's own, from its text: target-specific before general, each with a location variant first
+// (subtitles.<panel>_<location>), so wording can differ by pathogen or region.
+export function chartSubtitle(t, panel, target, location) {
+  return t([`subtitles.${target.id}.${panel.id}`, `subtitles.${panel.id}`],
+           { context: location?.value, pathogen: configLabel(t, target.label_key, target.id), location: location?.label,
+             defaultValue: '' })
+}
+
 // Unlabelled values read as themselves: codes like "A(H3)" or "0-4" need no name.
 export function seriesLabel(t, dimension, value) {
   return value ? t(`dimensions.${dimension}.${value}`, { defaultValue: value }) : t('chart.unspecified')

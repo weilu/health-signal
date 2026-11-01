@@ -9,12 +9,12 @@ import { useMethod } from '../useMethod.js'
 import { StatusTrendTiles, TileGrid } from './StatusTrendTiles.jsx'
 import { ResourceBoundary } from '../ResourceBoundary.jsx'
 import { toChartModel } from '../series.js'
-import { panelLabel, seriesLabel, weekStamp } from '../labels.js'
+import { chartSubtitle, chartTitle, panelLabel, seriesLabel, weekStamp } from '../labels.js'
 import { panelParams } from '../filters.js'
 import { SeriesTable } from './SeriesTable.jsx'
 import { TimeSeriesChart, useChartPalette } from './TimeSeriesChart.jsx'
 
-export function TimeSeriesPanel({ panel, location, range, latest }) {
+export function TimeSeriesPanel({ panel, target, location, range, latest }) {
   const { t } = useTranslation()
   const palette = useChartPalette()
   const method = useMethod()
@@ -45,11 +45,18 @@ export function TimeSeriesPanel({ panel, location, range, latest }) {
     shading: activeWeeks(assessedRows, method.active_phases),
   } : {}
   const title = panelLabel(t, panel)
+  const heading = chartTitle(t, panel, target, location)
+  const subtitle = chartSubtitle(t, panel, target, location)
   const card = (
-    <Paper component="section" variant="outlined" aria-label={title} sx={{ p: 2, minWidth: 0 }}>
-      <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-        <Typography variant="h6" component="h2">{title}</Typography>
-        <Button size="small" onClick={() => setAsTable((v) => !v)}>{t(asTable ? 'chart.showChart' : 'chart.showTable')}</Button>
+    <Paper component="section" variant="outlined" aria-label={heading} sx={{ p: 2, minWidth: 0 }}>
+      <Stack direction="row" spacing={2} sx={{ alignItems: 'flex-start', justifyContent: 'space-between', mb: 1 }}>
+        <div>
+          <Typography variant="h6" component="h2">{heading}</Typography>
+          {subtitle && <Typography variant="body2" color="text.secondary">{subtitle}</Typography>}
+        </div>
+        <Button size="small" sx={{ flexShrink: 0 }} onClick={() => setAsTable((v) => !v)}>
+          {t(asTable ? 'chart.showChart' : 'chart.showTable')}
+        </Button>
       </Stack>
       <ResourceBoundary query={query}>
         {(rows) => {

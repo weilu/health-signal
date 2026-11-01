@@ -433,9 +433,27 @@ def test_a_panel_is_named_by_its_indicator_and_what_sets_it_apart_on_its_page():
             Panel(id="icu_a", query=icu("Influenza A")), Panel(id="icu_b", query=icu("Influenza B")),
             Panel(id="adm", query=adm), Panel(id="overview", type="summary")])])])
     names = {p["id"]: p.get("name") for p in cfg.client_config()["targets"][0]["pages"][0]["panels"]}
-    assert names == {"sari": {"indicator": "positivity", "dimensions": {"survtype": "SARI virological"}},
-                     "sentinel": {"indicator": "positivity", "dimensions": {"survtype": "primary care sentinel"}},
-                     "icu_a": {"indicator": "ICUadmissions", "dimensions": {"pathogentype": "Influenza A"}},
-                     "icu_b": {"indicator": "ICUadmissions", "dimensions": {"pathogentype": "Influenza B"}},
-                     "adm": {"indicator": "hospitaladmissions", "dimensions": {}},
-                     "overview": None}
+    assert names == {
+        "sari": {"indicator": "positivity", "dimensions": {"survtype": "SARI virological"}, "pathogen": True},
+        "sentinel": {"indicator": "positivity", "dimensions": {"survtype": "primary care sentinel"}, "pathogen": True},
+        "icu_a": {"indicator": "ICUadmissions", "dimensions": {"pathogentype": "Influenza A"}, "pathogen": False},
+        "icu_b": {"indicator": "ICUadmissions", "dimensions": {"pathogentype": "Influenza B"}, "pathogen": False},
+        "adm": {"indicator": "hospitaladmissions", "dimensions": {}, "pathogen": True},
+        "overview": None}
+
+
+def test_a_chart_title_names_the_tabs_pathogen_only_where_the_panel_does_not():
+    # "Hospital admissions · COVID-19 (Attica)" keeps context after scrolling past the tabs, but a syndromic series
+    # (shared by every tab), a measure that names its pathogen (fluA) or a panel told apart by type mustn't repeat it.
+    q = lambda feed, indicator, **dims: {"feed": feed, "indicator": indicator, "dimensions": dims}
+    icu = lambda ptype: q("clinical", "ICUadmissions", survtype="non-sentinel", pathogen="Influenza", pathogentype=ptype,
+                          age="total")
+    cfg = Config(schema_version="1", site=SiteConfig(title="T"), data=_FEEDS, targets=[
+        Target(id="Influenza", pages=[Page(id="c", panels=[
+            Panel(id="adm", query=q("clinical", "hospitaladmissions", survtype="non-sentinel", pathogen="Influenza",
+                                    age="total")),
+            Panel(id="ili", query=q("clinical", "ILIconsultationrate", survtype="primary care sentinel", age="total")),
+            Panel(id="ww", query=q("wastewater", "fluA", aggregation="floMean")),
+            Panel(id="icu_a", query=icu("Influenza A")), Panel(id="icu_b", query=icu("Influenza B"))])])])
+    named = {p["id"]: p["name"]["pathogen"] for p in cfg.client_config()["targets"][0]["pages"][0]["panels"]}
+    assert named == {"adm": True, "ili": False, "ww": False, "icu_a": False, "icu_b": False}

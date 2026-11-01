@@ -26,7 +26,7 @@ function renderPanel(location = { value: 'Attica' }) {
       <MemoryRouter initialEntries={['/influenza/ww']}>
         <Routes>
           <Route path="/login" element={<p>login page</p>} />
-          <Route path="*" element={<TimeSeriesPanel panel={PANEL} location={location}
+          <Route path="*" element={<TimeSeriesPanel panel={PANEL} target={{ id: "Influenza", label_key: "targets.Influenza" }} location={location}
             range={{ from: '2026-W01', to: '2026-W20' }} latest="2026-W20" />} />
         </Routes>
       </MemoryRouter>

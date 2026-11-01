@@ -53,7 +53,12 @@
     "ambiguous": "Περισσότερες από μία εγγραφές ανά σειρά για την εβδομάδα {{period}}. Περιορίστε το ερώτημα (π.χ. pathogentype) ή ορίστε series_by.",
     "mixedSeries": "Εγγραφές με διαφορετική τιμή «{{field}}» θα ενώνονταν σε μία γραμμή. Περιορίστε το ερώτημα της ενότητας ή ορίστε series_by.",
     "tooManySeries": "{{count}} σειρές είναι περισσότερες από όσες μπορούν να διακριθούν με χρώμα. Περιορίστε το ερώτημα της ενότητας.",
-    "byDimension": "{{name}} ανά {{dimension}}"
+    "byDimension": "{{name}} ανά {{dimension}}",
+    "title": {
+      "full": "{{name}} · {{pathogen}} ({{location}})",
+      "pathogen": "{{name}} · {{pathogen}}",
+      "location": "{{name}} ({{location}})"
+    }
   },
   "quality": {
     "beLOD": "κάτω από το όριο ανίχνευσης"

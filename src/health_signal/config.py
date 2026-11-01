@@ -428,8 +428,12 @@ class Config(BaseModel):
         out["query"]["dimensions"] = dict(dims)
         # The overview groups by feed, then pathogen-specific vs syndromic (an indicator reported per pathogen,
         # or implying one, vs e.g. ILI), naming the tabs a syndromic series is shared across.
-        specific = indicator in profile.pathogen_specific or bool(profile.indicator_implies.get(indicator, {}).get("pathogen"))
+        implied = bool(profile.indicator_implies.get(indicator, {}).get("pathogen"))
+        specific = indicator in profile.pathogen_specific or implied
         out["group"] = {"feed": feed, "kind": "pathogen_specific" if specific else "syndromic", "targets": shared[key]}
+        # Whether a chart title adds the tab's pathogen: not for a syndromic series shared by every tab, nor where the
+        # name already says it (a measure like fluA, or a panel told apart by pathogen type).
+        out["name"]["pathogen"] = specific and not implied and not any(d.startswith("pathogen") for d in out["name"]["dimensions"])
         return out
 
     def bootstrap_config(self) -> dict:

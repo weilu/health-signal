@@ -101,13 +101,19 @@ def test_the_greece_example_labels_everything_it_shows_in_every_language():
         assert not missing, f"{lang}: {missing}"
 
 
-def test_the_greece_example_names_only_panels_it_has():
-    # A renamed or removed panel would leave its name behind, silently unused.
+def test_the_greece_example_names_and_describes_only_panels_it_has():
+    # A renamed or removed panel would leave its name or subtitle behind, silently unused.
     cfg = load_config("examples/greece.dashboard.yaml")
     panels = {x.id for t in cfg.targets for p in t.pages for x in p.panels}
+    variants = {f"{p}_{o.value}" for p in panels for o in cfg.filters.location.options} | panels
+    targets = {t.id for t in cfg.targets}
     for lang in cfg.site.locales:
-        named = _example_text(cfg, lang)
-        assert set(named.get("panels", {})) <= panels, f"{lang}: {sorted(set(named['panels']) - panels)}"
+        text = _example_text(cfg, lang)
+        assert set(text.get("panels", {})) <= panels, f"{lang}: {sorted(set(text['panels']) - panels)}"
+        subtitles = text.get("subtitles", {})
+        keys = {k for k, v in subtitles.items() if isinstance(v, str)}
+        keys |= {k for t, v in subtitles.items() if isinstance(v, dict) and t in targets for k in v}
+        assert keys <= variants and {t for t, v in subtitles.items() if isinstance(v, dict)} <= targets, lang
 
 
 # Dimensions whose values are words a reader needs named; the others (age bands, subtype codes) read as themselves.

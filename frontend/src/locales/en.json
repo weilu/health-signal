@@ -53,7 +53,12 @@
     "ambiguous": "More than one row per series in {{period}}. Narrow the panel's query (e.g. pathogentype) or set series_by.",
     "mixedSeries": "Rows with different {{field}} would share one line. Narrow the panel's query or set series_by.",
     "tooManySeries": "{{count}} series are more than colour can tell apart. Narrow the panel's query.",
-    "byDimension": "{{name}} by {{dimension}}"
+    "byDimension": "{{name}} by {{dimension}}",
+    "title": {
+      "full": "{{name}} · {{pathogen}} ({{location}})",
+      "pathogen": "{{name}} · {{pathogen}}",
+      "location": "{{name}} ({{location}})"
+    }
   },
   "quality": {
     "beLOD": "below detection limit"
