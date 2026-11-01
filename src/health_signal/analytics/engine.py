@@ -52,7 +52,8 @@ def assess_series(series: Series, weeks: list[str], backend: Backend, *, method:
             fit = _NO_FIT
         thresholds = _usable(fit.thresholds)
         has_bands = thresholds is not NO_BANDS
-        level = level_for(value, thresholds, method.levels)
+        # Without its denominator even a reported 0 says nothing: never graded.
+        level = None if unmodelled[n - 1] else level_for(value, thresholds, method.levels)
         trend, growth = trend_for(*fit.growth)
         if waves is not None:
             # As for seasons: a week without usable bands has no level, so it says nothing about waves either.
@@ -60,7 +61,9 @@ def assess_series(series: Series, weeks: list[str], backend: Backend, *, method:
         else:
             phase, state = season_phase(state, week, value, thresholds[0], fit.alarm)
         rows.append({"period": week, "level": level,
-                     "provisional": completed_seasons(series.periods[:n], start_week) < min_seasons,
+                     # Only weeks that could be modelled are history a grade stands on.
+                     "provisional": completed_seasons([p for p, u in zip(series.periods[:n], unmodelled) if not u],
+                                                      start_week) < min_seasons,
                      "trend": trend, **dict(zip(GROWTH, growth or (None,) * 3)), "phase": phase})
         if has_bands:
             bounds.append((week, thresholds))

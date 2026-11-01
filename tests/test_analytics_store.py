@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import pytest
 
@@ -103,3 +104,19 @@ def test_overlapping_publishes_each_publish_what_they_validated(tmp_path):
 
     write_validated({target: (["a"], [])}, meanwhile)
     assert target.read_text() == "a\n"
+
+
+def test_a_publish_never_leaves_a_served_table_missing(tmp_path, monkeypatch):
+    # Readers must always find a complete table: the old one until the new one replaces it in a single step.
+    target = tmp_path / "t.csv"
+    target.write_text("old\n")
+    seen = []
+    real_replace = os.replace
+
+    def watching(src, dst):
+        seen.append(target.exists())
+        real_replace(src, dst)
+
+    monkeypatch.setattr(os, "replace", watching)
+    write_validated({target: (["new"], [])}, lambda drafts: None)
+    assert all(seen) and target.read_text() == "new\n"
