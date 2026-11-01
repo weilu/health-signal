@@ -101,6 +101,9 @@ reword any library text, or a panel's default name, by setting its key. Config c
 labelled by convention (`pages.<page id>`, `targets.<target id>`, a location option's `label_key`, `unit.<unit>`,
 `dimensions.<dimension>.<value>` for a split chart's lines, and `panels.<panel id>` to replace a panel's default name).
 
+A time-series panel can set `y_scale: log` for values spanning orders of magnitude, such as wastewater loads.
+Weeks whose value is zero (e.g. a below-detection stand-in) then show as a gap with a mark at the axis floor.
+
 A chart's title also names the tab's pathogen and the selected location ("Hospital admissions · COVID-19 (Attica)"),
 so it keeps its context once the tabs scroll out of view. A deployment can add a subtitle under it with
 `subtitles.<panel id>`, which may use `{{pathogen}}` and `{{location}}`. More specific keys win where present:

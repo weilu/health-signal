@@ -108,6 +108,13 @@ export function sameSeries(feed, params, stream) {
   return feed === stream.feed && Object.entries(params).every(([k, v]) => stream.series[k] === v)
 }
 
+// The axis a phase stream is charted on: its own panel's on the tab, so it reads the same on the overview.
+export function streamScale(target, stream) {
+  const panel = target.pages.flatMap((p) => p.panels)
+    .find((p) => p.query && sameSeries(p.query.feed, { indicator: p.query.indicator, ...p.query.dimensions }, stream))
+  return panel?.y_scale ?? 'linear'
+}
+
 // Levels sharing a tone step darker in level order, so e.g. very low and low stay distinguishable.
 export function bandAlpha(levels, level) {
   const tone = levelTone(levels, level)

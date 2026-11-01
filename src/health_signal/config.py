@@ -63,14 +63,17 @@ class Panel(BaseModel):
     type: Literal["timeseries", "phase", "summary"] = "timeseries"  # phase and summary build the Overview
     query: PanelQuery | None = None
     series_by: str | None = None  # one line per value of this dimension
+    # Log for values spanning orders of magnitude (wastewater loads), where linear flattens all but the peaks.
+    y_scale: Literal["linear", "log"] = "linear"
 
     @model_validator(mode="after")
     def _fields_fit_the_kind(self) -> "Panel":
         # phase and summary work from their target and the location filter, not a query.
         if self.type == "timeseries" and self.query is None:
             raise ValueError(f"panel {self.id!r}: a timeseries panel needs a query")
-        if self.type != "timeseries" and (self.query is not None or self.series_by is not None):
-            raise ValueError(f"panel {self.id!r}: a {self.type} panel takes no query or series_by")
+        if self.type != "timeseries" and (self.query is not None or self.series_by is not None
+                                          or self.y_scale != "linear"):
+            raise ValueError(f"panel {self.id!r}: a {self.type} panel takes no query, series_by or y_scale")
         return self
 
     @computed_field

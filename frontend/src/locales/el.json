@@ -58,7 +58,8 @@
       "full": "{{name}} · {{pathogen}} ({{location}})",
       "pathogen": "{{name}} · {{pathogen}}",
       "location": "{{name}} ({{location}})"
-    }
+    },
+    "logScale": "λογαριθμική κλίμακα"
   },
   "quality": {
     "beLOD": "κάτω από το όριο ανίχνευσης"

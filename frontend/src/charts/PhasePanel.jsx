@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Alert, Box, Button, Paper, Stack, Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { fetchData, fetchPhases, fetchPhaseStreams } from '../api.js'
-import { activeWeeks, phaseRuns, phaseSince, pickInRange } from '../assessments.js'
+import { activeWeeks, phaseRuns, phaseSince, pickInRange, streamScale } from '../assessments.js'
 import { panelLabel, weekStamp } from '../labels.js'
 import { ResourceBoundary } from '../ResourceBoundary.jsx'
 import { toChartModel } from '../series.js'
@@ -18,7 +18,7 @@ export function phaseQuery(target, location, method) {
 }
 
 // One compact chart per stream on the same weeks: the streams' units differ, so they can't share an axis.
-function StreamChart({ stream, range, shading, named }) {
+function StreamChart({ stream, range, shading, named, scale }) {
   const { t } = useTranslation()
   // The stream's own location, as the producer recorded it: without a location filter, the feed may hold others.
   const params = { feed: stream.feed, ...stream.series, location: stream.location, week_from: range?.from, week_to: range?.to }
@@ -44,8 +44,8 @@ function StreamChart({ stream, range, shading, named }) {
           const series = [{ ...model.series[0], label }]
           return asTable
             ? <SeriesTable periods={model.periods} series={series} unit={unit} />
-            : <TimeSeriesChart periods={model.periods} series={series} unit={unit} shading={shading} height={180}
-              />
+            : <TimeSeriesChart periods={model.periods} series={series} unit={unit} shading={shading} scale={scale}
+                height={180} />
         }}
       </ResourceBoundary>
     </Box>
@@ -98,6 +98,7 @@ export function PhasePanel({ panel, target, location, range, latest }) {
                   <Stack spacing={2}>
                     {list.map((s) => (
                       <StreamChart key={`${s.location}/${s.role}`} stream={s} range={range} named={!location}
+                        scale={streamScale(target, s)}
                         shading={activeWeeks(loaded.filter((r) => r.location === s.location), method.active_phases)} />
                     ))}
                   </Stack>

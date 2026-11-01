@@ -385,6 +385,8 @@ def test_overview_panels_take_no_query():
     {"id": "phase", "type": "phase", "query": {"feed": "clinical", "indicator": "deaths"}},
     {"id": "summary", "type": "summary", "series_by": "age"},
     {"id": "deaths", "type": "timeseries"},  # a time series needs its query
+    {"id": "summary", "type": "summary", "y_scale": "log"},  # only a chart has an axis
+    {"id": "deaths", "query": {"feed": "clinical", "indicator": "deaths"}, "y_scale": "sqrt"},
 ])
 def test_panel_kinds_check_their_fields(bad):
     with pytest.raises(ValidationError):
@@ -457,3 +459,10 @@ def test_a_chart_title_names_the_tabs_pathogen_only_where_the_panel_does_not():
             Panel(id="icu_a", query=icu("Influenza A")), Panel(id="icu_b", query=icu("Influenza B"))])])])
     named = {p["id"]: p["name"]["pathogen"] for p in cfg.client_config()["targets"][0]["pages"][0]["panels"]}
     assert named == {"adm": True, "ili": False, "ww": False, "icu_a": False, "icu_b": False}
+
+
+def test_a_chart_can_ask_for_a_log_axis_and_is_linear_otherwise():
+    # Wastewater loads span orders of magnitude, so a deployment can put them on a log axis; counts stay linear.
+    q = {"feed": "clinical", "indicator": "deaths"}
+    assert Panel(id="ww", query=q, y_scale="log").y_scale == "log"
+    assert Panel(id="deaths", query=q).y_scale == "linear"

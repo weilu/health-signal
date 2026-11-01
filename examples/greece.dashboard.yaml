@@ -80,7 +80,8 @@ analytics:
       streams: { cases: clinical/sentinel_positivity, admissions: clinical/hospital_admissions }
 
 # Wastewater pages show the flow- and population-normalised load (floMean, gene copies/day per 100k)
-# per PHES-ODM measure (generic codes until assay targets are pinned). Raw concentration (me) stays in
+# per PHES-ODM measure (generic codes until assay targets are pinned), on a log axis: loads span orders of
+# magnitude, and a linear one would flatten everything but the peaks. Raw concentration (me) stays in
 # the feed but isn't charted: it moves with dilution, so it misleads read on its own.
 # Clinical pages show the pilot's clinical indicators, in ERVISS's vocabulary plus erviss_gr's. Labels are
 # i18n keys. Each query should match one row per series per week; series_by splits it.
@@ -116,6 +117,7 @@ targets:
         panels:
           - id: ww_load
             query: { feed: wastewater, indicator: cov, dimensions: { aggregation: floMean } }
+            y_scale: log
   - id: Influenza
     pages:
       - id: overview
@@ -155,8 +157,10 @@ targets:
         panels:
           - id: ww_flu_a_load
             query: { feed: wastewater, indicator: fluA, dimensions: { aggregation: floMean } }
+            y_scale: log
           - id: ww_flu_b_load
             query: { feed: wastewater, indicator: fluB, dimensions: { aggregation: floMean } }
+            y_scale: log
   - id: RSV
     pages:
       - id: overview
@@ -182,3 +186,4 @@ targets:
         panels:
           - id: ww_load
             query: { feed: wastewater, indicator: rsvMe, dimensions: { aggregation: floMean } }
+            y_scale: log

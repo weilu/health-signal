@@ -71,7 +71,7 @@ export function TimeSeriesPanel({ panel, target, location, range, latest }) {
           const unit = t(`unit.${model.unit}`, { defaultValue: model.unit })
           return asTable
             ? <SeriesTable periods={model.periods} series={series} unit={unit} />
-            : <TimeSeriesChart periods={model.periods} series={series} unit={unit} {...chartExtras} />
+            : <TimeSeriesChart periods={model.periods} series={series} unit={unit} scale={panel.y_scale} {...chartExtras} />
         }}
       </ResourceBoundary>
     </Paper>

@@ -2,15 +2,15 @@ import { useMemo } from 'react'
 import { Box } from '@mui/material'
 import { alpha, useTheme } from '@mui/material/styles'
 import { useTranslation } from 'react-i18next'
-import { CategoryScale, Chart as ChartJS, Legend, LinearScale, LineElement, PointElement, Tooltip } from 'chart.js'
+import { CategoryScale, Chart as ChartJS, Legend, LinearScale, LineElement, LogarithmicScale, PointElement, Tooltip } from 'chart.js'
 import { Line } from 'react-chartjs-2'
 import { bandAlpha, levelTone } from '../assessments.js'
 import { axisNumber, weekStamp } from '../labels.js'
 import { isolated } from '../series.js'
 import { useAlignedAxis } from './AlignedCharts.jsx'
-import { crosshair, endLabels, phaseShading, thresholdBands } from './plugins.js'
+import { crosshair, endLabels, floorMarkers, phaseShading, thresholdBands } from './plugins.js'
 
-ChartJS.register(CategoryScale, LinearScale, LineElement, PointElement, Tooltip, Legend)
+ChartJS.register(CategoryScale, LinearScale, LogarithmicScale, LineElement, PointElement, Tooltip, Legend)
 
 export function useChartPalette() {
   const theme = useTheme()
@@ -18,7 +18,7 @@ export function useChartPalette() {
 }
 
 // `levels` are the method's ordered levels: the chart colours and names its bands from them, as the tiles do.
-export function TimeSeriesChart({ periods, series, unit, bands = [], levels = [], shading = null, height = 320 }) {
+export function TimeSeriesChart({ periods, series, unit, bands = [], levels = [], shading = null, scale = 'linear', height = 320 }) {
   const { axisWidth, onAxisWidth } = useAlignedAxis()
   const theme = useTheme()
   const { t, i18n } = useTranslation()
@@ -37,10 +37,13 @@ export function TimeSeriesChart({ periods, series, unit, bands = [], levels = []
     ctx.font = labelFont
     return Math.ceil(Math.max(...series.map((s) => ctx.measureText(s.label).width))) + 12
   }, [labelled, labelFont, series])
+  const log = scale === 'log'
+  // A zero (e.g. a non-detect's stand-in) has no place on a log axis: a gap in the line, marked at the floor.
+  const floor = log ? series.flatMap((s, i) => s.values.flatMap((v, j) => (v != null && v <= 0 ? [[i, j]] : []))) : []
   const data = {
     labels: periods,
     datasets: series.map((s, i) => ({
-      label: s.label, data: s.values, qualities: s.qualities, borderColor: palette[i], backgroundColor: palette[i],
+      label: s.label, data: log ? s.values.map((v) => (v > 0 ? v : null)) : s.values, qualities: s.qualities, borderColor: palette[i], backgroundColor: palette[i],
       borderWidth: 2, borderCapStyle: 'round', borderJoinStyle: 'round',
       pointRadius: (c) => (isolated(c.dataset.data, c.dataIndex) ? 3 : 0),
       pointHoverRadius: 4, pointHoverBorderWidth: 2, pointHoverBorderColor: theme.palette.background.paper,
@@ -60,9 +63,12 @@ export function TimeSeriesChart({ periods, series, unit, bands = [], levels = []
       x: { grid: { display: false }, border: { color: rule }, ticks: { color: ink2, font, maxTicksLimit: 10, maxRotation: 0, autoSkipPadding: 16,
                                                                      callback(value) { return weekStamp(t, this.getLabelForValue(value)) } } },
       y: {
-        title: { display: true, text: unit, color: ink2, font },
+        type: log ? 'logarithmic' : 'linear',
+        // On its own line: a long unit plus "log scale" would clip.
+        title: { display: true, text: log ? [unit, t('chart.logScale')] : unit, color: ink2, font },
         grid: { color: rule, lineWidth: 1 }, border: { display: false },
-        ticks: { color: ink2, font, callback: (v) => tick(v) },
+        // On a log axis 1, 2 and 5 of each decade: labels even within one decade, without crowding several.
+        ticks: { color: ink2, font, callback: (v) => (!log || [1, 2, 5].some((m) => Math.abs(v / 10 ** Math.floor(Math.log10(v) + 1e-9) - m) < 1e-6) ? tick(v) : '') },
         // Stacked charts share the widest y-axis, so their plots start at the same x and weeks line up.
         afterFit: (scale) => {
           onAxisWidth(scale.width)
@@ -92,11 +98,12 @@ export function TimeSeriesChart({ periods, series, unit, bands = [], levels = []
       thresholdBands: { bands, colour: bandColour, labelFor: (level) => t(`level.${level}`), lineColour: alpha(ink2, 0.5), labelColour: ink2, font: `11px ${theme.typography.fontFamily}` },
       phaseShading: { weeks: shading, colour: alpha(theme.palette.text.primary, 0.06) },
       endLabels: { enabled: labelled, color: ink2, font: labelFont },
+      floorMarkers: { points: floor, colours: palette },
     },
   }
   return (
     <Box sx={{ height }}>
-      <Line data={data} options={options} plugins={[phaseShading, thresholdBands, crosshair, endLabels]} />
+      <Line data={data} options={options} plugins={[phaseShading, thresholdBands, crosshair, endLabels, floorMarkers]} />
     </Box>
   )
 }

@@ -8,8 +8,9 @@ import { initI18n } from '../i18n.js'
 
 // Chart.js needs a real canvas; the options the chart builds are what this test checks.
 const drawn = []
-vi.mock('react-chartjs-2', () => ({ Line: ({ options }) => { drawn.push(options); return null } }))
-afterEach(() => { cleanup(); drawn.length = 0 })
+const fed = []
+vi.mock('react-chartjs-2', () => ({ Line: ({ options, data }) => { drawn.push(options); fed.push(data); return null } }))
+afterEach(() => { cleanup(); drawn.length = 0; fed.length = 0 })
 
 function Wider() {   // a sibling chart in the group with a wider axis
   const { onAxisWidth } = useAlignedAxis()
@@ -36,4 +37,30 @@ it('labels weeks on the axis and in the tooltip as the rest of the app does, in 
   const { x } = drawn.at(-1).scales
   expect(x.ticks.callback.call({ getLabelForValue: (i) => ['2025-W27', '2025-W28'][i] }, 0)).toBe('Εβδ. 27/2025')
   expect(drawn.at(-1).plugins.tooltip.callbacks.title([{ label: '2025-W28' }])).toBe('Εβδ. 28/2025')
+})
+
+
+it('puts a log chart on a log axis, labelled at 1, 2 and 5 of each decade and named as log', () => {
+  initI18n({ defaultLocale: 'en', locales: ['en', 'el'] })
+  render(<TimeSeriesChart periods={['2025-W01', '2025-W02']} series={[{ label: 'x', values: [1e10, 3e11] }]}
+                          unit="copies" scale="log" />)
+  const { y } = drawn.at(-1).scales
+  expect(y.type).toBe('logarithmic')
+  expect(y.title.text).toEqual(['copies', 'log scale'])   // two lines: a long unit mustn't clip
+  // A range inside one decade still gets labels; the 3s, 4s… between them would crowd them.
+  expect([1e10, 1.3e10, 2e10, 3e10, 5e10].map(y.ticks.callback)).toEqual(['10B', '', '20B', '', '50B'])
+})
+
+it('leaves a below-detection week out of a log line but marks it at the floor', () => {
+  // A zero has no place on a log axis; the stand-in for a non-detect still needs to show the week was sampled.
+  render(<TimeSeriesChart periods={['2025-W01', '2025-W02', '2025-W03']} unit="copies" scale="log"
+                          series={[{ label: 'x', values: [1e10, 0, 3e11], qualities: [null, 'beLOD', null] }]} />)
+  expect(fed.at(-1).datasets[0].data).toEqual([1e10, null, 3e11])
+  expect(drawn.at(-1).plugins.floorMarkers.points).toEqual([[0, 1]])
+})
+
+it('keeps a linear chart as it was', () => {
+  render(<TimeSeriesChart periods={['2025-W01', '2025-W02']} series={[{ label: 'x', values: [0, 3] }]} unit="count" />)
+  expect(drawn.at(-1).scales.y.type).toBe('linear')
+  expect(fed.at(-1).datasets[0].data).toEqual([0, 3])
 })

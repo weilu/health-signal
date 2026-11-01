@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { activeWeeks, bandAlpha, ofSeries, phaseRuns, bandsFor, levelTone, phaseSince, pickInRange, sameSeries } from './assessments.js'
+import { activeWeeks, bandAlpha, ofSeries, phaseRuns, bandsFor, levelTone, phaseSince, pickInRange, sameSeries, streamScale } from './assessments.js'
 
 const a = (period, extra = {}) => ({ period, level: 'low', ...extra })
 const LEVELS = ['very_low', 'low', 'medium', 'high', 'very_high']
@@ -118,4 +118,15 @@ describe('phaseRuns', () => {
   it('lists none when no run touches the range', () => {
     expect(phaseRuns(rows, { from: '2024-W05', to: '2024-W10' }, ACTIVE)).toEqual([])
   })
+})
+
+
+describe('streamScale', () => {
+  // A phase stream is charted on its panel's axis, so wastewater reads the same on the overview as on its own page.
+  const ww = { id: 'ww', type: 'timeseries', y_scale: 'log', query: { feed: 'wastewater', indicator: 'cov', dimensions: { aggregation: 'floMean' } } }
+  const target = { pages: [{ panels: [{ id: 'summary', type: 'summary' }, ww] }] }
+  it("takes the stream's panel's scale", () =>
+    expect(streamScale(target, { feed: 'wastewater', series: { indicator: 'cov', aggregation: 'floMean' } })).toBe('log'))
+  it('is linear for a stream without a panel on the tab', () =>
+    expect(streamScale(target, { feed: 'clinical', series: { indicator: 'deaths' } })).toBe('linear'))
 })
