@@ -26,10 +26,11 @@ function defaultPanelName(t, panel) {
 }
 
 // The tab's pathogen and the selected location, so a chart keeps its context once the tabs scroll away; the
-// server says whether the pathogen belongs (not for a syndromic series, or one whose name already says it).
+// server says whether the pathogen belongs (not for a syndromic series, or one whose name already says it). A card
+// about the whole tab (the overview's, named by its type rather than a query) is always its pathogen's.
 export function chartTitle(t, panel, target, location) {
   const name = panelLabel(t, panel)
-  const pathogen = panel.name?.pathogen && configLabel(t, target.label_key, target.id)
+  const pathogen = (panel.name ? panel.name.pathogen : true) && configLabel(t, target.label_key, target.id)
   const form = pathogen && location ? 'full' : pathogen ? 'pathogen' : location ? 'location' : null
   return form ? t(`chart.title.${form}`, { name, pathogen, location: location?.label }) : name
 }

@@ -7,7 +7,7 @@ import { combinedState, levelTone, pickInRange, sameSeries } from '../assessment
 import { ToneDot, TrendMark } from './TrendMark.jsx'
 import { panelParams, withFilters } from '../filters.js'
 import { groupPanels } from '../groups.js'
-import { panelLabel, weekStamp } from '../labels.js'
+import { chartTitle, panelLabel, weekStamp } from '../labels.js'
 import { useMethod } from '../useMethod.js'
 import { phaseQuery } from './PhasePanel.jsx'
 
@@ -32,7 +32,7 @@ export function SummaryPanel({ panel, target, location, range, latest }) {
   const rows = entries
     .map((e, i) => ({ ...e, data: results[i].data }))
     .filter((e) => e.data?.length)
-  const title = panelLabel(t, panel)
+  const title = chartTitle(t, panel, target, location)
   const groups = groupPanels(t, rows, { panelOf: (r) => r.panel, alwaysSource: true })
   if (state === 'unauth') return <Navigate to="/login" replace />
   return (

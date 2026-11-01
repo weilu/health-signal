@@ -23,6 +23,11 @@ describe('chartTitle', () => {
     expect(chartTitle(await translator(library), panel(false), target, attica)).toBe('Hospital admissions (Attica)'))
   it('leaves out the location without a location filter', async () =>
     expect(chartTitle(await translator(library), panel(true), target, null)).toBe('Hospital admissions · COVID-19'))
+  it("names a card about the whole tab by the tab's pathogen too, so it keeps its context once cropped", async () => {
+    const card = { id: 'phase', type: 'phase', label_key: 'panels.phase' }
+    expect(chartTitle(await translator({ ...library, panelTypes: { phase: 'Key signals' } }), card, target, attica))
+      .toBe('Key signals · COVID-19 (Attica)')
+  })
 })
 
 describe('chartSubtitle', () => {

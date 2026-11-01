@@ -87,16 +87,16 @@ function renderPhase({ target, phases, streams = [], data = [] }) {
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <MemoryRouter>
         <PhasePanel panel={{ id: 'phase', type: 'phase', label_key: 'panels.phase' }} target={target}
-          location={{ value: 'Greece' }} range={{ from: '2026-W09', to: '2026-W10' }} latest="2026-W10" />
+          location={{ value: 'Greece', label: 'Greece' }} range={{ from: '2026-W09', to: '2026-W10' }} latest="2026-W10" />
       </MemoryRouter>
     </QueryClientProvider>,
   )
 }
 
-it('titles the card Key signals, with or without a season or wave', async () => {
+it("titles the card Key signals and the tab's pathogen and region, with or without a season or wave", async () => {
   renderPhase({ target: { id: 'SARS-CoV-2', pages: [] },
                 phases: Promise.resolve([{ location: 'Greece', pathogen: 'SARS-CoV-2', period: '2026-W10', method: 'aedseo', phase: 'between_waves' }]) })
-  expect(await screen.findByRole('heading', { name: 'Key signals', level: 2 })).toBeTruthy()
+  expect(await screen.findByRole('heading', { name: 'Key signals · SARS-CoV-2 (Greece)', level: 2 })).toBeTruthy()
 })
 
 it('names each stream chart by its role and the panel that measures it', async () => {

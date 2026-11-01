@@ -4,7 +4,7 @@ import { Alert, Box, Button, Paper, Stack, Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { fetchData, fetchPhases, fetchPhaseStreams } from '../api.js'
 import { activeWeeks, phaseRuns, phaseSince, pickInRange, streamPanel, streamScale } from '../assessments.js'
-import { inSentence, panelLabel, weekStamp } from '../labels.js'
+import { chartTitle, inSentence, panelLabel, weekStamp } from '../labels.js'
 import { ResourceBoundary } from '../ResourceBoundary.jsx'
 import { toChartModel } from '../series.js'
 import { useMethod } from '../useMethod.js'
@@ -75,7 +75,7 @@ export function PhasePanel({ panel, target, location, range, latest }) {
   const pick = rows.length && span ? pickInRange(rows, span, latest ?? span.to) : null
   // The rule in the terms of the pathogen's own pattern: seasons or year-round waves, read off its phase codes.
   const pattern = rows.some((r) => r.phase === 'in_wave' || r.phase === 'between_waves') ? 'waves' : 'season'
-  const title = panelLabel(t, panel)
+  const title = chartTitle(t, panel, target, location)
   const rule = method && t(`methods.${method.name}.phase_rule.${pattern}`, { defaultValue: '' })
   // Without a location filter, several locations' phases can share a week; none of them is "the" phase.
   const tile = pick && (pick.ambiguous ? (
