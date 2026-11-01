@@ -54,7 +54,7 @@ export function TimeSeriesPanel({ panel, target, location, range, latest }) {
         <div>
           <Typography variant="h6" component="h2">{heading}</Typography>
           {subtitle && (
-            <Typography variant="body2" sx={{ fontStyle: 'italic', color: (theme) => alpha(theme.palette.text.secondary, 0.85) }}>
+            <Typography variant="body2" sx={{ fontStyle: 'italic', whiteSpace: 'pre-line', color: (theme) => alpha(theme.palette.text.secondary, 0.85) }}>
               {subtitle}
             </Typography>
           )}
