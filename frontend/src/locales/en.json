@@ -134,8 +134,8 @@
   },
   "summary": {
     "group": {
-      "pathogen_specific": "pathogen-specific",
-      "syndromic": "syndromic respiratory surveillance"
+      "pathogen_specific": "Pathogen-specific indicators",
+      "syndromic": "Syndromic respiratory indicators"
     },
     "sharedAcross": "shared across {{targets}}",
     "indicator": "Indicator",

@@ -134,8 +134,8 @@
   },
   "summary": {
     "group": {
-      "pathogen_specific": "ανά παθογόνο",
-      "syndromic": "συνδρομική επιτήρηση αναπνευστικών"
+      "pathogen_specific": "Δείκτες ανά παθογόνο",
+      "syndromic": "Συνδρομικοί δείκτες αναπνευστικών λοιμώξεων"
     },
     "sharedAcross": "κοινό για {{targets}}",
     "indicator": "Δείκτης",
