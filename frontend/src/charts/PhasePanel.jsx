@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Alert, Box, Button, Paper, Stack, Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { fetchData, fetchPhases, fetchPhaseStreams } from '../api.js'
-import { activeWeeks, phaseRuns, phaseSince, pickInRange, streamScale } from '../assessments.js'
+import { activeWeeks, phaseRuns, phaseSince, pickInRange, streamPanel, streamScale } from '../assessments.js'
 import { panelLabel, weekStamp } from '../labels.js'
 import { ResourceBoundary } from '../ResourceBoundary.jsx'
 import { toChartModel } from '../series.js'
@@ -18,14 +18,15 @@ export function phaseQuery(target, location, method) {
 }
 
 // One compact chart per stream on the same weeks: the streams' units differ, so they can't share an axis.
-function StreamChart({ stream, range, shading, named, scale }) {
+function StreamChart({ stream, range, shading, named, scale, name }) {
   const { t } = useTranslation()
   // The stream's own location, as the producer recorded it: without a location filter, the feed may hold others.
   const params = { feed: stream.feed, ...stream.series, location: stream.location, week_from: range?.from, week_to: range?.to }
   const query = useQuery({ queryKey: ['data', params], queryFn: () => fetchData(params) })
-  const role = t(`role.${stream.role}`, { defaultValue: stream.role })
+  // Named as on its tab; a stream with no panel there has only its role to go by.
+  const own = name ?? t(`role.${stream.role}`, { defaultValue: stream.role })
   // Without a location filter streams of several regions can sit together; the heading says whose this is.
-  const label = named ? `${role} · ${stream.location}` : role
+  const label = named ? `${own} · ${stream.location}` : own
   const [asTable, setAsTable] = useState(false)
   return (
     <Box>
@@ -65,14 +66,17 @@ export function PhasePanel({ panel, target, location, range, latest }) {
   const base = phaseQuery(target, location, method)
   const phases = useQuery({ queryKey: ['phases', base], queryFn: () => fetchPhases(base), enabled: !!method })
   const streams = useQuery({ queryKey: ['phase-streams', base], queryFn: () => fetchPhaseStreams(base), enabled: !!method })
-  const title = panelLabel(t, panel)
   const rows = phases.data ?? []
   // A declared phase can stand without observation feeds, so no dashboard range: its own weeks bound it then.
   const span = range ?? (rows.length ? { from: rows.reduce((m, r) => (r.period < m ? r.period : m), rows[0].period),
                                           to: rows.reduce((m, r) => (r.period > m ? r.period : m), rows[0].period) } : null)
   const pick = rows.length && span ? pickInRange(rows, span, latest ?? span.to) : null
-  // The rule in the terms of the pathogen's own pattern: seasons or year-round waves, read off its phase codes.
-  const pattern = rows.some((r) => r.phase === 'in_wave' || r.phase === 'between_waves') ? 'waves' : 'season'
+  // The pathogen's own pattern, seasons or year-round waves: read off its phase codes, or before they arrive (or
+  // with none), from the deployment's policy.
+  const waves = rows.length ? rows.some((r) => r.phase === 'in_wave' || r.phase === 'between_waves')
+    : target.phase_pattern === 'waves'
+  const pattern = waves ? 'waves' : 'season'
+  const title = panelLabel(t, panel, pattern)
   const rule = method && t(`methods.${method.name}.phase_rule.${pattern}`, { defaultValue: '' })
   // Without a location filter, several locations' phases can share a week; none of them is "the" phase.
   const tile = pick && (pick.ambiguous ? (
@@ -98,7 +102,7 @@ export function PhasePanel({ panel, target, location, range, latest }) {
                   <Stack spacing={2}>
                     {list.map((s) => (
                       <StreamChart key={`${s.location}/${s.role}`} stream={s} range={range} named={!location}
-                        scale={streamScale(target, s)}
+                        scale={streamScale(target, s)} name={streamPanel(target, s) && panelLabel(t, streamPanel(target, s))}
                         shading={activeWeeks(loaded.filter((r) => r.location === s.location), method.active_phases)} />
                     ))}
                   </Stack>

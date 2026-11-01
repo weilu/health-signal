@@ -5,12 +5,13 @@ export function weekStamp(t, week) {
 }
 
 // panels.<id> overrides the name built from the query, which the library can label though not the panel id.
-export function panelLabel(t, panel) {
-  return t(panel.label_key, { defaultValue: defaultPanelName(t, panel) })
+// `context` picks a variant of a panel type's name (the phase card's season or waves).
+export function panelLabel(t, panel, context) {
+  return t(panel.label_key, { defaultValue: defaultPanelName(t, panel, context) })
 }
 
-function defaultPanelName(t, panel) {
-  if (!panel.name) return t(`panelTypes.${panel.type}`, { defaultValue: panel.id })
+function defaultPanelName(t, panel, context) {
+  if (!panel.name) return t(`panelTypes.${panel.type}`, { context, defaultValue: panel.id })
   const { indicator, dimensions } = panel.name
   const name = [t(`indicators.${indicator}`, { defaultValue: indicator }),
                 ...Object.entries(dimensions).map(([d, v]) => seriesLabel(t, d, v))].join(' · ')

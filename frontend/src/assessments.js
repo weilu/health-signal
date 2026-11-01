@@ -114,12 +114,15 @@ export function sameSeries(feed, params, stream) {
   return feed === stream.feed && Object.entries(params).every(([k, v]) => stream.series[k] === v)
 }
 
-// The axis a phase stream is charted on: its own panel's on the tab, so it reads the same on the overview. A
-// split chart may cover the stream too, but a stream is always a single-series panel.
-export function streamScale(target, stream) {
-  const panel = target.pages.flatMap((p) => p.panels)
+// A phase stream's own panel on the tab, so the overview charts and names it as the tab does. A split chart may
+// cover the stream too, but a stream is always a single-series panel.
+export function streamPanel(target, stream) {
+  return target.pages.flatMap((p) => p.panels)
     .find((p) => p.query && !p.series_by && sameSeries(p.query.feed, { indicator: p.query.indicator, ...p.query.dimensions }, stream))
-  return panel?.y_scale ?? 'linear'
+}
+
+export function streamScale(target, stream) {
+  return streamPanel(target, stream)?.y_scale ?? 'linear'
 }
 
 // Levels sharing a tone step darker in level order, so e.g. very low and low stay distinguishable.

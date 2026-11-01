@@ -241,6 +241,8 @@
   },
   "panelTypes": {
     "summary": "Summary",
-    "phase": "Season or wave"
+    "phase": "Season or wave",
+    "phase_season": "Season",
+    "phase_waves": "Wave"
   }
 }

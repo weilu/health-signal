@@ -469,3 +469,10 @@ def test_a_chart_can_ask_for_a_log_axis_and_is_linear_otherwise():
     q = {"feed": "clinical", "indicator": "deaths"}
     assert Panel(id="ww", query=q, y_scale="log").y_scale == "log"
     assert Panel(id="deaths", query=q).y_scale == "linear"
+
+
+def test_each_target_tells_the_client_whether_its_phases_are_seasons_or_waves():
+    # The phase card is titled before its phases load, so the policy travels with the target.
+    cfg = Config(schema_version="1", site=SiteConfig(title="D"),
+                 targets=[Target(id="SARS-CoV-2", pages=[Page(id="overview")]), Target(id="Influenza", pages=[Page(id="overview")])])
+    assert {t["id"]: t["phase_pattern"] for t in cfg.client_config()["targets"]} == {"SARS-CoV-2": "waves", "Influenza": "season"}

@@ -465,6 +465,7 @@ class Config(BaseModel):
             **self.bootstrap_config(),
             "targets": [
                 {**t.model_dump(mode="json"),
+                 "phase_pattern": "waves" if t.id in self.analytics.wave_pathogens else "season",
                  "pages": [self._client_page(t, p, shared) for p in t.pages]}
                 for t in self.targets
             ],

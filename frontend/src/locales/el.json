@@ -241,6 +241,8 @@
   },
   "panelTypes": {
     "summary": "Σύνοψη",
-    "phase": "Εποχή ή κύμα"
+    "phase": "Εποχή ή κύμα",
+    "phase_season": "Εποχή",
+    "phase_waves": "Κύμα"
   }
 }
