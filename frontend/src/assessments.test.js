@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { activeWeeks, bandAlpha, ofSeries, phaseRuns, bandsFor, levelTone, phaseSince, pickInRange, sameSeries, streamScale } from './assessments.js'
+import { activeWeeks, bandAlpha, ofSeries, phaseRuns, bandsFor, levelTone, phaseSince, pickInRange, sameSeries, streamScale, trendTone } from './assessments.js'
 
 const a = (period, extra = {}) => ({ period, level: 'low', ...extra })
 const LEVELS = ['very_low', 'low', 'medium', 'high', 'very_high']
@@ -129,4 +129,12 @@ describe('streamScale', () => {
     expect(streamScale(target, { feed: 'wastewater', series: { indicator: 'cov', aggregation: 'floMean' } })).toBe('log'))
   it('is linear for a stream without a panel on the tab', () =>
     expect(streamScale(target, { feed: 'clinical', series: { indicator: 'deaths' } })).toBe('linear'))
+})
+
+
+describe('trendTone', () => {
+  // Rising is the early warning; never red, which stays the burden's. No direction is no reading: grey.
+  it('is amber when rising and green when steady or falling', () =>
+    expect(['increasing', 'stable', 'decreasing'].map(trendTone)).toEqual(['warning', 'success', 'success']))
+  it('is neutral without a direction', () => expect([trendTone('inconclusive'), trendTone(null)]).toEqual(['neutral', 'neutral']))
 })

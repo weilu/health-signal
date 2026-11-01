@@ -47,6 +47,12 @@ export function levelTone(levels, level) {
   return position < 0.5 ? 'success' : position === 0.5 ? 'warning' : 'error'
 }
 
+// Rising is the early warning (amber); steady or falling is not (green). Never red, which stays the burden's;
+// without a direction there's no reading, so neutral as an ungraded level is.
+export function trendTone(trend) {
+  return trend === 'increasing' ? 'warning' : trend === 'stable' || trend === 'decreasing' ? 'success' : 'neutral'
+}
+
 export function activeWeeks(rows, activePhases) {
   return new Set(rows.filter((r) => activePhases.includes(r.phase)).map((r) => r.period))
 }

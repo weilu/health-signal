@@ -4,6 +4,7 @@ import { Alert, Box, Chip, CircularProgress, Link, Paper, Stack, Table, TableBod
 import { useTranslation } from 'react-i18next'
 import { fetchAssessments, fetchPhaseStreams } from '../api.js'
 import { combinedState, levelTone, pickInRange, sameSeries, toneColor } from '../assessments.js'
+import { TrendMark } from './TrendMark.jsx'
 import { panelParams, withFilters } from '../filters.js'
 import { groupPanels } from '../groups.js'
 import { panelLabel, weekStamp } from '../labels.js'
@@ -78,6 +79,7 @@ export function SummaryPanel({ panel, target, location, range, latest }) {
                   : row ? (row.level ? t(`level.${row.level}`) : t('assessment.ungraded')) : '—'
                 const trend = row?.trend ? t(`trend.${row.trend}`) : '—'
                 const asOf = pick?.ambiguous ? '—' : row ? weekStamp(t, pick.asOf) : t('assessment.noneInRange')
+                const mark = row?.trend && !pick?.ambiguous && <TrendMark trend={row.trend} />
                 const dot = row && !pick?.ambiguous && (
                   <Box sx={{ width: 10, height: 10, borderRadius: '50%', flexShrink: 0, bgcolor: toneColor(levelTone(method.levels, row.level)) }} />
                 )
@@ -97,13 +99,17 @@ export function SummaryPanel({ panel, target, location, range, latest }) {
                       </Stack>
                       <Stack direction="row" spacing={1} sx={{ ...NARROW, alignItems: 'center', mt: 0.5, color: 'text.secondary' }}>
                         {dot}
-                        <Typography variant="body2" component="span">{[status, trend, asOf].join(' · ')}</Typography>
+                        <Typography variant="body2" component="span">{status} ·{' '}</Typography>
+                        {mark}
+                        <Typography variant="body2" component="span">{trend} · {asOf}</Typography>
                       </Stack>
                     </TableCell>
                     <TableCell sx={WIDE}>
                       <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>{dot}<span>{status}</span></Stack>
                     </TableCell>
-                    <TableCell sx={WIDE}>{trend}</TableCell>
+                    <TableCell sx={WIDE}>
+                      <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>{mark}<span>{trend}</span></Stack>
+                    </TableCell>
                     <TableCell sx={{ ...WIDE, color: pick?.current ? 'text.primary' : 'text.secondary' }}>{asOf}</TableCell>
                   </TableRow>
                 )

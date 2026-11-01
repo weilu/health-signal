@@ -1,7 +1,8 @@
 import { Box, Chip, Paper, Stack, Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { weekStamp } from '../labels.js'
-import { levelTone, toneColor } from '../assessments.js'
+import { levelTone, toneColor, trendTone } from '../assessments.js'
+import { TrendMark } from './TrendMark.jsx'
 
 // growth_* are proportional change per period (spec §6.3), so -0.2 reads -20%/wk.
 const pct = (v) => `${v > 0 ? '+' : ''}${Math.round(v * 100)}%`
@@ -63,7 +64,13 @@ export function StatusTrendTiles({ pick, method }) {
         </Stack>
       </Tile>
       <Tile title={t('assessment.trend')} current={current} footer={asOfFooter(t, pick, row.method, 'trend')}>
-        <Typography variant="h5" component="p">{row.trend ? t(`trend.${row.trend}`) : '—'}</Typography>
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+          {row.trend && <TrendMark trend={row.trend} size={24} />}
+          <Typography variant="h5" component="p"
+            sx={{ color: trendTone(row.trend) === 'neutral' ? 'text.secondary' : toneColor(trendTone(row.trend)) }}>
+            {row.trend ? t(`trend.${row.trend}`) : '—'}
+          </Typography>
+        </Stack>
         {row.growth_rate != null && (
           <Typography variant="body2" color="text.secondary">
             {t('assessment.growth', { rate: pct(row.growth_rate), lower: pct(row.growth_lower), upper: pct(row.growth_upper) })}
