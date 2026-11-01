@@ -6,7 +6,7 @@ import { CategoryScale, Chart as ChartJS, Legend, LinearScale, LineElement, Loga
 import { Line } from 'react-chartjs-2'
 import { bandAlpha, levelTone, tonePaint } from '../assessments.js'
 import { axisNumber, weekStamp } from '../labels.js'
-import { isolated } from '../series.js'
+import { dotRadius, isolated } from '../series.js'
 import { useAlignedAxis } from './AlignedCharts.jsx'
 import { crosshair, endLabels, floorMarkers, phaseShading, thresholdBands } from './plugins.js'
 
@@ -23,6 +23,9 @@ export function useChartPalette() {
 }
 
 // `levels` are the method's ordered levels: the chart colours and names its bands from them, as the tiles do.
+// Before layout there's no drawn width yet: room enough.
+const weekSpacing = (chart) => (chart?.chartArea ? chart.chartArea.width / Math.max(chart.data.labels.length - 1, 1) : Infinity)
+
 export function TimeSeriesChart({ periods, series, unit, bands = [], levels = [], shading = null, scale = 'linear', height = 320 }) {
   const { axisWidth, onAxisWidth } = useAlignedAxis()
   const theme = useTheme()
@@ -45,8 +48,8 @@ export function TimeSeriesChart({ periods, series, unit, bands = [], levels = []
   const log = scale === 'log'
   // A zero (e.g. a non-detect's stand-in) has no place on a log axis: a gap in the line, marked at the floor.
   const floor = log ? series.flatMap((s, i) => s.values.flatMap((v, j) => (v != null && v <= 0 ? [[i, j]] : []))) : []
-  // One line has nothing to tell apart, so it's drawn in ink like the text, with a dot at each reported week;
-  // several take the palette, dotted only where a week stands alone.
+  // One line has nothing to tell apart, so it's drawn in ink like the text, with a dot at each reported week sized
+  // to the room it gets; several take the palette, dotted only where a week stands alone (always, at full size).
   const single = series.length === 1
   const colours = single ? [ink] : palette
   const data = {
@@ -55,7 +58,7 @@ export function TimeSeriesChart({ periods, series, unit, bands = [], levels = []
       label: s.label, data: log ? s.values.map((v) => (v > 0 ? v : null)) : s.values, qualities: s.qualities,
       borderColor: colours[i], backgroundColor: colours[i], pointBackgroundColor: colours[i], pointBorderColor: colours[i],
       borderWidth: single ? 1.8 : 2, borderCapStyle: 'round', borderJoinStyle: 'round',
-      pointRadius: (c) => (single || isolated(c.dataset.data, c.dataIndex) ? 3 : 0),
+      pointRadius: (c) => (isolated(c.dataset.data, c.dataIndex) ? 3 : single ? dotRadius(weekSpacing(c.chart)) : 0),
       pointHoverRadius: 4, pointHoverBorderWidth: 2, pointHoverBorderColor: theme.palette.background.paper,
     })),
   }

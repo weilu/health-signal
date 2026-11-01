@@ -76,7 +76,10 @@ it("draws a single series in the theme's ink with a dot at every week; several k
                           unit="count" />)
   const [one] = fed.at(-1).datasets
   expect([one.borderColor, one.pointBackgroundColor]).toEqual([ink, ink])
-  expect([0, 1, 2].map((dataIndex) => one.pointRadius({ dataset: one, dataIndex }))).toEqual([3, 3, 3])
+  // Sized to the room each week gets on the drawn chart.
+  const chart = (width) => ({ chartArea: { width }, data: { labels: ['2025-W01', '2025-W02', '2025-W03'] } })
+  expect(one.pointRadius({ dataset: one, dataIndex: 1, chart: chart(600) })).toBe(2.5)
+  expect(one.pointRadius({ dataset: one, dataIndex: 1, chart: chart(6) })).toBe(0)
   render(<TimeSeriesChart periods={['2025-W01', '2025-W02']} unit="count"
                           series={'abcde'.split('').map((label) => ({ label, values: [1, 2] }))} />)
   const [a] = fed.at(-1).datasets

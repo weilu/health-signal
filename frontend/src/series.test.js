@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { endLabelsFit, isolated, toChartModel } from './series.js'
+import { endLabelsFit, dotRadius, isolated, toChartModel } from './series.js'
 
 const row = (period, value, dims = {}, unit = 'percent', location = 'Greece') => ({ location, period, value, unit, dimensions: dims })
 
@@ -87,4 +87,14 @@ describe('endLabelsFit', () => {
     expect(endLabelsFit([], 14)).toBe(true)
     expect(endLabelsFit([50], 14)).toBe(true)
   })
+})
+
+describe('dotRadius', () => {
+  // A dot per week reads at a year's view; packed closer they bead the line, so they shrink, then go.
+  it('is full size with room to spare', () => expect(dotRadius(15)).toBe(2.5))
+  it('shrinks as weeks close up', () => {
+    expect(dotRadius(7)).toBeGreaterThan(0)
+    expect(dotRadius(7)).toBeLessThan(2.5)
+  })
+  it('is gone when weeks are packed', () => expect(dotRadius(4)).toBe(0))
 })

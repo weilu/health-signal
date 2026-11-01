@@ -57,3 +57,9 @@ export function endLabelsFit(ys, minGap) {
   const sorted = [...ys].sort((a, b) => a - b)
   return sorted.every((y, i) => i === 0 || y - sorted[i - 1] >= minGap)
 }
+
+// A dot's radius for the room each week gets (px between neighbours): full at a year's view, smaller as weeks
+// close up, none once they'd bead the line.
+export function dotRadius(spacing) {
+  return spacing < 5 ? 0 : Math.min(2.5, 1.5 + (spacing - 5) / 7)
+}
