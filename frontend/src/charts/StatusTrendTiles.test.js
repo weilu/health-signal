@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { asOfFooter } from './StatusTrendTiles.jsx'
+import { asOfFooter, growthText } from './StatusTrendTiles.jsx'
 
 // Echoes keys and their options, so the test sees what the footer asks i18n for.
 const t = (key, options) => (options ? `${key}(${Object.entries(options).map(([k, v]) => `${k}=${v}`).join(',')})` : key)
@@ -9,5 +9,21 @@ describe('asOfFooter', () => {
     const pick = { asOf: '2026-W10', current: true }
     expect(asOfFooter(t, pick, 'aedseo', 'trend')).toContain('source=methods.aedseo.sources.trend')
     expect(asOfFooter(t, pick, 'mem', 'status')).toContain('source=methods.mem.sources.status')
+  })
+})
+
+describe('growthText', () => {
+  // The label comes from the interval alone (stable when it holds 0), so the tile shows the interval, in the
+  // method's own words: its window is the method's.
+  const row = { method: 'aedseo', growth_rate: -0.43, growth_lower: -0.8, growth_upper: 0.19 }
+  it('gives the likely range of the weekly change, without the point estimate', () => {
+    const text = growthText(t, { asOf: '2026-W26', current: true }, row)
+    expect(text).toContain('methods.aedseo.growth(')
+    expect(text).toContain('lower=-80%,upper=+19%')
+    expect(text).not.toContain('-43%')
+    expect(text).not.toContain('context=past')
+  })
+  it('names the week when it is not the latest', () => {
+    expect(growthText(t, { asOf: '2025-W40', current: false }, row)).toContain('context=past')
   })
 })

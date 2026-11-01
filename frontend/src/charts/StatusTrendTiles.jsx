@@ -48,6 +48,14 @@ export function asOfFooter(t, pick, method, tile) {
   return t(pick.current ? 'assessment.asOf' : 'assessment.asOfPast', { week: weekStamp(t, pick.asOf), source })
 }
 
+// The interval alone: it decides the label (stable when it holds 0), so a point estimate would only invite a
+// reading the label doesn't make. Worded by the method, whose window it is; the week named only when looking back,
+// so the trend tile's footer needs no "as of" (the status tile beside it has one).
+export function growthText(t, pick, row) {
+  return t(`methods.${row.method}.growth`, { lower: pct(row.growth_lower), upper: pct(row.growth_upper),
+                                            week: weekStamp(t, pick.asOf), context: pick.current ? undefined : 'past' })
+}
+
 export function StatusTrendTiles({ pick, method }) {
   const { t } = useTranslation()
   if (!pick.row) return <NoneInRange />
@@ -65,7 +73,7 @@ export function StatusTrendTiles({ pick, method }) {
           {row.provisional && <Chip size="small" variant="outlined" label={t('assessment.provisional')} />}
         </Stack>
       </Tile>
-      <Tile title={t('assessment.trend')} current={current} footer={asOfFooter(t, pick, row.method, 'trend')}>
+      <Tile title={t('assessment.trend')} current={current} footer={t(`methods.${row.method}.sources.trend`, { defaultValue: row.method })}>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
           {row.trend && <TrendMark trend={row.trend} size={28} />}
           <Typography variant="h5" component="p" sx={{ color: trend === 'neutral' ? 'text.secondary' : toneColor(trend) }}>
@@ -74,7 +82,7 @@ export function StatusTrendTiles({ pick, method }) {
         </Stack>
         {row.growth_rate != null && (
           <Typography variant="body2" color="text.secondary">
-            {t('assessment.growth', { rate: pct(row.growth_rate), lower: pct(row.growth_lower), upper: pct(row.growth_upper) })}
+            {growthText(t, pick, row)}
           </Typography>
         )}
       </Tile>

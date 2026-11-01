@@ -88,8 +88,7 @@
     "provisional": "Provisional",
     "ungraded": "Not graded",
     "ambiguous": "Several series match this panel",
-    "unavailable": "Status unavailable",
-    "growth": "{{rate}}/wk ({{lower}} to {{upper}})"
+    "unavailable": "Status unavailable"
   },
   "level": {
     "very_low": "Very low",
@@ -159,6 +158,8 @@
           "waves": "aedseo wave detection"
         }
       },
+      "growth": "Average weekly change over the last 5 weeks: likely between {{lower}} and {{upper}}",
+      "growth_past": "Average weekly change over the 5 weeks to {{week}}: likely between {{lower}} and {{upper}}",
       "phase_rule": {
         "season": "In season while both its streams, community spread and health-system load, are active. A stream turns active when it rises above its disease threshold, and stays active until it falls back below it.",
         "waves": "In a wave while both its streams, community spread and health-system load, are active. A stream turns active when it rises above its disease threshold, and stays active until it falls back below it."
