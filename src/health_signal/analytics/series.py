@@ -1,3 +1,4 @@
+import math
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -117,10 +118,11 @@ def _series(feed: str, location: str, rows: list[FeedRow], source: FileDataSourc
         weekly = {r.period: r.value
                   for r in source.query(location=location, indicator=denominator.denominator, **dims)
                   if all(r.dimensions.get(k, "") == dims.get(k, "") for k in {*r.dimensions, *dims})}
-        periods = [p for p in periods if weekly.get(p, 0) > 0]   # a rate without its denominator isn't modelled
-        if not periods:
+        if not any(weekly.get(p, 0) > 0 for p in periods):
             warnings.append(f"{ref} at {location}: no {denominator.denominator} to model its rate against")
             return None
-        kind, exposure, per, scaled = "incidence", [weekly[p] for p in periods], denominator.per, False
+        # A week without its denominator can't be modelled but was reported: kept, with no exposure.
+        exposure = [weekly[p] if weekly.get(p, 0) > 0 else math.nan for p in periods]
+        kind, per, scaled = "incidence", denominator.per, False
     return Series(feed, set(), location, first.indicator, dims, first.unit, periods, [values[p] for p in periods],
                   kind, exposure, per, scaled, [p in censored for p in periods])

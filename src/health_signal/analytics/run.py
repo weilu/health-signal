@@ -16,7 +16,7 @@ from .backend import Backend
 from .engine import SeriesResult, assess_series
 from .phase import pathogen_phases, stream_rows
 from .series import Series, assessed_series
-from .store import FeedStore, write_validated
+from .store import FeedStore, lock_assessments, write_validated
 
 log = logging.getLogger("health_signal.analytics")
 
@@ -50,6 +50,11 @@ def assess(config: Config, *, full: bool = False, jobs: int = 1,
         # aedseo's season ends the week before it starts, and it has no week 0: every fit would fail.
         raise RuntimeError("aedseo can't model a season starting in week 1; set surveillance.year_start_week "
                            "to 2-52 (e.g. 21 for W21-W20 respiratory seasons)")
+    with lock_assessments([f.assessments for f in config.data.feeds if f.assessments]):
+        return _assess(config, full, jobs, backend)
+
+
+def _assess(config: Config, full: bool, jobs: int, backend: Callable[[], Backend] | None) -> Summary:
     factory = backend or RAedseo
     main_backend = factory()
     profiles = config.feed_profiles()
@@ -79,6 +84,7 @@ def assess(config: Config, *, full: bool = False, jobs: int = 1,
     # Phasing is recorded per series: one switching between waves and seasons needs --full.
     feed_settings = {feed: settings + sorted((method, "wave_series", _label(s))
                                              for s in series if s.feed == feed and in_waves(s))
+                     + stores[feed].kept_wave_series({_label(s) for s in series if s.feed == feed})
                      for feed in stores}
     for feed, store in stores.items():
         store.check_settings(feed_settings[feed])   # before any fitting, so a mismatch costs nothing

@@ -4,7 +4,7 @@ import pytest
 
 from health_signal.analytics import assess
 from health_signal.analytics.backend import BackendError
-from health_signal.analytics.store import SettingsChanged
+from health_signal.analytics.store import SettingsChanged, lock_assessments
 from health_signal.assessments import AssessmentSource, PhaseSource, PhaseStreamSource
 from health_signal.config import Config
 from health_signal.profile import ERVISS
@@ -321,3 +321,20 @@ def test_a_changed_wave_end_needs_a_full_run(tmp_path):
     cfg = _config(tmp_path, streams=False, analytics={"aedseo": {"wave_end": {"steps_with_decrease": 3}}})
     with pytest.raises(SettingsChanged, match="steps_with_decrease"):
         assess(cfg, backend=FakeBackend)
+
+
+def test_a_second_run_on_the_same_tables_stops_rather_than_share_their_checkpoints(tmp_path):
+    cfg = _config(tmp_path, streams=False)
+    with lock_assessments([tmp_path / "a"]):   # as a run in progress holds them
+        with pytest.raises(RuntimeError, match="another assess"):
+            assess(cfg, backend=FakeBackend)
+    assess(cfg, backend=FakeBackend)   # free again once that run ends
+
+
+def test_a_series_dropped_from_the_config_keeps_its_phasing_record_with_its_rows(tmp_path):
+    # Its rows stay in the tables while it's away, so its waves-or-seasons record must stay with them: restored in
+    # the same mode it resumes; restored in the other it needs --full, as for any series.
+    waves = {"wave_pathogens": ["Influenza"]}
+    assess(_config(tmp_path, streams=False, analytics=waves), backend=FakeBackend)
+    assess(_config(tmp_path, streams=False, analytics=waves, only_ili=True), backend=FakeBackend)
+    assert assess(_config(tmp_path, streams=False, analytics=waves), backend=FakeBackend).weeks == 0

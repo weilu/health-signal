@@ -143,6 +143,9 @@ def test_panels_need_a_data_block():
     {"feeds": [{"id": "c", "profile": "erviss", "dir": "a"}, {"id": "c", "profile": "erviss", "dir": "b"}]},  # duplicate id
     {"feeds": [{"id": "", "profile": "erviss", "dir": "a"}]},                                                 # the client drops empty params
     {"dir": "a"},                                                                                             # the old single-feed form
+    # one assessments dir for two feeds: each feed's tables would overwrite the other's
+    {"feeds": [{"id": "c", "profile": "erviss", "dir": "a", "assessments": "out"},
+               {"id": "d", "profile": "erviss", "dir": "b", "assessments": "./out/"}]},
 ])
 def test_data_config_errors_fail_at_load(bad):
     with pytest.raises(ValidationError):

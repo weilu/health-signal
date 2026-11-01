@@ -79,4 +79,27 @@ def test_an_invalid_table_is_never_written(tmp_path):
     before = (tmp_path / "assessment.csv").read_bytes()
     with pytest.raises(ValueError):
         _write(tmp_path, [{**_row(P[1]), "phase": "in_bloom"}], [])   # the app's loader rejects it
-    assert (tmp_path / "assessment.csv").read_bytes() == before and not (tmp_path / ".assess-tmp").exists()
+    assert (tmp_path / "assessment.csv").read_bytes() == before and not list(tmp_path.glob(".assess-tmp*"))
+
+
+def test_a_publish_that_fails_midway_puts_back_what_it_had_replaced(tmp_path):
+    # Every draft validated, then the second destination can't be replaced (it's a directory): the first must
+    # not stay published on its own.
+    first, second = tmp_path / "first.csv", tmp_path / "second.csv"
+    first.write_text("old\n")
+    second.mkdir()
+    with pytest.raises(OSError):
+        write_validated({first: (["new"], []), second: (["new"], [])}, lambda drafts: None)
+    assert first.read_text() == "old\n"
+
+
+def test_overlapping_publishes_each_publish_what_they_validated(tmp_path):
+    # A second run publishing the same tables while the first validates must neither break the first nor swap its
+    # validated draft for the second's.
+    target = tmp_path / "t.csv"
+
+    def meanwhile(drafts):
+        write_validated({target: (["b"], [])}, lambda inner: None)
+
+    write_validated({target: (["a"], [])}, meanwhile)
+    assert target.read_text() == "a\n"

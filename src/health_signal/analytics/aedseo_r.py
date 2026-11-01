@@ -64,7 +64,7 @@ class RAedseo:
             incidence = [observed[d] * data.scale if d in observed else na for d in weeks]
             # aedseo takes a whole-number population; a derived denominator (e.g. consultations from cases and
             # rate) isn't one, and rounding it moves the rate by well under its reporting precision.
-            population = [round(exposure[d]) if d in exposure else na for d in weeks]
+            population = [round(exposure[d]) if d in exposure and not math.isnan(exposure[d]) else na for d in weeks]
             tsd = aedseo.to_time_series(incidence=ro.FloatVector(incidence), population=ro.FloatVector(population),
                                         incidence_denominator=data.per, time=time, time_interval="weeks")
         tdis = self._threshold(tsd, season)

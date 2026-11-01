@@ -147,7 +147,9 @@ settings it used in `assessed_with.csv`: when `surveillance.year_start_week`, `a
 version change, it stops and asks for `--full`. Run `--full` too after a feed revises past weeks. It
 checkpoints each series as it finishes (in `.assess-checkpoint/` beside the tables), so an interrupted run
 resumes where it stopped when run again without `--full`; the served tables change only when a run completes,
-all of them together. It runs at low priority, so `--jobs` up to the core count leaves the machine usable. The
+all of them together. It runs at low priority, so `--jobs` up to the core count leaves the machine usable.
+Phase tables may come from another producer, so `assess` writes them only while `analytics.phase_streams`
+lists streams: to stop showing its phases, remove `data.phases` and `data.phase_streams` too. The
 policy settings live under `analytics:` (see the example config); countries may also write the tables
 themselves in the same format, with or without aedseo.
 

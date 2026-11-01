@@ -137,3 +137,12 @@ def test_a_week_is_scaled_from_its_own_history_not_later_values():
     backend = RecordingBackend()
     _assess(s, backend)
     assert [i.scale for i in backend.inputs] == [1.0, 1.0, 1.0, 1000.0]
+
+
+def test_a_week_without_exposure_is_published_ungraded_and_left_out_of_fits():
+    s = _series([5.0, 6.0, 12.0, 30.0])
+    s.exposure = [100.0, math.nan, 100.0, 100.0]
+    backend = RecordingBackend()
+    res = _assess(s, backend)
+    assert [r["period"] for r in res.rows] == s.periods and res.rows[1]["level"] is None
+    assert len(backend.inputs) == 3 and all(math.isnan(i.values[1]) for i in backend.inputs[1:])
