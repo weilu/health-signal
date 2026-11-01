@@ -127,6 +127,12 @@ describe('streamScale', () => {
   const target = { pages: [{ panels: [{ id: 'summary', type: 'summary' }, ww] }] }
   it("takes the stream's panel's scale", () =>
     expect(streamScale(target, { feed: 'wastewater', series: { indicator: 'cov', aggregation: 'floMean' } })).toBe('log'))
+  it('skips a split chart that also covers the stream: only a single-series panel can be one', () => {
+    const split = { id: 'by_fraction', query: { feed: 'wastewater', indicator: 'cov', dimensions: {} }, series_by: 'fraction' }
+    const liquid = { id: 'liq', y_scale: 'log', query: { feed: 'wastewater', indicator: 'cov', dimensions: { fraction: 'liq' } } }
+    expect(streamScale({ pages: [{ panels: [split, liquid] }] }, { feed: 'wastewater', series: { indicator: 'cov', fraction: 'liq' } }))
+      .toBe('log')
+  })
   it('is linear for a stream without a panel on the tab', () =>
     expect(streamScale(target, { feed: 'clinical', series: { indicator: 'deaths' } })).toBe('linear'))
 })

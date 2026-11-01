@@ -11,6 +11,7 @@ from ..assessments import PHASE_COLUMNS, STREAM_COLUMNS, PhaseSource, PhaseStrea
 from ..config import Config
 from ..datasource import FileDataSource
 from ..methods import AEDSEO
+from ..profile import Profile
 from .aedseo_r import RAedseo
 from .backend import Backend
 from .engine import SeriesResult, assess_series
@@ -54,6 +55,15 @@ def assess(config: Config, *, full: bool = False, jobs: int = 1,
         return _assess(config, full, jobs, backend)
 
 
+def _modelling_rules(method: str, profile: Profile) -> list[tuple[str, str, str]]:
+    # The profile, extension included, decides how each series is fitted, so a change to it needs --full.
+    rules = [("count_unit", u) for u in profile.count_units]
+    rules += [("censored_quality", q) for q in profile.censored_qualities]
+    rules += [("denominator", f"{d.rate} ({d.unit or 'any unit'}) / {d.denominator} per {d.per:g}")
+              for d in profile.denominators]
+    return sorted((method, setting, value) for setting, value in rules)
+
+
 def _assess(config: Config, full: bool, jobs: int, backend: Callable[[], Backend] | None) -> Summary:
     factory = backend or RAedseo
     main_backend = factory()
@@ -82,7 +92,8 @@ def _assess(config: Config, full: bool, jobs: int, backend: Callable[[], Backend
 
     stores = {f.id: FeedStore(f.assessments, profiles[f.id], full=full) for f in config.data.feeds if f.assessments}
     # Phasing is recorded per series: one switching between waves and seasons needs --full.
-    feed_settings = {feed: settings + sorted((method, "wave_series", _label(s))
+    feed_settings = {feed: settings + _modelling_rules(method, profiles[feed])
+                     + sorted((method, "wave_series", _label(s))
                                              for s in series if s.feed == feed and in_waves(s))
                      + stores[feed].kept_wave_series({_label(s) for s in series if s.feed == feed})
                      for feed in stores}

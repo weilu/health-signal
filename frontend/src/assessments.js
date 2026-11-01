@@ -114,10 +114,11 @@ export function sameSeries(feed, params, stream) {
   return feed === stream.feed && Object.entries(params).every(([k, v]) => stream.series[k] === v)
 }
 
-// The axis a phase stream is charted on: its own panel's on the tab, so it reads the same on the overview.
+// The axis a phase stream is charted on: its own panel's on the tab, so it reads the same on the overview. A
+// split chart may cover the stream too, but a stream is always a single-series panel.
 export function streamScale(target, stream) {
   const panel = target.pages.flatMap((p) => p.panels)
-    .find((p) => p.query && sameSeries(p.query.feed, { indicator: p.query.indicator, ...p.query.dimensions }, stream))
+    .find((p) => p.query && !p.series_by && sameSeries(p.query.feed, { indicator: p.query.indicator, ...p.query.dimensions }, stream))
   return panel?.y_scale ?? 'linear'
 }
 
