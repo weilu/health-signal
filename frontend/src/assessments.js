@@ -1,3 +1,5 @@
+import { addWeeks } from './weeks.js'
+
 // The tile describes the range's last week (spec §9): the latest assessment within the range,
 // never one from before it. null = the series is never assessed, so the panel shows no tiles.
 export function pickInRange(rows, range, latest) {
@@ -77,29 +79,38 @@ export function bandsFor(rows, levels) {
   })
 }
 
-// "Since W48": the start of the unbroken active run that reaches the as-of week.
+// "Since W48": the start of the unbroken active run that reaches the as-of week. A week with no phase (a reporting
+// gap) breaks it, as it breaks the charts' shading.
 export function phaseSince(rows, asOf, activePhases) {
   const sorted = rows.filter((r) => r.period <= asOf).sort((x, y) => (x.period < y.period ? -1 : 1))
   if (!sorted.length || !activePhases.includes(sorted.at(-1).phase)) return null
   let i = sorted.length - 1
-  while (i > 0 && activePhases.includes(sorted[i - 1].phase)) i--
+  while (i > 0 && activePhases.includes(sorted[i - 1].phase) && follows(sorted[i - 1], sorted[i])) i--
   return sorted[i].period
 }
 
+const follows = (earlier, later) => addWeeks(earlier.period, 1) === later.period
+
 // The runs of active weeks overlapping the range (the stream charts' shaded bands, as a list): each run keeps
-// its true start and end, flagged where the range clips it, and is ongoing when it reaches the latest row.
-// Rows are consecutive weeks, as phaseSince reads them.
+// its true start and end, flagged where the range clips it, and is ongoing when it reaches the latest row. A week
+// with no phase (a reporting gap) ends a run, as the charts leave it unshaded.
 export function phaseRuns(rows, range, activePhases) {
   const sorted = [...rows].sort((x, y) => (x.period < y.period ? -1 : 1))
   const runs = []
   let run = null
+  let previous = null
   for (const r of sorted) {
+    if (run && !follows(previous, r)) {
+      runs.push(run)
+      run = null
+    }
     if (activePhases.includes(r.phase)) {
       run = run ? { ...run, to: r.period, weeks: run.weeks + 1 } : { from: r.period, to: r.period, weeks: 1 }
     } else if (run) {
       runs.push(run)
       run = null
     }
+    previous = r
   }
   if (run) runs.push({ ...run, ongoing: true })
   return runs
