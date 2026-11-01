@@ -63,10 +63,10 @@ data:
   phase_streams: data/phase_streams.csv
 
 # What `health-signal assess` decides by policy (the statistics' settings stay in the method). Each phase
-# pairs a community stream (lab-confirmed infections) with new hospital admissions, as SSI does. Sentinel
-# positivity is national-only, so Attica's community stream is the private-hospital network's, or wastewater
-# for COVID (the one assay with a validated reliability floor); SARI positivity would put both streams on the
-# hospital side. Influenza and RSV admissions start at 2025-W44, so their phases rest on little history.
+# pairs a community stream with new hospital admissions, as SSI does. COVID's community stream is Attica
+# wastewater (the one assay with a validated reliability floor) or national test positivity; influenza's is
+# sentinel positivity, national-only, so Attica influenza has no phase; RSV's is SARI positivity, at both.
+# Influenza and RSV admissions start at 2025-W44, so their phases rest on little history.
 analytics:
   min_seasons: 3
   wave_pathogens: [SARS-CoV-2]
@@ -82,15 +82,12 @@ analytics:
     - pathogen: Influenza
       location: Greece
       streams: { cases: clinical/sentinel_positivity, admissions: clinical/hospital_admissions }
-    - pathogen: Influenza
-      location: Attica
-      streams: { cases: clinical/private_positivity, admissions: clinical/hospital_admissions }
     - pathogen: RSV
       location: Greece
-      streams: { cases: clinical/sentinel_positivity, admissions: clinical/hospital_admissions }
+      streams: { cases: clinical/sari_positivity, admissions: clinical/hospital_admissions }
     - pathogen: RSV
       location: Attica
-      streams: { cases: clinical/private_positivity, admissions: clinical/hospital_admissions }
+      streams: { cases: clinical/sari_positivity, admissions: clinical/hospital_admissions }
 
 # Wastewater pages show the flow- and population-normalised load (floMean, gene copies/day per 100k)
 # per PHES-ODM measure (generic codes until assay targets are pinned), on a log axis: loads span orders of
