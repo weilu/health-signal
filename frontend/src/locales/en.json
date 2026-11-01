@@ -131,8 +131,8 @@
     }
   },
   "role": {
-    "cases": "Community stream",
-    "admissions": "Admissions stream"
+    "cases": "Community spread",
+    "admissions": "Health-system load"
   },
   "feeds": {
     "clinical": "Clinical",
@@ -159,8 +159,8 @@
         }
       },
       "phase_rule": {
-        "season": "In season while both its community and admissions streams are active. A stream turns active when it rises above its disease threshold, and stays active until it falls back below it.",
-        "waves": "In a wave while both its community and admissions streams are active. A stream turns active when it rises above its disease threshold, and stays active until it falls back below it."
+        "season": "In season while both its streams, community spread and health-system load, are active. A stream turns active when it rises above its disease threshold, and stays active until it falls back below it.",
+        "waves": "In a wave while both its streams, community spread and health-system load, are active. A stream turns active when it rises above its disease threshold, and stays active until it falls back below it."
       }
     }
   },

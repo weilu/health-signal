@@ -62,10 +62,11 @@ data:
   phases: data/phase.csv
   phase_streams: data/phase_streams.csv
 
-# What `health-signal assess` decides by policy (the statistics' settings stay in the method). The phase
-# pairs are a cases stream and an admissions stream, each in season. COVID's
-# cases stream is Attica wastewater; Attica influenza has no local cases stream, and RSV no admissions
-# panel here, so neither gets a phase.
+# What `health-signal assess` decides by policy (the statistics' settings stay in the method). Each phase
+# pairs a community stream (lab-confirmed infections) with new hospital admissions, as SSI does. Sentinel
+# positivity is national-only, so Attica's community stream is the private-hospital network's, or wastewater
+# for COVID (the one assay with a validated reliability floor); SARI positivity would put both streams on the
+# hospital side. Influenza and RSV admissions start at 2025-W44, so their phases rest on little history.
 analytics:
   min_seasons: 3
   wave_pathogens: [SARS-CoV-2]
@@ -73,11 +74,23 @@ analytics:
     wave_end: { steps_with_decrease: 3, burden_level_decrease: medium }
   phase_streams:
     - pathogen: SARS-CoV-2
+      location: Greece
+      streams: { cases: clinical/test_positivity, admissions: clinical/hospital_admissions }
+    - pathogen: SARS-CoV-2
       location: Attica
       streams: { cases: wastewater/ww_load, admissions: clinical/hospital_admissions }
     - pathogen: Influenza
       location: Greece
       streams: { cases: clinical/sentinel_positivity, admissions: clinical/hospital_admissions }
+    - pathogen: Influenza
+      location: Attica
+      streams: { cases: clinical/private_positivity, admissions: clinical/hospital_admissions }
+    - pathogen: RSV
+      location: Greece
+      streams: { cases: clinical/sentinel_positivity, admissions: clinical/hospital_admissions }
+    - pathogen: RSV
+      location: Attica
+      streams: { cases: clinical/private_positivity, admissions: clinical/hospital_admissions }
 
 # Wastewater pages show the flow- and population-normalised load (floMean, gene copies/day per 100k)
 # per PHES-ODM measure (generic codes until assay targets are pinned), on a log axis: loads span orders of
@@ -167,6 +180,8 @@ targets:
           - { id: summary, type: summary }
       - id: clinical
         panels:
+          - id: hospital_admissions
+            query: { feed: clinical, indicator: hospitaladmissions, dimensions: { survtype: non-sentinel, pathogen: RSV, age: total } }
           - id: sari_positivity
             query: { feed: clinical, indicator: positivity, dimensions: { survtype: SARI virological, pathogen: RSV, pathogentype: RSV, age: total } }
           - id: sentinel_positivity
