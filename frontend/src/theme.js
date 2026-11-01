@@ -5,6 +5,10 @@ import { deepmerge } from '@mui/utils'
 const BASE = {
   palette: {
     primary: { main: '#44617a' },
+    // Status tones muted towards the warm surface, so a dot reads as a reading rather than an alarm.
+    success: { main: '#4F7C5E' },
+    warning: { main: '#B5860B' },
+    error: { main: '#A93527' },
     // Fixed-order categorical palette (dataviz reference; CVD-checked on #fff, #FBFAF6, #121212). Three light
     // slots are under 3:1 against the surface, which is why every chart has a table view.
     chart: {

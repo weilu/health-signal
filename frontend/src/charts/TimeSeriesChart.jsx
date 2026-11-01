@@ -4,7 +4,7 @@ import { alpha, useTheme } from '@mui/material/styles'
 import { useTranslation } from 'react-i18next'
 import { CategoryScale, Chart as ChartJS, Legend, LinearScale, LineElement, LogarithmicScale, PointElement, Tooltip } from 'chart.js'
 import { Line } from 'react-chartjs-2'
-import { bandAlpha, levelTone } from '../assessments.js'
+import { bandAlpha, levelTone, tonePaint } from '../assessments.js'
 import { axisNumber, weekStamp } from '../labels.js'
 import { isolated } from '../series.js'
 import { useAlignedAxis } from './AlignedCharts.jsx'
@@ -55,10 +55,7 @@ export function TimeSeriesChart({ periods, series, unit, bands = [], levels = []
     })),
   }
   // An ungraded level has no tone of its own; grey keeps it from reading as "all clear".
-  const bandColour = (level) => {
-    const tone = levelTone(levels, level)
-    return alpha(tone === 'neutral' ? theme.palette.grey[500] : theme.palette[tone].main, bandAlpha(levels, level))
-  }
+  const bandColour = (level) => alpha(tonePaint(theme, levelTone(levels, level)), bandAlpha(levels, level))
   const options = {
     responsive: true, maintainAspectRatio: false, animation: false,
     interaction: { mode: 'index', intersect: false },

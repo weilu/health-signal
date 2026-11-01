@@ -2,7 +2,7 @@ import { Box, Chip, Paper, Stack, Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { weekStamp } from '../labels.js'
 import { levelTone, toneColor, trendTone } from '../assessments.js'
-import { TrendMark } from './TrendMark.jsx'
+import { ToneDot, TrendMark } from './TrendMark.jsx'
 
 // growth_* are proportional change per period (spec §6.3), so -0.2 reads -20%/wk.
 const pct = (v) => `${v > 0 ? '+' : ''}${Math.round(v * 100)}%`
@@ -51,13 +51,14 @@ export function StatusTrendTiles({ pick, method }) {
   const { t } = useTranslation()
   if (!pick.row) return <NoneInRange />
   const { row, current } = pick
-  const tone = toneColor(levelTone(method.levels, row.level))
+  const tone = levelTone(method.levels, row.level)
+  const trend = trendTone(row.trend)
   return (
     <Stack spacing={2.25}>
       <Tile title={t('assessment.status')} current={current} footer={asOfFooter(t, pick, row.method, 'status')}>
         <Stack direction="row" spacing={1.25} sx={{ alignItems: 'center' }}>
-          <Box sx={{ width: 12, height: 12, borderRadius: '50%', flexShrink: 0, bgcolor: tone }} />
-          <Typography variant="h5" component="p" sx={{ color: tone === 'grey.500' ? 'text.secondary' : tone }}>
+          <ToneDot tone={tone} size={16} />
+          <Typography variant="h5" component="p" sx={{ color: tone === 'neutral' ? 'text.secondary' : toneColor(tone) }}>
             {row.level ? t(`level.${row.level}`) : t('assessment.ungraded')}
           </Typography>
           {row.provisional && <Chip size="small" variant="outlined" label={t('assessment.provisional')} />}
@@ -65,9 +66,8 @@ export function StatusTrendTiles({ pick, method }) {
       </Tile>
       <Tile title={t('assessment.trend')} current={current} footer={asOfFooter(t, pick, row.method, 'trend')}>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-          {row.trend && <TrendMark trend={row.trend} size={24} />}
-          <Typography variant="h5" component="p"
-            sx={{ color: trendTone(row.trend) === 'neutral' ? 'text.secondary' : toneColor(trendTone(row.trend)) }}>
+          {row.trend && <TrendMark trend={row.trend} size={28} />}
+          <Typography variant="h5" component="p" sx={{ color: trend === 'neutral' ? 'text.secondary' : toneColor(trend) }}>
             {row.trend ? t(`trend.${row.trend}`) : '—'}
           </Typography>
         </Stack>

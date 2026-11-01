@@ -132,6 +132,11 @@ export function toneColor(tone) {
   return tone === 'neutral' ? 'grey.500' : `${tone}.main`
 }
 
+// The tone as a colour value, for what a palette path can't express (tints, shadows, the chart's canvas).
+export function tonePaint(theme, tone) {
+  return tone === 'neutral' ? theme.palette.grey[500] : theme.palette[tone].main
+}
+
 // The summary's lookups as one state, by ResourceBoundary's rules: a 401 redirects, any lookup still
 // pending shows loading, and a failure is an error rather than "nothing assessed".
 export function combinedState(results) {

@@ -3,8 +3,8 @@ import { Navigate, Link as RouterLink, useLocation } from 'react-router-dom'
 import { Alert, Box, Chip, CircularProgress, Link, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { fetchAssessments, fetchPhaseStreams } from '../api.js'
-import { combinedState, levelTone, pickInRange, sameSeries, toneColor } from '../assessments.js'
-import { TrendMark } from './TrendMark.jsx'
+import { combinedState, levelTone, pickInRange, sameSeries } from '../assessments.js'
+import { ToneDot, TrendMark } from './TrendMark.jsx'
 import { panelParams, withFilters } from '../filters.js'
 import { groupPanels } from '../groups.js'
 import { panelLabel, weekStamp } from '../labels.js'
@@ -80,9 +80,7 @@ export function SummaryPanel({ panel, target, location, range, latest }) {
                 const trend = row?.trend ? t(`trend.${row.trend}`) : '—'
                 const asOf = pick?.ambiguous ? '—' : row ? weekStamp(t, pick.asOf) : t('assessment.noneInRange')
                 const mark = row?.trend && !pick?.ambiguous && <TrendMark trend={row.trend} />
-                const dot = row && !pick?.ambiguous && (
-                  <Box sx={{ width: 10, height: 10, borderRadius: '50%', flexShrink: 0, bgcolor: toneColor(levelTone(method.levels, row.level)) }} />
-                )
+                const dot = row && !pick?.ambiguous && <ToneDot tone={levelTone(method.levels, row.level)} />
                 return (
                   // A real row with a real link, stretched over the row so the whole row is clickable. A stream is
                   // marked by its role chip alone: the amber there is the table's one accent.
