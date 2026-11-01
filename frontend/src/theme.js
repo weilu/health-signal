@@ -26,6 +26,15 @@ const BASE = {
     button: { fontWeight: 500, textTransform: 'none' },
   },
   shape: { borderRadius: 8 },
+  components: {
+    // A reading width with room either side, so a wide screen doesn't stretch charts edge to edge.
+    MuiContainer: {
+      styleOverrides: {
+        maxWidthXl: { '@media (min-width: 1536px)': { maxWidth: 1400 } },
+        root: { '@media (min-width: 900px)': { paddingLeft: 56, paddingRight: 56 } },
+      },
+    },
+  },
 }
 
 // Merge before createTheme so overridden colours re-derive their shades. Malformed config throws,

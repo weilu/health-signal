@@ -7,11 +7,12 @@ import { ToneDot, TrendMark } from './TrendMark.jsx'
 // growth_* are proportional change per period (spec §6.3), so -0.2 reads -20%/wk.
 const pct = (v) => `${v > 0 ? '+' : ''}${Math.round(v * 100)}%`
 
-// The chart card and its tiles as sibling cards; one column on phones.
+// The chart card and its tiles as sibling cards: the tiles hold a word and a footnote, so a fixed column and the
+// chart the rest; below a laptop's width they stack, rather than squeeze the chart.
 export function TileGrid({ card, tiles }) {
   if (!tiles) return card
   return (
-    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1.85fr 1fr' }, gap: 3, alignItems: 'start' }}>
+    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1fr) 300px' }, gap: 3, alignItems: 'start' }}>
       {card}
       {tiles}
     </Box>
