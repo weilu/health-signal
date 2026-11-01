@@ -146,3 +146,12 @@ def test_a_week_without_exposure_is_published_ungraded_and_left_out_of_fits():
     res = _assess(s, backend)
     assert [r["period"] for r in res.rows] == s.periods and res.rows[1]["level"] is None
     assert len(backend.inputs) == 3 and all(math.isnan(i.values[1]) for i in backend.inputs[1:])
+
+
+def test_a_week_without_exposure_is_never_graded_nor_counts_as_history():
+    # Without its denominator a reported 0 is no "very low"; and such weeks aren't history a grade can stand on.
+    s = _series([0.0] * 60)
+    s.exposure = [math.nan] * 60
+    res = _assess(s, RecordingBackend(), weeks_to_do=s.periods[-1:], )
+    assert res.rows[0]["level"] is None and res.graded == 0
+    assert res.rows[0]["provisional"] is True

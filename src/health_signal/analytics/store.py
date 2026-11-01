@@ -59,24 +59,40 @@ def write_validated(files: dict[Path, tuple[list[str], list[list]]], validate: C
         validate(drafts)
         try:
             for path, draft in drafts.items():
-                previous = None
-                if path.is_file():
-                    previous = draft.with_name(draft.name + ".previous")
-                    os.replace(path, previous)
-                try:
-                    os.replace(draft, path)
-                finally:
-                    replaced.append((path, previous))   # even if this replace failed: its previous goes back
-        except OSError:
-            for path, previous in reversed(replaced):
-                if previous is not None:
-                    os.replace(previous, path)
-                elif path.is_file():
-                    path.unlink()   # published by this run, with nothing before it
+                # Kept beside the draft without moving the served table, which readers keep finding until the new
+                # one replaces it in one step.
+                previous = _keep(path, draft.with_name(draft.name + ".previous")) if path.is_file() else None
+                os.replace(draft, path)
+                replaced.append((path, previous))
+        except BaseException:
+            if not _restore(replaced):
+                scratch = {}   # a table couldn't be put back: keep its copy rather than delete it
             raise
     finally:
         for directory in scratch.values():
             shutil.rmtree(directory, ignore_errors=True)
+
+
+def _keep(path: Path, copy: Path) -> Path:
+    try:
+        os.link(path, copy)
+    except OSError:   # a filesystem without hard links
+        shutil.copy2(path, copy)
+    return copy
+
+
+def _restore(replaced: list[tuple[Path, Path | None]]) -> bool:
+    """Put back every table this run replaced, carrying on past one that fails; whether all went back."""
+    restored = True
+    for path, previous in reversed(replaced):
+        try:
+            if previous is not None:
+                os.replace(previous, path)
+            else:
+                path.unlink(missing_ok=True)   # published by this run, with nothing before it
+        except OSError:
+            restored = False
+    return restored
 
 
 @contextmanager
