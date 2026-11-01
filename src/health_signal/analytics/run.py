@@ -83,7 +83,9 @@ def _assess(config: Config, full: bool, jobs: int, backend: Callable[[], Backend
     settings = [(method, setting, str(value)) for setting, value in {
         "year_start_week": config.surveillance.year_start_week, "min_seasons": analytics.min_seasons,
         "steps_with_decrease": wave_end.steps_with_decrease, "burden_level_decrease": wave_end.burden_level_decrease,
-        "package_version": main_backend.version}.items()]
+        "package_version": main_backend.version,
+        # How a wave may start (rules.wave_phase): tables phased under an earlier rule can't be extended.
+        "wave_start": "own_alarm"}.items()]
     settings += [(method, "wave_pathogen", p) for p in sorted(analytics.wave_pathogens)]
 
     def in_waves(s: Series) -> bool:

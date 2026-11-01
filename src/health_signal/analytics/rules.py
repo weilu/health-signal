@@ -64,6 +64,7 @@ MAX_DIP = 1      # below-threshold weeks a season survives: a brief lull, not it
 MAX_MISSING = 8  # missing weeks a season survives: a reporting outage, not its end
 
 
+# A wave's too (wave_phase): in_season then reads as in a wave.
 @dataclass(frozen=True)
 class SeasonState:
     in_season: bool = False
@@ -92,5 +93,18 @@ def season_phase(state: SeasonState, period: str, value: float, floor: float,
     return "out_of_season", SeasonState(False, 0, period)
 
 
-def wave_phase(in_wave: bool | None) -> str | None:
-    return None if in_wave is None else "in_wave" if in_wave else "between_waves"
+def wave_phase(state: SeasonState, period: str, in_wave: bool | None,
+               alarm: bool | None) -> tuple[str | None, SeasonState]:
+    # aedseo's wave tracking replays the whole history with this week's disease threshold, so a lower one can
+    # place a wave's start in the past where no week, as of itself, flagged one. As seasons do, a wave starts
+    # only on its own week's onset alarm, then lasts while aedseo keeps it, across a reporting gap.
+    if in_wave is None:
+        return None, state
+    gap = weeks_between(state.last_period, period) - 1 if state.last_period else 0
+    continuing = state.in_season and gap <= MAX_MISSING
+    if in_wave and (continuing or alarm):
+        return "in_wave", SeasonState(True, 0, period)
+    if in_wave and alarm is None:
+        # The onset fit is unavailable, so whether a wave started is unknown.
+        return None, state
+    return "between_waves", SeasonState(False, 0, period)

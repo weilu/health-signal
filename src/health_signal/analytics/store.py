@@ -204,6 +204,8 @@ class FeedStore:
         if not phased:
             return SeasonState()
         last = max(phased)
+        if self._rows[key][last]["phase"] == "in_wave":
+            return SeasonState(True, 0, last)
         if self._rows[key][last]["phase"] != "in_season":
             return SeasonState(last_period=last)
         # A season held over one week below its threshold must end at the next, as in a full rebuild.

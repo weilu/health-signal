@@ -63,8 +63,10 @@ def test_a_rerun_without_new_data_changes_nothing(tmp_path):
     assert [f.read_bytes() for f in files] == before
 
 
-def test_incremental_matches_a_full_rebuild(tmp_path):
-    cfg = _config(tmp_path)
+@pytest.mark.parametrize("analytics", [None, {"wave_pathogens": ["Influenza"]}], ids=["seasons", "waves"])
+def test_incremental_matches_a_full_rebuild(tmp_path, analytics):
+    # Cut inside a season or wave (W03 onsets, W05 is still above the floor): the resumed run must carry it on.
+    cfg = _config(tmp_path, analytics=analytics)
     feed = tmp_path / "c" / "feed.csv"
     full_text = feed.read_text()
     lines = full_text.splitlines(keepends=True)
@@ -352,3 +354,14 @@ def test_a_series_dropped_from_the_config_keeps_its_phasing_record_with_its_rows
     assess(_config(tmp_path, streams=False, analytics=waves), backend=FakeBackend)
     assess(_config(tmp_path, streams=False, analytics=waves, only_ili=True), backend=FakeBackend)
     assert assess(_config(tmp_path, streams=False, analytics=waves), backend=FakeBackend).weeks == 0
+
+
+def test_tables_phased_before_waves_started_only_on_their_own_alarm_need_a_full_run(tmp_path):
+    # Their wave weeks may start in the past (a replay with a lower threshold); new weeks phased the new way
+    # would sit beside them.
+    cfg = _config(tmp_path, streams=False, analytics={"wave_pathogens": ["Influenza"]})
+    assess(cfg, backend=FakeBackend)
+    settings = tmp_path / "a" / "assessed_with.csv"
+    settings.write_text("".join(line for line in settings.read_text().splitlines(keepends=True) if "wave_start" not in line))
+    with pytest.raises(SettingsChanged, match="wave_start"):
+        assess(cfg, backend=FakeBackend)
