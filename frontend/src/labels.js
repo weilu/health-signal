@@ -5,13 +5,18 @@ export function weekStamp(t, week) {
 }
 
 // panels.<id> overrides the name built from the query, which the library can label though not the panel id.
-// `context` picks a variant of a panel type's name (the phase card's season or waves).
-export function panelLabel(t, panel, context) {
-  return t(panel.label_key, { defaultValue: defaultPanelName(t, panel, context) })
+export function panelLabel(t, panel) {
+  return t(panel.label_key, { defaultValue: defaultPanelName(t, panel) })
 }
 
-function defaultPanelName(t, panel, context) {
-  if (!panel.name) return t(`panelTypes.${panel.type}`, { context, defaultValue: panel.id })
+// A title-cased name inside a sentence ("measured by hospital admissions"); a capital that starts an acronym
+// (SARI, SARS-CoV-2) stays.
+export function inSentence(text) {
+  return text.length > 1 && text[1] === text[1].toLocaleLowerCase() ? text[0].toLocaleLowerCase() + text.slice(1) : text
+}
+
+function defaultPanelName(t, panel) {
+  if (!panel.name) return t(`panelTypes.${panel.type}`, { defaultValue: panel.id })
   const { indicator, dimensions } = panel.name
   const name = [t(`indicators.${indicator}`, { defaultValue: indicator }),
                 ...Object.entries(dimensions).map(([d, v]) => seriesLabel(t, d, v))].join(' · ')

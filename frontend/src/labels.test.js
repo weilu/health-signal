@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { axisNumber, configLabel, panelLabel, reportingWeek, seriesLabel, weekStamp } from './labels.js'
+import { axisNumber, configLabel, inSentence, panelLabel, reportingWeek, seriesLabel, weekStamp } from './labels.js'
 
 const t = (key, opts) => (key === 'targets.covid' ? 'COVID-19' : opts?.defaultValue ?? '')
 
@@ -66,4 +66,12 @@ describe('panelLabel', () => {
       .toBe('SARI rate by age group'))
   it('names a panel without a query by its kind', () =>
     expect(panelLabel(tr, panel('overview', { type: 'summary' }))).toBe('Summary'))
+})
+
+describe('inSentence', () => {
+  // A panel name is a title; mid-sentence it loses its capital, unless that capital starts an acronym.
+  it('lower-cases a word', () => expect(inSentence('Hospital admissions')).toBe('hospital admissions'))
+  it('keeps an acronym', () => expect(inSentence('SARI test positivity')).toBe('SARI test positivity'))
+  it('keeps a code like SARS-CoV-2', () => expect(inSentence('SARS-CoV-2 in wastewater')).toBe('SARS-CoV-2 in wastewater'))
+  it('lower-cases Greek', () => expect(inSentence('Εισαγωγές σε νοσοκομείο')).toBe('εισαγωγές σε νοσοκομείο'))
 })

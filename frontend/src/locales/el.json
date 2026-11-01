@@ -128,7 +128,8 @@
     "title": {
       "season": "Κατάσταση περιόδου",
       "waves": "Κατάσταση κύματος"
-    }
+    },
+    "streamTitle": "{{role}} · δείκτης: {{indicator}}"
   },
   "role": {
     "cases": "Διασπορά στην κοινότητα",
@@ -241,8 +242,6 @@
   },
   "panelTypes": {
     "summary": "Σύνοψη",
-    "phase": "Εποχή ή κύμα",
-    "phase_season": "Εποχή",
-    "phase_waves": "Κύμα"
+    "phase": "Βασικοί δείκτες"
   }
 }

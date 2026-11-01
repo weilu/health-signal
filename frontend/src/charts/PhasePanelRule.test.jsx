@@ -93,24 +93,19 @@ function renderPhase({ target, phases, streams = [], data = [] }) {
   )
 }
 
-it("titles the card by the pathogen's pattern, even before its phases arrive", async () => {
-  renderPhase({ target: { id: 'SARS-CoV-2', phase_pattern: 'waves', pages: [] }, phases: new Promise(() => {}) })
-  expect(await screen.findByRole('heading', { name: 'Wave', level: 2 })).toBeTruthy()
+it('titles the card Key signals, with or without a season or wave', async () => {
+  renderPhase({ target: { id: 'SARS-CoV-2', pages: [] },
+                phases: Promise.resolve([{ location: 'Greece', pathogen: 'SARS-CoV-2', period: '2026-W10', method: 'aedseo', phase: 'between_waves' }]) })
+  expect(await screen.findByRole('heading', { name: 'Key signals', level: 2 })).toBeTruthy()
 })
 
-it("titles a seasonal pathogen's card Season", async () => {
-  renderPhase({ target: { id: 'Influenza', phase_pattern: 'season', pages: [] },
-                phases: Promise.resolve([{ location: 'Greece', pathogen: 'Influenza', period: '2026-W10', method: 'aedseo', phase: 'in_season' }]) })
-  expect(await screen.findByRole('heading', { name: 'Season', level: 2 })).toBeTruthy()
-})
-
-it('names each stream chart as its panel on the tab is named, not by its role', async () => {
+it('names each stream chart by its role and the panel that measures it', async () => {
   const panel = { id: 'hospital_admissions', type: 'timeseries', label_key: 'panels.hospital_admissions', query: { feed: 'clinical', indicator: 'hospitaladmissions', dimensions: {} },
                   name: { indicator: 'hospitaladmissions', dimensions: {}, pathogen: true } }
-  renderPhase({ target: { id: 'Influenza', phase_pattern: 'season', pages: [{ panels: [panel] }] },
+  renderPhase({ target: { id: 'Influenza', pages: [{ panels: [panel] }] },
                 phases: Promise.resolve([{ location: 'Greece', pathogen: 'Influenza', period: '2026-W10', method: 'aedseo', phase: 'in_season' }]),
                 streams: [{ location: 'Greece', pathogen: 'Influenza', method: 'aedseo', role: 'admissions', feed: 'clinical',
                             series: { indicator: 'hospitaladmissions' } }] })
-  expect(await screen.findByRole('heading', { name: 'Hospital admissions', level: 3 })).toBeTruthy()
-  expect(screen.queryByText('Health-system load')).toBeNull()
+  expect(await screen.findByRole('heading', { name: 'Health-system load · measured by hospital admissions', level: 3 }))
+    .toBeTruthy()
 })

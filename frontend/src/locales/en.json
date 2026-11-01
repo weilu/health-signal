@@ -128,7 +128,8 @@
     "title": {
       "season": "Season status",
       "waves": "Wave status"
-    }
+    },
+    "streamTitle": "{{role}} · measured by {{indicator}}"
   },
   "role": {
     "cases": "Community spread",
@@ -241,8 +242,6 @@
   },
   "panelTypes": {
     "summary": "Summary",
-    "phase": "Season or wave",
-    "phase_season": "Season",
-    "phase_waves": "Wave"
+    "phase": "Key signals"
   }
 }

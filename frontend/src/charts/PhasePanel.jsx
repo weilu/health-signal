@@ -4,7 +4,7 @@ import { Alert, Box, Button, Paper, Stack, Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { fetchData, fetchPhases, fetchPhaseStreams } from '../api.js'
 import { activeWeeks, phaseRuns, phaseSince, pickInRange, streamPanel, streamScale } from '../assessments.js'
-import { panelLabel, weekStamp } from '../labels.js'
+import { inSentence, panelLabel, weekStamp } from '../labels.js'
 import { ResourceBoundary } from '../ResourceBoundary.jsx'
 import { toChartModel } from '../series.js'
 import { useMethod } from '../useMethod.js'
@@ -18,20 +18,22 @@ export function phaseQuery(target, location, method) {
 }
 
 // One compact chart per stream on the same weeks: the streams' units differ, so they can't share an axis.
-function StreamChart({ stream, range, shading, named, scale, name }) {
+function StreamChart({ stream, range, shading, named, scale, name: panelName }) {
   const { t } = useTranslation()
   // The stream's own location, as the producer recorded it: without a location filter, the feed may hold others.
   const params = { feed: stream.feed, ...stream.series, location: stream.location, week_from: range?.from, week_to: range?.to }
   const query = useQuery({ queryKey: ['data', params], queryFn: () => fetchData(params) })
-  // Named as on its tab; a stream with no panel there has only its role to go by.
-  const own = name ?? t(`role.${stream.role}`, { defaultValue: stream.role })
+  // What it stands for, then what measures it, named as on its tab (or by its indicator, with no panel there).
+  const name = panelName ?? t(`indicators.${stream.series.indicator}`, { defaultValue: stream.series.indicator })
+  const title = t('phase.streamTitle', { role: t(`role.${stream.role}`, { defaultValue: stream.role }),
+                                         indicator: inSentence(name) })
   // Without a location filter streams of several regions can sit together; the heading says whose this is.
-  const label = named ? `${own} · ${stream.location}` : own
+  const heading = named ? `${title} (${stream.location})` : title
   const [asTable, setAsTable] = useState(false)
   return (
     <Box>
       <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
-        <Typography variant="subtitle2" component="h3">{label}</Typography>
+        <Typography variant="subtitle2" component="h3">{heading}</Typography>
         <Button size="small" onClick={() => setAsTable((v) => !v)}>{t(asTable ? 'chart.showChart' : 'chart.showTable')}</Button>
       </Stack>
       <ResourceBoundary query={query}>
@@ -42,7 +44,7 @@ function StreamChart({ stream, range, shading, named, scale, name }) {
             return <Alert severity={model.status === 'empty' ? 'info' : 'warning'}>{t(`chart.${model.status}`, model)}</Alert>
           }
           const unit = t(`unit.${model.unit}`, { defaultValue: model.unit })
-          const series = [{ ...model.series[0], label }]
+          const series = [{ ...model.series[0], label: name }]
           return asTable
             ? <SeriesTable periods={model.periods} series={series} unit={unit} />
             : <TimeSeriesChart periods={model.periods} series={series} unit={unit} shading={shading} scale={scale}
@@ -71,12 +73,9 @@ export function PhasePanel({ panel, target, location, range, latest }) {
   const span = range ?? (rows.length ? { from: rows.reduce((m, r) => (r.period < m ? r.period : m), rows[0].period),
                                           to: rows.reduce((m, r) => (r.period > m ? r.period : m), rows[0].period) } : null)
   const pick = rows.length && span ? pickInRange(rows, span, latest ?? span.to) : null
-  // The pathogen's own pattern, seasons or year-round waves: read off its phase codes, or before they arrive (or
-  // with none), from the deployment's policy.
-  const waves = rows.length ? rows.some((r) => r.phase === 'in_wave' || r.phase === 'between_waves')
-    : target.phase_pattern === 'waves'
-  const pattern = waves ? 'waves' : 'season'
-  const title = panelLabel(t, panel, pattern)
+  // The rule in the terms of the pathogen's own pattern: seasons or year-round waves, read off its phase codes.
+  const pattern = rows.some((r) => r.phase === 'in_wave' || r.phase === 'between_waves') ? 'waves' : 'season'
+  const title = panelLabel(t, panel)
   const rule = method && t(`methods.${method.name}.phase_rule.${pattern}`, { defaultValue: '' })
   // Without a location filter, several locations' phases can share a week; none of them is "the" phase.
   const tile = pick && (pick.ambiguous ? (
