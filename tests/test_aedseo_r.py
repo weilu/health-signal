@@ -81,6 +81,15 @@ def test_a_wave_declining_across_the_season_boundary_stays_a_wave(backend):
     assert fit.in_wave is True
 
 
+def test_waves_are_tracked_past_a_reporting_outage(backend):
+    # Missing weeks are rows of NA, which aedseo 1.1.0's wave tracking failed on (ssi-dk/aedseo#114).
+    dates, values = _seasons()
+    keep = [i for i in range(len(dates)) if not len(dates) - 8 <= i < len(dates) - 2]
+    fit = backend.fit(FitInput(tuple(dates[i] for i in keep), tuple(values[i] for i in keep), (), 1.0, 1.0,
+                               "count", 21, WaveEnd()))
+    assert fit.in_wave in (True, False)
+
+
 def test_a_series_too_short_to_fit_raises_fit_error(backend):
     dates, values = _seasons(n_seasons=1)
     with pytest.raises(FitError):

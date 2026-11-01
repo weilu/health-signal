@@ -134,8 +134,9 @@ loads at startup (spec §6.3). `health-signal assess` writes them from the feeds
 week by week, each week from the data available up to it. It needs R, which the app itself doesn't:
 
 ```bash
-# once: R (https://cran.r-project.org) with aedseo, and the analytics extra
-Rscript -e 'install.packages("aedseo")'
+# once: R (https://cran.r-project.org) with aedseo, and the analytics extra. Until ssi-dk/aedseo#114 is
+# released, aedseo from this fork commit: CRAN's 1.1.0 can't place a wave after a reporting gap
+Rscript -e 'install.packages("remotes"); remotes::install_github("weilu/aedseo@de5c15e3783f579cd00236ce2578d84e618a139d")'
 pip install "health-signal[analytics]"        # or: uv sync --extra analytics
 
 health-signal assess --config dashboard.yaml --full --jobs 8   # first run: every week of history

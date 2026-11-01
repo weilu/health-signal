@@ -46,8 +46,10 @@ jobs:
         with:
           packages: any::remotes
           cache-version: 1
+      # A fork commit until ssi-dk/aedseo#114 (waves across a reporting gap) is released; pinned by commit, which
+      # assessed_with.csv records, so the tests always meet the build assess runs with.
       - name: Install aedseo (pinned, as assessed_with.csv records it)
-        run: Rscript -e 'remotes::install_version("aedseo", version = "1.1.0", repos = "https://cloud.r-project.org")'
+        run: Rscript -e 'remotes::install_github("weilu/aedseo@de5c15e3783f579cd00236ce2578d84e618a139d", upgrade = "never")'
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
