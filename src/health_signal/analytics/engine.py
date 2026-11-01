@@ -34,8 +34,10 @@ def assess_series(series: Series, weeks: list[str], backend: Backend, *, method:
                   min_seasons: int, waves: WaveEnd | None, state: SeasonState) -> SeriesResult:
     """Grade `weeks` of one series, each from its data up to and including that week (spec §6.3.1)."""
     index = {p: i for i, p in enumerate(series.periods)}
-    fitted_values = [math.nan if c else v
-                     for v, c in zip(series.values, series.censored or [False] * len(series.values))]
+    # A censored value (a stand-in) or one without exposure is a gap to the fit.
+    unmodelled = [math.isnan(e) for e in series.exposure] or [False] * len(series.values)
+    fitted_values = [math.nan if c or u else v
+                     for v, c, u in zip(series.values, series.censored or [False] * len(series.values), unmodelled)]
     rows, bounds, graded, fitted = [], [], 0, 0
     for week in weeks:
         n = index[week] + 1
@@ -45,7 +47,7 @@ def assess_series(series: Series, weeks: list[str], backend: Backend, *, method:
                         tuple(series.exposure[:n]), series.per, scale, series.kind, start_week, waves)
         value = series.values[n - 1]
         try:
-            fit = backend.fit(data)
+            fit = _NO_FIT if unmodelled[n - 1] else backend.fit(data)
         except FitError:
             fit = _NO_FIT
         thresholds = _usable(fit.thresholds)

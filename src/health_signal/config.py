@@ -235,6 +235,10 @@ class DataConfig(BaseModel):
         ids = [f.id for f in self.feeds]
         if len(ids) != len(set(ids)):
             raise ValueError("feed ids must be unique")
+        # Each feed's tables are written there whole: a shared dir would keep only the last feed's.
+        dirs = [Path(f.assessments).resolve() for f in self.feeds if f.assessments]
+        if len(dirs) != len(set(dirs)):
+            raise ValueError("each feed needs its own assessments dir")
         return self
 
 

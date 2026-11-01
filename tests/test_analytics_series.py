@@ -1,3 +1,5 @@
+import math
+
 from health_signal.analytics.series import assessed_series
 from health_signal.config import Config, SiteConfig
 from health_signal.datasource import FileDataSource
@@ -96,7 +98,9 @@ def test_counts_use_the_cases_path(tmp_path):
     assert (s.kind, s.exposure) == ("count", [])
 
 
-def test_positivity_uses_tests_as_exposure_and_skips_weeks_without_them(tmp_path):
+def test_positivity_uses_tests_as_exposure_and_keeps_weeks_without_them(tmp_path):
+    # A week whose tests are missing or zero has no exposure to model, but it was reported: kept, so its tile
+    # describes it (as not graded) rather than an older week.
     p = weeks(2021, 4)
     body = (erviss_rows("Greece", "positivity", "percent", [10, 20, 30, 40], survtype="non-sentinel",
                         pathogen="Influenza", periods=p)
@@ -105,7 +109,8 @@ def test_positivity_uses_tests_as_exposure_and_skips_weeks_without_them(tmp_path
     cfg, sources = _setup(tmp_path, body, [_panel("pos", "positivity", survtype="non-sentinel", pathogen="Influenza",
                                                   age="total")])
     [s], _, _ = assessed_series(cfg, sources)
-    assert (s.periods, s.exposure, s.per) == ([p[0], p[3]], [100.0, 400.0], 100.0)   # missing and zero tests dropped
+    assert (s.periods, s.per) == (p, 100.0)
+    assert [None if math.isnan(e) else e for e in s.exposure] == [100.0, None, None, 400.0]
 
 
 def test_a_series_shown_on_two_panels_is_assessed_once(tmp_path):

@@ -1,8 +1,15 @@
 import csv
 import os
 import shutil
+import tempfile
 from collections.abc import Callable
+from contextlib import ExitStack, contextmanager
 from pathlib import Path
+
+try:
+    import fcntl
+except ImportError:   # Windows
+    fcntl = None
 
 from ..assessments import ASSESSMENT_COLUMNS, GROWTH, THRESHOLD_COLUMNS, AssessmentSource
 from ..methods import METHODS
@@ -35,21 +42,57 @@ def _text(value) -> str:
 
 def write_validated(files: dict[Path, tuple[list[str], list[list]]], validate: Callable[[dict[Path, Path]], object]):
     """Write each table beside its destination, validate the drafts, then replace the served files, so a
-    table the app would reject never replaces one it is serving."""
-    drafts = {path: path.parent / _TMP / path.name for path in files}
+    table the app would reject never replaces one it is serving; all of them or, if a replace fails, none."""
+    # This run's own draft directories, so an overlapping run can't overwrite a draft after it was validated.
+    parents = {path.parent for path in files}
+    for parent in parents:
+        parent.mkdir(parents=True, exist_ok=True)
+    scratch = {parent: Path(tempfile.mkdtemp(prefix=_TMP, dir=parent)) for parent in parents}
+    drafts = {path: scratch[path.parent] / path.name for path in files}
+    replaced: list[tuple[Path, Path | None]] = []   # (served path, its previous version kept in scratch)
     try:
         for path, (header, rows) in files.items():
-            drafts[path].parent.mkdir(parents=True, exist_ok=True)
             with drafts[path].open("w", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f, lineterminator="\n")
                 writer.writerow(header)
                 writer.writerows([_text(v) for v in row] for row in rows)
         validate(drafts)
-        for path, draft in drafts.items():
-            os.replace(draft, path)
+        try:
+            for path, draft in drafts.items():
+                previous = None
+                if path.is_file():
+                    previous = draft.with_name(draft.name + ".previous")
+                    os.replace(path, previous)
+                try:
+                    os.replace(draft, path)
+                finally:
+                    replaced.append((path, previous))   # even if this replace failed: its previous goes back
+        except OSError:
+            for path, previous in reversed(replaced):
+                if previous is not None:
+                    os.replace(previous, path)
+                elif path.is_file():
+                    path.unlink()   # published by this run, with nothing before it
+            raise
     finally:
-        for parent in {d.parent for d in drafts.values()}:
-            shutil.rmtree(parent, ignore_errors=True)
+        for directory in scratch.values():
+            shutil.rmtree(directory, ignore_errors=True)
+
+
+@contextmanager
+def lock_assessments(directories: list[Path]):
+    """Hold these assessments dirs for one run: a second run would share their checkpoints and publish over them.
+    An OS lock, so a run that dies releases it."""
+    with ExitStack() as held:
+        for directory in sorted({Path(d).resolve() for d in directories}):
+            directory.mkdir(parents=True, exist_ok=True)
+            handle = held.enter_context((directory / ".assess.lock").open("w"))
+            if fcntl is not None:   # absent on Windows, which runs without the lock
+                try:
+                    fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except BlockingIOError:
+                    raise RuntimeError(f"another assess run is using {directory}; let it finish first") from None
+        yield
 
 
 class FeedStore:
@@ -113,6 +156,11 @@ class FeedStore:
         if moved:
             raise SettingsChanged(f"{self.directory}: {'; '.join(moved)} moved between waves and seasons "
                                   f"(wave_series); run assess --full to recompute it")
+
+    def kept_wave_series(self, current: set[str]) -> list[tuple[str, str, str]]:
+        """Stored wave_series records of series no longer configured: their rows stay in the tables until a full run,
+        so their phasing record stays with them."""
+        return sorted(r for r in self._settings or () if r[1] == "wave_series" and r[2] not in current)
 
     def _series_key(self, series: Series, method: str) -> tuple:
         location, indicator, dimensions = series.key
