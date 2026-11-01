@@ -31,7 +31,8 @@ const BASE = {
     MuiContainer: {
       styleOverrides: {
         maxWidthXl: { '@media (min-width: 1536px)': { maxWidth: 1400 } },
-        root: { '@media (min-width: 900px)': { paddingLeft: 56, paddingRight: 56 } },
+        root: { '@media (min-width: 900px)': { paddingLeft: 56, paddingRight: 56 },
+                '@media (min-width: 1200px)': { paddingLeft: 80, paddingRight: 80 } },
       },
     },
   },
