@@ -21,6 +21,10 @@ dependencies = [
   "pandas>=3.0.6",
 ]
 
+[project.optional-dependencies]
+# R + aedseo for `health-signal assess`; the app itself never imports them.
+analytics = ["rpy2>=3.5"]
+
 [project.scripts]
 health-signal = "health_signal.__main__:main"
 
@@ -37,3 +41,4 @@ path = "hatch_build.py"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["r: needs R with aedseo (rpy2)"]

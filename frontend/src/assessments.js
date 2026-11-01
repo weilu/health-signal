@@ -102,11 +102,10 @@ export function phaseRuns(rows, range, activePhases) {
                    ongoing: !!x.ongoing }))
 }
 
-// A panel's {indicator, ...dimensions} against a phase stream's series, in any parameter order.
+// A panel's {indicator, ...dimensions} against a phase stream's series. Only the values the query states must
+// agree: a stream also pins the dimensions a single-series query leaves implicit.
 export function sameSeries(feed, params, stream) {
-  const keys = Object.keys(stream.series)
-  return feed === stream.feed && keys.length === Object.keys(params).length
-    && keys.every((k) => params[k] === stream.series[k])
+  return feed === stream.feed && Object.entries(params).every(([k, v]) => stream.series[k] === v)
 }
 
 // Levels sharing a tone step darker in level order, so e.g. very low and low stay distinguishable.

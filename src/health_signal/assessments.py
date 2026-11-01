@@ -45,10 +45,10 @@ class PhaseRow(BaseModel):
     phase: str
 
 
-_GROWTH = ["growth_rate", "growth_lower", "growth_upper"]
-_ASSESSMENT_COLUMNS = ["location", "period", "indicator", "method", "level", "provisional", "trend", *_GROWTH, "phase"]
-_THRESHOLD_COLUMNS = ["location", "indicator", "method", "from", "to", "level", "lower_bound"]
-_PHASE_COLUMNS = ["location", "pathogen", "period", "method", "phase"]
+GROWTH = ["growth_rate", "growth_lower", "growth_upper"]
+ASSESSMENT_COLUMNS = ["location", "period", "indicator", "method", "level", "provisional", "trend", *GROWTH, "phase"]
+THRESHOLD_COLUMNS = ["location", "indicator", "method", "from", "to", "level", "lower_bound"]
+PHASE_COLUMNS = ["location", "pathogen", "period", "method", "phase"]
 
 
 def _outside_method(df: pd.DataFrame, column: str, vocabulary: str) -> pd.Series:
@@ -77,12 +77,12 @@ class AssessmentSource:
         if not directory.is_dir():
             raise ValueError(f"assessments dir {str(directory)!r} is not a directory")
         self.profile = profile
-        assessments = _load(directory, "assessment.csv", _ASSESSMENT_COLUMNS, self._assessment_violation)
+        assessments = _load(directory, "assessment.csv", ASSESSMENT_COLUMNS, self._assessment_violation)
         # Compared as numbers, as feeds are: 0.2 and 0.20 are one reading, not a conflict.
-        assessments[_GROWTH] = assessments[_GROWTH].replace("", np.nan).astype(float)
+        assessments[GROWTH] = assessments[GROWTH].replace("", np.nan).astype(float)
         key = ["location", "period", "indicator", "method", *_dims(profile, assessments)]
         self._assessments = drop_copies_reject_conflicts(assessments, key).drop(columns=PROVENANCE)
-        thresholds = _load(directory, "thresholds.csv", _THRESHOLD_COLUMNS, self._threshold_violation)
+        thresholds = _load(directory, "thresholds.csv", THRESHOLD_COLUMNS, self._threshold_violation)
         thresholds["lower_bound"] = thresholds["lower_bound"].astype(float)
         series = ["location", "indicator", "method", *_dims(profile, thresholds)]
         thresholds = drop_copies_reject_conflicts(thresholds, [*series, "from", "level"])
@@ -91,8 +91,8 @@ class AssessmentSource:
 
     def _assessment_violation(self, df: pd.DataFrame):
         # astype: an empty column stays object dtype after to_numeric, and isfinite rejects object.
-        growth = df[_GROWTH].apply(pd.to_numeric, errors="coerce").astype(float)
-        blank = df[_GROWTH].eq("")
+        growth = df[GROWTH].apply(pd.to_numeric, errors="coerce").astype(float)
+        blank = df[GROWTH].eq("")
         no_trend = df["method"].map(lambda method: method in METHODS and not METHODS[method].trend).astype(bool)
         in_interval = (np.isfinite(growth).all(axis=1) & (growth["growth_lower"] <= growth["growth_rate"])
                        & (growth["growth_rate"] <= growth["growth_upper"]))
@@ -131,7 +131,7 @@ class AssessmentSource:
             location=r["location"], period=r["period"], indicator=r["indicator"], method=r["method"],
             dimensions={dim: r[dim] for dim in dims if r[dim]}, level=r["level"] or None,
             provisional=r["provisional"] == "true", trend=r["trend"] or None, phase=r["phase"] or None,
-            **{field: None if pd.isna(r[field]) else r[field] for field in _GROWTH},
+            **{field: None if pd.isna(r[field]) else r[field] for field in GROWTH},
         ) for r in df.to_dict("records")]
 
     def thresholds(self, *, location=None, indicator=None, week_from=None, week_to=None, dimensions=None,
@@ -172,7 +172,7 @@ class PhaseSource:
         if not path.is_file():
             # One file per dashboard, so a configured path that doesn't exist is a typo, not "no phases".
             raise ValueError(f"phases file {str(path)!r} does not exist")
-        df = _load(path.parent, path.name, _PHASE_COLUMNS, self._violation)
+        df = _load(path.parent, path.name, PHASE_COLUMNS, self._violation)
         key = ["location", "pathogen", "period", "method"]
         self._phases = drop_copies_reject_conflicts(df, key).drop(columns=PROVENANCE)
 
@@ -193,7 +193,7 @@ class PhaseSource:
     def phases(self, *, location=None, pathogen=None, method=None, week_from=None, week_to=None) -> list[PhaseRow]:
         df = filter_rows(self._phases, location=location, week_from=week_from, week_to=week_to,
                          dimensions={"pathogen": pathogen, "method": method})
-        return [PhaseRow(**{column: r[column] for column in _PHASE_COLUMNS}) for r in df.to_dict("records")]
+        return [PhaseRow(**{column: r[column] for column in PHASE_COLUMNS}) for r in df.to_dict("records")]
 
 
 class PhaseStreamRow(BaseModel):
@@ -205,7 +205,7 @@ class PhaseStreamRow(BaseModel):
     series: dict[str, str]  # /api/data parameters, so the overview fetches the stream directly
 
 
-_STREAM_COLUMNS = ["location", "pathogen", "method", "role", "feed", "series"]
+STREAM_COLUMNS = ["location", "pathogen", "method", "role", "feed", "series"]
 
 
 class PhaseStreamSource:
@@ -214,7 +214,7 @@ class PhaseStreamSource:
         if not path.is_file():
             raise ValueError(f"phase streams file {str(path)!r} does not exist")
         self._feeds = feeds
-        df = _load(path.parent, path.name, _STREAM_COLUMNS, self._violation)
+        df = _load(path.parent, path.name, STREAM_COLUMNS, self._violation)
         key = ["location", "pathogen", "method", "role"]
         self._streams = drop_copies_reject_conflicts(df, key).drop(columns=PROVENANCE)
 
@@ -269,6 +269,6 @@ class PhaseStreamSource:
 
     def streams(self, *, location=None, pathogen=None, method=None) -> list[PhaseStreamRow]:
         df = filter_rows(self._streams, location=location, dimensions={"pathogen": pathogen, "method": method})
-        return [PhaseStreamRow(**{column: r[column] for column in _STREAM_COLUMNS if column != "series"},
+        return [PhaseStreamRow(**{column: r[column] for column in STREAM_COLUMNS if column != "series"},
                                series=self._canonical(r["feed"], dict(parse_qsl(r["series"]))))
                 for r in df.to_dict("records")]
