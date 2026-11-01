@@ -8,7 +8,9 @@ import { addDeploymentText } from './i18n.js'
 // library's catalogue once signed in; switching language loads that language's file.
 export function useDeploymentText(enabled) {
   const { i18n } = useTranslation()
-  const lng = i18n.resolvedLanguage
+  // The language asked for, not the one resolved: a language the library doesn't ship resolves to a fallback
+  // until its text arrives.
+  const lng = i18n.language
   const query = useQuery({ queryKey: ['locales', lng], queryFn: () => fetchLocale(lng), enabled: enabled && !!lng,
                            staleTime: Infinity })
   useEffect(() => {

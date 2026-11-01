@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { initI18n, setLocale } from './i18n.js'
 import { useDeploymentText } from './useDeploymentText.js'
 
-const TEXT = { el: { panels: { deaths: 'Θάνατοι' } }, en: { panels: { deaths: 'Deaths' } } }
+const TEXT = { el: { panels: { deaths: 'Θάνατοι' } }, en: { panels: { deaths: 'Deaths' } }, fr: { panels: { deaths: 'Décès' } } }
 
 function Labels() {
   useDeploymentText(true)
@@ -38,4 +38,14 @@ it('loads the other language when the user switches to it', async () => {
   await screen.findByText(/Θάνατοι/)
   await act(async () => setLocale('en'))
   expect(await screen.findByText('Deaths | Sign out')).toBeTruthy()
+})
+
+it("loads a language the library doesn't ship from the deployment's text, the rest in the library's English", async () => {
+  initI18n({ defaultLocale: 'el', locales: ['el', 'fr'] })
+  renderLabels()
+  await screen.findByText(/Θάνατοι/)
+  await act(async () => setLocale('fr'))
+  expect(await screen.findByText('Décès | Sign out')).toBeTruthy()
+  expect(fetch).toHaveBeenCalledWith('/api/locales/fr', expect.anything())
+  expect(document.documentElement.lang).toBe('fr')
 })

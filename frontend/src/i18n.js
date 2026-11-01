@@ -8,13 +8,15 @@ const catalogs = Object.fromEntries(
 )
 
 const STORAGE_KEY = 'hs.locale'
+const BASE = 'en'
 
-// Register only the config-enabled locales, not every bundled file (an ['en'] deployment ships no 'el').
+// Register only the config-enabled locales, not every bundled file (an ['en'] deployment ships no 'el'), plus
+// English, the library's base: a language it doesn't ship comes wholly from the deployment's text, and
+// whatever that leaves out reads in English.
 function pickResources(available, locales) {
   const resources = {}
-  for (const lng of locales) {
+  for (const lng of new Set([...locales, BASE])) {
     if (available[lng]) resources[lng] = { translation: available[lng] }
-    else console.warn(`[i18n] config locale "${lng}" has no bundled catalog; skipping`)
   }
   return resources
 }
@@ -42,15 +44,18 @@ export function setLocale(lng) {
 // A deployment's own text over the library's, deep: it adds keys (panel names) and overrides library ones.
 export function addDeploymentText(lng, catalogue) {
   i18n.addResourceBundle(lng, 'translation', catalogue, true, true)
+  // i18next resolves the language only on a switch: one with no bundle until now resolved to a fallback.
+  if (lng === i18n.language && i18n.resolvedLanguage !== lng) i18n.changeLanguage(lng)
 }
 
 // defaultLocale/locales are guaranteed non-empty upstream (server -> getConfig); no re-defaulting here.
 export function initI18n({ defaultLocale, locales, text = {} }) {
   i18n.use(initReactI18next).init({
     resources: pickResources(catalogs, locales),
-    // A persisted choice wins over the config default; fallback follows the default, not hardcoded 'en'.
+    // A persisted choice wins over the config default. A missing key reads in the library's base, then in the
+    // deployment's default language.
     lng: storedLocale(locales) || defaultLocale,
-    fallbackLng: defaultLocale,
+    fallbackLng: [...new Set([BASE, defaultLocale])],
     interpolation: { escapeValue: false },
     // Re-render when a deployment's text arrives after the first paint, not only on a language switch.
     react: { bindI18nStore: 'added' },

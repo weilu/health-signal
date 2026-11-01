@@ -36,12 +36,10 @@ describe('initI18n', () => {
     localStorage.setItem('hs.locale', 'el')
     expect(initI18n({ defaultLocale: 'en', locales: ['en'] }).language).toBe('en')
   })
-  it('registers only configured locales, warning about one with no catalog', () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const i18n = initI18n({ defaultLocale: 'en', locales: ['en', 'fr'] })
+  it("registers only configured locales, plus English as the library's base", () => {
+    const i18n = initI18n({ defaultLocale: 'fr', locales: ['fr'] })
     expect(i18n.hasResourceBundle('el', 'translation')).toBe(false)
-    expect(i18n.hasResourceBundle('fr', 'translation')).toBe(false)
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('"fr"'))
+    expect(i18n.hasResourceBundle('en', 'translation')).toBe(true)
   })
   it('switching language updates <html lang> and is remembered', () => {
     initI18n({ defaultLocale: 'en', locales: ['en', 'el'] })
