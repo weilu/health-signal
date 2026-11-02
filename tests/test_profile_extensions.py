@@ -53,6 +53,9 @@ def test_panels_and_the_api_use_the_extended_vocabulary(tmp_path):
     ({**_GR, "denominators": [{**_GR["denominators"][0], "unit": "per_mille"}]}, "unit"),
     ({**_GR, "denominators": [{**_GR["denominators"][0], "denominator": "visits"}]}, "denominator"),
     ({**_GR, "colour": "red"}, "colour"),                                          # a misspelt key
+    # Two rules for one rate and unit: the first would win silently, so reordering them would change the fit.
+    ({**_GR, "denominators": [_GR["denominators"][0], {**_GR["denominators"][0], "per": 100}]}, "SARIrate"),
+    ({**_GR, "denominators": [{"rate": "positivity", "denominator": "tests", "per": 1000}]}, "positivity"),  # erviss's
 ])
 def test_bad_extensions_fail_at_load(tmp_path, extension, message):
     with pytest.raises(ValidationError, match=message):

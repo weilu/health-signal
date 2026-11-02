@@ -229,7 +229,14 @@ class ProfileExtension(BaseModel):
             vocab[dim] = vocab[dim] | values
         # Every additive set field the same way, so a new one can't be left out.
         added = {f: getattr(base, f) | getattr(self, f) for f in _ADDITIVE}
+        taken = {(d.rate, d.unit) for d in base.denominators}
         for rule in self.denominators:
+            # denominator_for takes the first match, so a second rule for one rate and unit would be ignored, and
+            # reordering the two would change the fit unseen by the run settings.
+            if (rule.rate, rule.unit) in taken:
+                raise ValueError(f"profile {name!r}: a second denominator rule for {rule.rate} "
+                                 f"({rule.unit or 'any unit'})")
+            taken.add((rule.rate, rule.unit))
             if rule.rate not in added["indicators"]:
                 raise ValueError(f"profile {name!r}: denominator rule for unknown indicator {rule.rate!r}")
             if rule.denominator not in added["indicators"]:
