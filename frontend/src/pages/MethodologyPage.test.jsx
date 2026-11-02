@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { fetchMethodology } from '../api.js'
@@ -15,15 +15,26 @@ function renderPage(markdown) {
   initI18n({ defaultLocale: 'en', locales: ['en', 'el'] })
   fetchMethodology.mockResolvedValue({ markdown, blocks: {} })
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  return render(<QueryClientProvider client={client}><MemoryRouter><MethodologyPage /></MemoryRouter></QueryClientProvider>)
+  return render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/methodology']}>
+    <MethodologyPage /><Where testId="where" />
+  </MemoryRouter></QueryClientProvider>)
 }
 
 it('lists its headings as contents, each linking to its section', async () => {
   renderPage('## Status\n\nText.\n\n## Trend\n\nMore.\n')
   const contents = await screen.findByRole('navigation', { name: 'Contents' })
   const links = [...contents.querySelectorAll('a')].map((a) => [a.textContent, a.getAttribute('href')])
-  expect(links).toEqual([['Status', '#status'], ['Trend', '#trend']])
+  expect(links).toEqual([['Status', '/methodology#status'], ['Trend', '/methodology#trend']])
   expect(document.getElementById('status').textContent).toBe('Status')
+})
+
+it('scrolls to a section and stays on the page', async () => {
+  // The served page carries a <base href>, so a bare "#status" would resolve against it and leave the page.
+  Element.prototype.scrollIntoView = vi.fn()
+  renderPage('## Status\n\nText.\n')
+  fireEvent.click(await screen.findByRole('link', { name: 'Status' }))
+  expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
+  expect(screen.getByTestId('where').textContent).toBe('/methodology#status')
 })
 
 it('marks a value taken from the settings', async () => {
@@ -49,8 +60,9 @@ it('never renders raw HTML', async () => {
   expect(container.querySelector('b')).toBeNull()
 })
 
-function Where() {
-  return <output>{useLocation().pathname}</output>
+function Where({ testId }) {
+  const location = useLocation()
+  return <output data-testid={testId}>{location.pathname + location.hash}</output>
 }
 
 it('sends the old configuration address to the methodology page', async () => {

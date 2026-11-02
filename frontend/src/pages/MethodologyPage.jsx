@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Box, Link, Paper, Typography } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import { useTranslation } from 'react-i18next'
+import { Link as RouterLink } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import rehypeKatex from 'rehype-katex'
 import remarkGfm from 'remark-gfm'
@@ -87,7 +88,10 @@ function Contents({ items }) {
     <Box component="nav" aria-label={t('methodology.contents')}
       sx={{ position: { md: 'sticky' }, top: 16, alignSelf: 'start', pr: 2, borderRight: { md: 1 }, borderColor: 'divider' }}>
       {items.map((h) => (
-        <Link key={slug(h.text)} href={`#${slug(h.text)}`} underline="hover"
+        // A router link keeps the page's own path: the served page has a <base href>, against which a bare
+        // "#section" would leave the page. The router doesn't scroll to a hash, so the click does.
+        <Link key={slug(h.text)} component={RouterLink} to={{ hash: slug(h.text) }} replace underline="hover"
+          onClick={() => document.getElementById(slug(h.text))?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
           aria-current={current === slug(h.text) ? 'location' : undefined}
           sx={{ display: 'block', pl: h.level === 3 ? 2 : 0, py: 0.5, fontSize: '0.875rem',
                 color: current === slug(h.text) ? 'text.primary' : 'text.secondary',
