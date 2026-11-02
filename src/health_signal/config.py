@@ -25,6 +25,8 @@ class SiteConfig(BaseModel):
     public_paths: list[str] = Field(default_factory=list)
     # Server-only: the deployment's own UI text, <language>.json per offered language (spec §9).
     locales_dir: Path | None = None
+    # Server-only: the deployment's methodology page, <language>.md per offered language (spec §9).
+    methodology_dir: Path | None = None
 
     @field_validator("public_paths")
     @classmethod
