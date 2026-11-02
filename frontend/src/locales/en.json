@@ -6,8 +6,8 @@
     "notFound": "Page not found."
   },
   "nav": {
-    "configuration": "Configuration",
-    "logout": "Sign out"
+    "logout": "Sign out",
+    "methodology": "Methodology"
   },
   "login": {
     "email": "Email",
@@ -17,9 +17,7 @@
     "failed": "Sign-in failed — please try again."
   },
   "config": {
-    "title": "Configuration",
-    "targets": "Surveillance targets",
-    "locales": "Languages"
+    "targets": "Surveillance targets"
   },
   "filters": {
     "location": "Region",
@@ -246,5 +244,8 @@
   "panelTypes": {
     "summary": "Summary",
     "phase": "Key signals"
+  },
+  "methodology": {
+    "contents": "Contents"
   }
 }

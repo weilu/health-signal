@@ -6,8 +6,8 @@
     "notFound": "Η σελίδα δεν βρέθηκε."
   },
   "nav": {
-    "configuration": "Διαμόρφωση",
-    "logout": "Αποσύνδεση"
+    "logout": "Αποσύνδεση",
+    "methodology": "Μεθοδολογία"
   },
   "login": {
     "email": "Email",
@@ -17,9 +17,7 @@
     "failed": "Η σύνδεση απέτυχε — δοκιμάστε ξανά."
   },
   "config": {
-    "title": "Διαμόρφωση",
-    "targets": "Στόχοι επιτήρησης",
-    "locales": "Γλώσσες"
+    "targets": "Στόχοι επιτήρησης"
   },
   "filters": {
     "location": "Περιοχή",
@@ -246,5 +244,8 @@
   "panelTypes": {
     "summary": "Σύνοψη",
     "phase": "Βασικοί δείκτες"
+  },
+  "methodology": {
+    "contents": "Περιεχόμενα"
   }
 }
