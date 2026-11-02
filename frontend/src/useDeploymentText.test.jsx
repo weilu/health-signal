@@ -49,3 +49,16 @@ it("loads a language the library doesn't ship from the deployment's text, the re
   expect(fetch).toHaveBeenCalledWith('/api/locales/fr', expect.anything())
   expect(document.documentElement.lang).toBe('fr')
 })
+
+function Status() {
+  const query = useDeploymentText(true)
+  return <p>{query.error ? `failed ${query.error.status}` : query.data ? 'loaded' : 'pending'}</p>
+}
+
+it("hands its failure to the shell: a lost session (401) must reach sign-in, not leave raw ids", async () => {
+  initI18n({ defaultLocale: 'en', locales: ['en'] })
+  vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 401, json: async () => ({}) })))
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(<QueryClientProvider client={client}><Status /></QueryClientProvider>)
+  expect(await screen.findByText('failed 401')).toBeTruthy()
+})

@@ -16,4 +16,6 @@ export function useDeploymentText(enabled) {
   useEffect(() => {
     if (query.data) addDeploymentText(lng, query.data)
   }, [lng, query.data])
+  // The shell's to act on: a 401 means the session is gone.
+  return query
 }

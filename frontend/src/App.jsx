@@ -45,7 +45,7 @@ function Shell({ config }) {
   const onLogin = pathname === '/login'
   const configQuery = useQuery({ queryKey: ['config'], queryFn: fetchConfig, enabled: !onLogin })
   const periodsQuery = useQuery({ queryKey: ['periods'], queryFn: fetchPeriods, enabled: !onLogin })
-  useDeploymentText(!onLogin)
+  const deploymentText = useDeploymentText(!onLogin)
 
   async function handleLogout() {
     // Only the server can clear the httpOnly cookie, so redirect only on a confirmed 303.
@@ -56,6 +56,9 @@ function Shell({ config }) {
     }
     setLogoutFailed(true)
   }
+
+  // Can be the only request a language switch makes once the rest is cached, so it too must catch a lost session.
+  if (!onLogin && deploymentText.error?.status === 401) return <Navigate to="/login" replace />
 
   // /login is chrome-less and the only unauthenticated route (no client-readable session flag).
   if (onLogin) {
