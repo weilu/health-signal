@@ -6,6 +6,7 @@
     "notFound": "Page not found."
   },
   "nav": {
+    "signedInOnly": "Signed-in users only",
     "configuration": "Configuration",
     "logout": "Sign out"
   },

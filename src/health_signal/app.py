@@ -87,14 +87,8 @@ def create_app(
     _ALWAYS_PUBLIC = ("/healthz", "/login", "/logout")
 
     def is_public(path: str) -> bool:
-        # Operational endpoints are public by exact match only (/login/private stays gated);
-        # public_paths match by prefix at a path boundary ("/" = whole site).
-        if path in _ALWAYS_PUBLIC:
-            return True
-        return any(
-            prefix == "/" or path == prefix or path.startswith(prefix + "/")
-            for prefix in config.site.public_paths
-        )
+        # Operational endpoints are public by exact match only (/login/private stays gated).
+        return path in _ALWAYS_PUBLIC or config.site.opens(path)
 
     async def require_auth(request: Request) -> User:
         user = await provider.current_user(request)

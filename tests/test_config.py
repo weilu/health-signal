@@ -325,15 +325,35 @@ def test_label_keys_cannot_be_overridden(build):
         build()
 
 
-def test_target_ids_are_pathogen_keys():
+def test_a_target_with_panels_is_a_pathogen_key():
     with pytest.raises(ValidationError, match="pathogen registry"):
-        Target(id="covid")
+        Target(id="covid", pages=[Page(id="clinical", panels=[Panel(id="deaths", query={"feed": "clinical", "indicator": "deaths"})])])
+
+
+def test_a_target_with_no_panels_yet_takes_any_url_safe_id():
+    # A tab announced before its data arrives (AMR) has no series to key phases or tiles to.
+    target = Target(id="AMR", pages=[Page(id="overview")])
+    assert page_path(target.id, "overview") == "/amr/overview"
+
+
+@pytest.mark.parametrize("target_id", ["Login", "api", "methodology", "a/b", "a b", ""])
+def test_a_target_id_cannot_shadow_an_app_route_or_leave_its_url_segment(target_id):
+    with pytest.raises(ValidationError):
+        Target(id=target_id, pages=[Page(id="overview")])
 
 
 @pytest.mark.parametrize("page_id", ["Clinical", "clin ical", "a/b", ""])
 def test_page_ids_must_be_url_safe(page_id):
     with pytest.raises(ValidationError):
         Page(id=page_id)
+
+
+@pytest.mark.parametrize("public_paths,expected", [([], [False, False]), (["/rsv/overview"], [True, False]), (["/"], [True, True])])
+def test_each_page_says_whether_the_login_gate_opens_it(public_paths, expected):
+    # The tabs lock what the server gates, from the same prefixes.
+    config = Config(schema_version="1", site=SiteConfig(title="T", public_paths=public_paths),
+                    targets=[Target(id="RSV", pages=[Page(id="overview"), Page(id="clinical")])])
+    assert [p["public"] for p in config.client_config()["targets"][0]["pages"]] == expected
 
 
 def test_page_paths_are_derived_from_ids():
