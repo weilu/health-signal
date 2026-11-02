@@ -14,6 +14,7 @@ from .auth import AuthProvider, User
 from .config import Config
 from .datasource import DataSource, FileDataSource
 from .locales import load_overlays, public_text
+from .methodology import load_methodology
 from .profile import FeedRow
 
 _WEEK = r"^\d{4}-W\d{2}$"  # ISO year-week; a malformed value 422s instead of reaching the source
@@ -68,6 +69,7 @@ def create_app(
 ) -> FastAPI:
     app = FastAPI(title=config.site.title)
     overlays = load_overlays(config.site.locales_dir, config.site.locales)
+    methodology = load_methodology(config)
     # Only the slice safe pre-login (the view-model is gated behind /api/config), with the deployment's public text:
     # sign-in renders before its gated text can load.
     bootstrap = {**config.bootstrap_config(), "text": public_text(overlays)}
@@ -120,6 +122,13 @@ def create_app(
         if language not in config.site.locales:
             raise HTTPException(status_code=404, detail=f"{language!r} is not one of this dashboard's languages")
         return overlays.get(language, {})
+
+    @app.get("/api/methodology/{language}")
+    def get_methodology(language: str, user: User = Depends(require_auth)) -> dict:
+        # Gated like the locale text: it names the panels and settings only signed-in users are sent.
+        if language not in config.site.locales:
+            raise HTTPException(status_code=404, detail=f"{language!r} is not one of this dashboard's languages")
+        return methodology[language]
 
     def _feed_dimensions(feed: str, request: Request, fixed: set[str] = _FIXED_PARAMS) -> dict[str, str]:
         # Dimension filters come from the feed's profile, so a new profile needs no route change.

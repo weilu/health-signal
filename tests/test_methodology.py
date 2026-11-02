@@ -1,8 +1,13 @@
-import pytest
+import json
 
+import pytest
+from fastapi.testclient import TestClient
+
+from health_signal import create_app
 from health_signal.config import Config
 from health_signal.methodology import load_methodology
 from analytics_support import write_feed
+from auth_stubs import AllowAll, DenyAll
 
 _GR = {"extends": "erviss", "units": ["per_1000_admissions"],
        "denominators": [{"rate": "SARIrate", "unit": "per_1000_admissions", "denominator": "hospitaladmissions",
@@ -22,6 +27,8 @@ def _config(tmp_path, pages=None, locales=("en",), feeds=1, analytics=None):
                   "assessments": str(tmp_path / f"a{i}")} for i in range(feeds)]
     for f in feed_list:
         (tmp_path / f["assessments"].rsplit("/", 1)[1]).mkdir(exist_ok=True)
+    (tmp_path / "phase.csv").write_text("location,pathogen,period,method,phase\n", encoding="utf-8")
+    (tmp_path / "s.csv").write_text("location,pathogen,method,role,feed,series\n", encoding="utf-8")
     return Config.model_validate({
         "schema_version": "1", "site": site, "profiles": {"erviss_gr": _GR},
         "surveillance": {"year_start_week": 21},
@@ -110,3 +117,24 @@ def test_the_build_is_read_from_each_feeds_settings(tmp_path):
 
 def test_the_build_is_a_dash_before_any_assessment(tmp_path):
     assert "`hs:—`" in _page(tmp_path, "{{method.build}}")["markdown"]
+
+
+def _client(cfg, auth=None):
+    return TestClient(create_app(cfg, auth_provider=auth or AllowAll()))
+
+
+def test_it_serves_the_page_and_its_blocks(tmp_path):
+    body = _client(_config(tmp_path, {"en": "Week {{surveillance.year_start_week}}"})).get("/api/methodology/en").json()
+    assert "`hs:21`" in body["markdown"] and "streams" in body["blocks"]
+
+
+def test_the_methodology_is_behind_login(tmp_path):
+    assert _client(_config(tmp_path), DenyAll()).get("/api/methodology/en").status_code == 401
+
+
+def test_a_language_not_offered_is_not_found(tmp_path):
+    assert _client(_config(tmp_path)).get("/api/methodology/fr").status_code == 404
+
+
+def test_methodology_dir_is_not_sent_to_the_browser(tmp_path):
+    assert "methodology_dir" not in json.dumps(_config(tmp_path, {"en": "x"}).client_config())
