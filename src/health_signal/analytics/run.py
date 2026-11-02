@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlencode
 
-from ..assessments import PHASE_COLUMNS, STREAM_COLUMNS, PhaseSource, PhaseStreamSource
+from ..assessments import PHASE_COLUMNS, PHASE_OPTIONAL, STREAM_COLUMNS, PhaseSource, PhaseStreamSource
 from ..config import Config
 from ..datasource import FileDataSource
 from ..methods import AEDSEO
@@ -185,16 +185,18 @@ def _phase_files(config: Config, refs: dict, stores: dict[str, FeedStore], profi
     """The phase tables as write_validated files, and how to validate their drafts."""
     phases, streams = [], []
     for entry in config.analytics.phase_streams:
-        by_role, resolved = {}, {}
+        by_role, provisional, resolved = {}, {}, {}
         for role, ref in entry.streams.items():
             s = refs.get((entry.pathogen, entry.location, ref))
             if s is None:
                 raise ValueError(f"analytics.phase_streams {entry.pathogen}/{entry.location}: panel {ref!r} has no "
                                  f"assessed series at {entry.location}")
             by_role[role] = stores[s.feed].phases(s, entry.method)
+            provisional[role] = stores[s.feed].provisional(s, entry.method)
             resolved[role] = s
-        phases += pathogen_phases(entry, by_role, waves=entry.pathogen in config.analytics.wave_pathogens)
+        phases += pathogen_phases(entry, by_role, waves=entry.pathogen in config.analytics.wave_pathogens,
+                                  provisional=provisional)
         streams += stream_rows(entry, resolved)
     phase_path, stream_path = Path(config.data.phases), Path(config.data.phase_streams)
-    files = {phase_path: _table(PHASE_COLUMNS, phases), stream_path: _table(STREAM_COLUMNS, streams)}
+    files = {phase_path: _table([*PHASE_COLUMNS, *PHASE_OPTIONAL], phases), stream_path: _table(STREAM_COLUMNS, streams)}
     return files, lambda drafts: (PhaseSource(drafts[phase_path]), PhaseStreamSource(drafts[stream_path], profiles))

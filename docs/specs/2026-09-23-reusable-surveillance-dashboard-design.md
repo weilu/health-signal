@@ -293,6 +293,9 @@ queries, assessments and phase streams.
     and their runs overlap). **Precomputed, not derived in the app:** the rule is a policy choice that
     belongs with the analysis, and a country may write its officially declared season here instead.
     `out_of_season`, not "pre-season": a quiet week can't tell before-onset from after-season.
+    Optional `provisional` (`true`/`false`, blank or absent = `false`): `assess` sets it when either stream's grade
+    that week is provisional, since a phase is as settled as its thinnest stream; the phase tile then shows the
+    same "Provisional" chip as the status tile. A hand-declared phase leaves it out.
   - **`phase_streams.csv`** (optional) — `location` × `pathogen` × `method` × `role` → `feed` +
     `series`: the series a computed phase was derived from, `role` from the method's `stream_roles`,
     `series` written as `/api/data` parameters (e.g. `indicator=cov&aggregation=floMean`). Recorded by

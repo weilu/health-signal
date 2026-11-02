@@ -109,3 +109,11 @@ it('names each stream chart by its role and the panel that measures it', async (
   expect(await screen.findByRole('heading', { name: 'Health-system load · measured by hospital admissions', level: 3 }))
     .toBeTruthy()
 })
+
+it('marks a phase resting on too little history as provisional, as the status tile does', async () => {
+  renderPhase({ target: { id: 'Influenza', pages: [] },
+                phases: Promise.resolve([{ location: 'Greece', pathogen: 'Influenza', period: '2026-W10', method: 'aedseo',
+                                           phase: 'out_of_season', provisional: true }]) })
+  const tile = (await screen.findByText('Season status')).closest('section')
+  expect(tile.textContent).toContain('Provisional')
+})

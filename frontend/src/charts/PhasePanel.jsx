@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Alert, Box, Button, Paper, Stack, Typography } from '@mui/material'
+import { Alert, Box, Button, Chip, Paper, Stack, Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { fetchData, fetchPhases, fetchPhaseStreams } from '../api.js'
 import { activeWeeks, phaseRuns, phaseSince, pickInRange, streamPanel, streamScale } from '../assessments.js'
@@ -84,7 +84,10 @@ export function PhasePanel({ panel, target, location, range, latest }) {
     </Tile>
   ) : pick.row ? (
     <Tile title={t(`phase.title.${pattern}`)} current={pick.current} footer={asOfFooter(t, pick, pick.row.method, `phase.${pattern}`)} note={rule}>
-      <Typography variant="h5" component="p">{phaseLabel(t, pick.row, rows, method)}</Typography>
+      <Stack direction="row" spacing={1.25} sx={{ alignItems: 'center' }}>
+        <Typography variant="h5" component="p">{phaseLabel(t, pick.row, rows, method)}</Typography>
+        {pick.row.provisional && <Chip size="small" variant="outlined" label={t('assessment.provisional')} />}
+      </Stack>
     </Tile>
   ) : <NoneInRange />)
   const card = (

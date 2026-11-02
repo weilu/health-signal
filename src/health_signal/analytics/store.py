@@ -218,6 +218,10 @@ class FeedStore:
         rows = self._rows.get(self._series_key(series, method), {})
         return {period: row["phase"] for period, row in rows.items()}
 
+    def provisional(self, series: Series, method: str) -> dict[str, bool]:
+        rows = self._rows.get(self._series_key(series, method), {})
+        return {period: row["provisional"] for period, row in rows.items()}
+
     def add(self, series: Series, method: str, result: SeriesResult) -> None:
         key = self._series_key(series, method)
         self._rows.setdefault(key, {}).update({row["period"]: row for row in result.rows})

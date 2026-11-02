@@ -39,6 +39,7 @@ def test_assess_writes_tables_the_app_loads(tmp_path):
     assert len(AssessmentSource(tmp_path / "a", ERVISS).assessments(indicator="SARIrate")) == 6   # every week
     phases = PhaseSource(tmp_path / "phase.csv").phases()
     assert len(phases) == 4 and {p.phase for p in phases} <= {"in_season", "out_of_season"}
+    assert all(p.provisional for p in phases)   # six weeks of history, short of min_seasons
     streams = sorted(PhaseStreamSource(tmp_path / "streams.csv", {"clinical": ERVISS}).streams(), key=lambda s: s.role)
     assert [s.role for s in streams] == ["admissions", "cases"]
     assert streams[0].series == {"indicator": "SARIrate", "survtype": "SARI syndromic", "age": "total"}
