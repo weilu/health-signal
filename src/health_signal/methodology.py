@@ -10,7 +10,9 @@ from .datasource import read_table
 from .methods import AEDSEO, MAX_DIP, MAX_MISSING
 
 TEXT_DIR = Path(__file__).parent / "methodology_text"
-BLOCKS = ("streams", "indicator_models", "phase_patterns", "censored", "levels", "method")
+# The library text is in named sections, so a deployment can set its own reasoning between them.
+_SECTION = re.compile(r"<!-- section: ([a-z_]+) -->")
+BLOCKS = ("streams", "indicator_models", "phase_patterns", "censored", "levels")
 _PLACEHOLDER = re.compile(r"\{\{\s*(>\s*)?([a-z_.]+)\s*\}\}")
 # Anything in double braces, so a misspelt placeholder is caught rather than shown; maths spans are set apart,
 # since LaTeX writes double braces of its own.
@@ -26,9 +28,9 @@ def load_methodology(config: Config) -> dict[str, dict]:
     directory = config.site.methodology_dir
     pages = {}
     for language in config.site.locales:
-        method_text = lambda: _library_text(language, values)  # noqa: E731 - only when the page asks for it
+        method_text = lambda name: _library_text(language, values, name)  # noqa: E731 - only when asked for
         if directory is None:
-            markdown = method_text()
+            markdown = method_text("method")
         else:
             path = Path(directory) / f"{language}.md"
             if not path.is_file():
@@ -38,12 +40,32 @@ def load_methodology(config: Config) -> dict[str, dict]:
     return pages
 
 
-def _library_text(language: str, values: dict[str, str]) -> str:
+def _library_path(language: str) -> Path:
     # A language the library has no text for reads it in English, as the rest of the interface does.
     path = TEXT_DIR / f"{AEDSEO.name}.{language}.md"
-    if not path.is_file():
-        path = TEXT_DIR / f"{AEDSEO.name}.en.md"
-    return _fill(path.read_text(encoding="utf-8"), path.name, values, None)
+    return path if path.is_file() else TEXT_DIR / f"{AEDSEO.name}.en.md"
+
+
+def _sections(language: str) -> dict[str, str]:
+    sections, name = {}, None
+    for line in _library_path(language).read_text(encoding="utf-8").splitlines():
+        marker = _SECTION.fullmatch(line.strip())
+        if marker:
+            name = marker.group(1)
+            sections[name] = []
+        elif name is not None:
+            sections[name].append(line)
+    return {name: "\n".join(lines).strip() + "\n" for name, lines in sections.items()}
+
+
+def library_sections(language: str) -> list[str]:
+    return list(_sections(language))
+
+
+def _library_text(language: str, values: dict[str, str], name: str) -> str:
+    sections = _sections(language)
+    text = "\n".join(sections.values()) if name == "method" else sections[name.split(".", 1)[1]]
+    return _fill(text, _library_path(language).name, values, None)
 
 
 def _fill(text: str, file: str, values: dict[str, str], method_text: Callable[[], str] | None) -> str:
@@ -63,9 +85,10 @@ def _fill(text: str, file: str, values: dict[str, str], method_text: Callable[[]
         block = _PLACEHOLDER.fullmatch(line.strip())
         if block and block.group(1):
             name = block.group(2)
-            if name not in BLOCKS or (name == "method" and method_text is None):
+            method = name == "method" or (name.startswith("method.") and name[7:] in library_sections("en"))
+            if not (method or name in BLOCKS) or (method and method_text is None):
                 raise ValueError(f"{file} line {number}: unknown placeholder {block.group(0)}")
-            lines.append(method_text() if name == "method" else f"```hs-block\n{name}\n```")
+            lines.append(method_text(name) if method else f"```hs-block\n{name}\n```")
             continue
         lines.append(_fill_line(line, f"{file} line {number}", values))
     return "\n".join(lines) + "\n"

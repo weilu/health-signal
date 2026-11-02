@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 
 from health_signal import create_app, load_config
 from health_signal.config import Config
-from health_signal.methodology import load_methodology
+from health_signal.methodology import library_sections, load_methodology
 from analytics_support import write_feed
 from auth_stubs import AllowAll, DenyAll
 
@@ -150,7 +150,7 @@ def test_the_library_text_loads_for_each_language_it_ships(tmp_path):
 
 def test_the_greece_example_methodology_loads_in_every_language():
     pages = load_methodology(load_config("examples/greece.dashboard.yaml"))
-    for language, heading in [("en", "## How the dashboard grades"), ("el", "## Πώς βαθμολογεί ο πίνακας")]:
+    for language, heading in [("en", "## Overview"), ("el", "## Επισκόπηση")]:
         md = pages[language]["markdown"]
         assert "```hs-block\nstreams\n```" in md and heading in md
 
@@ -171,3 +171,18 @@ def test_placeholders_in_a_fenced_block_are_left_as_written(tmp_path):
 def test_a_value_in_maths_is_the_bare_value_and_latex_braces_are_left(tmp_path):
     md = _page(tmp_path, "Window $k = {{method.window_weeks}}$, and $x^{{n}}$.\n\n$$\n\\frac{{a}}{b}\n$$\n")["markdown"]
     assert "$k = 5$" in md and "$x^{{n}}$" in md and "\\frac{{a}}{b}" in md
+
+
+def test_a_method_section_inlines_only_that_section(tmp_path):
+    # So a deployment can put its own reasoning where it belongs, e.g. its stream choices inside the seasons section.
+    md = _page(tmp_path, "{{> method.trend}}\n\nOur note.\n")["markdown"]
+    assert md.lstrip().startswith("## Trend") and "## Status" not in md and "Our note." in md
+
+
+def test_an_unknown_method_section_stops_startup(tmp_path):
+    with pytest.raises(ValueError, match=r"en\.md line 1.*method\.trends"):
+        _page(tmp_path, "{{> method.trends}}")
+
+
+def test_the_library_text_has_the_same_sections_in_every_language():
+    assert library_sections("en") == library_sections("el") and "overview" in library_sections("en")

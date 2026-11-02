@@ -47,8 +47,11 @@ function Streams({ rows, config, t }) {
           <TableRow key={`${r.target}/${r.location}`}>
             <TableCell>{configLabel(t, tgt?.label_key, r.target)}</TableCell>
             <TableCell>{where(r.location)}</TableCell>
-            {r.streams ? roles.map((role) => <TableCell key={role}>{panel(tgt, r.streams[role])}</TableCell>)
-              : <TableCell colSpan={roles.length}><i>{t('methodology.notConfigured')}</i></TableCell>}
+            {roles.map((role) => (
+              <TableCell key={role}>
+                {r.streams ? panel(tgt, r.streams[role]) : <i>{t('methodology.notConfigured')}</i>}
+              </TableCell>
+            ))}
           </TableRow>
         )
       })}

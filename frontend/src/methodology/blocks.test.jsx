@@ -43,9 +43,9 @@ it("names each stream as its panel on the tab, under its role", async () => {
   expect(screen.getByRole('columnheader', { name: 'Community spread' })).toBeTruthy()
 })
 
-it('says a pathogen and location with no streams is not configured', async () => {
+it('says a pathogen and location with no streams is not configured, under each role', async () => {
   renderBlock('streams')
-  expect(within((await screen.findByText('Greece')).closest('tr')).getByText('Not configured')).toBeTruthy()
+  expect(within((await screen.findByText('Greece')).closest('tr')).getAllByText('Not configured')).toHaveLength(2)
 })
 
 it('reads indicator models as rules', async () => {
@@ -71,5 +71,5 @@ it("follows the reader's language", async () => {
   renderBlock('streams')
   await screen.findByText('Attica')
   await act(async () => setLocale('el'))
-  expect(await screen.findByText('Δεν έχει οριστεί')).toBeTruthy()
+  expect(await screen.findAllByText('Δεν έχει οριστεί')).toHaveLength(2)
 })
