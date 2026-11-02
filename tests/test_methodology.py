@@ -138,3 +138,11 @@ def test_a_language_not_offered_is_not_found(tmp_path):
 
 def test_methodology_dir_is_not_sent_to_the_browser(tmp_path):
     assert "methodology_dir" not in json.dumps(_config(tmp_path, {"en": "x"}).client_config())
+
+
+def test_the_library_text_loads_for_each_language_it_ships(tmp_path):
+    pages = load_methodology(_config(tmp_path, locales=("en", "el")))
+    for language in ("en", "el"):
+        md = pages[language]["markdown"]
+        assert "```hs-block\nindicator_models\n```" in md and "```hs-block\nlevels\n```" in md
+    assert pages["el"]["markdown"] != pages["en"]["markdown"]
