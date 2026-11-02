@@ -136,12 +136,13 @@ page can't drift from them:
 
 - values, inline: `{{surveillance.year_start_week}}`, `{{surveillance.year_end_week}}`, `{{analytics.min_seasons}}`,
   `{{analytics.aedseo.wave_end.steps_with_decrease}}`, `{{analytics.aedseo.wave_end.burden_level_decrease}}`,
-  `{{phase.max_dip}}`, `{{phase.max_missing}}`, `{{method.build}}` (the aedseo build behind the current tables), and
+  `{{phase.max_dip}}`, `{{phase.max_missing}}`, `{{method.build}}` (the aedseo build behind the current tables),
+  `{{censored.qualities}}` and `{{censored.feeds}}` (the stand-in values fitted as gaps, and where), and
   the method's parameters `{{method.n_peak}}`, `{{method.conf_levels}}`, `{{method.decay_factor}}`,
   `{{method.burden_family}}`, `{{method.onset_family}}`, `{{method.window_weeks}}`, `{{method.interval_percent}}`;
 - tables, each on a line of its own: `{{> streams}}` (each pathogen and location's two streams, named as their panels
   are), `{{> indicator_models}}` (how each kind of indicator enters the method), `{{> phase_patterns}}` (season or
-  waves), `{{> censored}}` (values fitted as gaps), `{{> levels}}` (the levels and their colours);
+  waves), `{{> levels}}` (the levels and their colours);
 - `{{> method}}`: the library's general method text, in the reader's language (English where the library has none);
   or one section of it at a time, so a deployment can put its own reasoning where it belongs: `{{> method.overview}}`,
   `{{> method.status}}`, `{{> method.trend}}`, `{{> method.seasons}}` (ending with the streams table),

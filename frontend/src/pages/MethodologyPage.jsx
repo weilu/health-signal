@@ -10,6 +10,7 @@ import rehypeKatex from 'rehype-katex'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
 import { fetchMethodology } from '../api.js'
+import { inSentence } from '../labels.js'
 import { Block } from '../methodology/blocks.jsx'
 import { ResourceBoundary } from '../ResourceBoundary.jsx'
 
@@ -31,7 +32,8 @@ function headings(markdown) {
 
 function Setting({ value }) {
   const { t } = useTranslation()
-  const text = value.startsWith('t:') ? t(value.slice(2)) : value
+  // A label (a level, a feed) sits mid-sentence, so it loses its capital unless that starts an acronym.
+  const text = value.startsWith('t:') ? inSentence(t(value.slice(2))) : value
   return (
     <Box component="span" data-setting sx={(theme) => ({ px: 0.25, bgcolor: alpha(theme.palette.warning.main, 0.1),
                                                          borderBottom: '1px dotted', borderColor: 'warning.main' })}>

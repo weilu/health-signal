@@ -154,7 +154,8 @@ A week with a missing denominator, or with no value at all (e.g. a reporting out
 **gap**, not dropped: aedseo's windows count rows, so dropping it would make the weeks either side look adjacent and
 report the change across the gap as one week's growth. A gap week is fitted as missing and not graded.
 
-{{> censored}}
+A value flagged as a stand-in rather than a measurement ({{censored.qualities}}, in {{censored.feeds}}) is graded as its
+value but fitted as a gap, so a non-detection's zero doesn't read as a fall and a rise.
 
 <!-- section: references -->
 ## References

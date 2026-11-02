@@ -43,9 +43,9 @@ it('marks a value taken from the settings', async () => {
   expect(value.closest('[data-setting]')).toBeTruthy()
 })
 
-it('names a label value in the reader language', async () => {
+it('names a label value in the reader language, mid-sentence', async () => {
   renderPage('Waves end below the `hs:t:level.medium` level.\n')
-  expect((await screen.findByText('Medium')).closest('[data-setting]')).toBeTruthy()
+  expect((await screen.findByText('medium')).closest('[data-setting]')).toBeTruthy()
 })
 
 it('typesets maths', async () => {

@@ -12,7 +12,7 @@ from .methods import AEDSEO, MAX_DIP, MAX_MISSING
 TEXT_DIR = Path(__file__).parent / "methodology_text"
 # The library text is in named sections, so a deployment can set its own reasoning between them.
 _SECTION = re.compile(r"<!-- section: ([a-z_]+) -->")
-BLOCKS = ("streams", "indicator_models", "phase_patterns", "censored", "levels")
+BLOCKS = ("streams", "indicator_models", "phase_patterns", "levels")
 _PLACEHOLDER = re.compile(r"\{\{\s*(>\s*)?([a-z_.]+)\s*\}\}")
 # Anything in double braces, so a misspelt placeholder is caught rather than shown; maths spans are set apart,
 # since LaTeX writes double braces of its own.
@@ -149,6 +149,11 @@ def placeholder_values(config: Config) -> dict[str, str]:
         "method.build": _value(", ".join(_builds(config)) or "—"),
     }
     values |= {f"method.{key}": _value(value) for key, value in AEDSEO.parameters.items()}
+    # Named in the prose, translated, rather than a table: a deployment flags few such qualities, if any.
+    censored = {feed: sorted(p.censored_qualities) for feed, p in config.feed_profiles().items() if p.censored_qualities}
+    qualities = sorted({q for qs in censored.values() for q in qs})
+    values["censored.qualities"] = ", ".join(_label(f"quality.{q}") for q in qualities) or _label("methodology.none")
+    values["censored.feeds"] = ", ".join(_label(f"feeds.{f}") for f in censored) or _label("methodology.none")
     return values
 
 
@@ -190,7 +195,5 @@ def block_data(config: Config) -> dict:
         "phase_patterns": [{"target": t.id, "pattern": "waves" if t.id in config.analytics.wave_pathogens else "season"}
                            for t in config.targets],
         "indicator_models": unique,
-        "censored": [{"feed": feed, "qualities": sorted(p.censored_qualities)}
-                     for feed, p in profiles.items() if p.censored_qualities],
         "levels": {"method": AEDSEO.name},
     }

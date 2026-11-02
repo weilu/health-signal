@@ -96,19 +96,6 @@ function PhasePatterns({ rows, config, t }) {
   )
 }
 
-function Censored({ rows, t }) {
-  return (
-    <Grid head={[t('methodology.columns.feed'), t('methodology.columns.values')]}>
-      {rows.map((r) => (
-        <TableRow key={r.feed}>
-          <TableCell>{label(t, 'feeds', r.feed)}</TableCell>
-          <TableCell>{r.qualities.map((q) => label(t, 'quality', q)).join(', ')}</TableCell>
-        </TableRow>
-      ))}
-    </Grid>
-  )
-}
-
 function Levels({ method, config, t }) {
   const levels = config.methods[method].levels
   return (
@@ -137,7 +124,6 @@ export function Block({ name, blocks }) {
     body = name === 'streams' ? <Streams rows={data} config={config} t={t} />
       : name === 'indicator_models' ? <IndicatorModels rules={data} t={t} lang={i18n.language} />
         : name === 'phase_patterns' ? <PhasePatterns rows={data} config={config} t={t} />
-          : name === 'censored' ? <Censored rows={data} t={t} />
             : name === 'levels' ? <Levels method={data.method} config={config} t={t} /> : null
   }
   return <GeneratedBox caption={t(`methodology.caption.${name}`, { defaultValue: name })}>{body}</GeneratedBox>

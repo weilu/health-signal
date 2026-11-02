@@ -14,7 +14,7 @@ _GR = {"extends": "erviss", "units": ["per_1000_admissions"],
                          "per": 1000}]}
 
 
-def _config(tmp_path, pages=None, locales=("en",), feeds=1, analytics=None):
+def _config(tmp_path, pages=None, locales=("en",), feeds=1, analytics=None, extension=None):
     site = {"title": "T", "default_locale": "en", "locales": list(locales)}
     if pages is not None:
         directory = tmp_path / "methodology"
@@ -30,7 +30,7 @@ def _config(tmp_path, pages=None, locales=("en",), feeds=1, analytics=None):
     (tmp_path / "phase.csv").write_text("location,pathogen,period,method,phase\n", encoding="utf-8")
     (tmp_path / "s.csv").write_text("location,pathogen,method,role,feed,series\n", encoding="utf-8")
     return Config.model_validate({
-        "schema_version": "1", "site": site, "profiles": {"erviss_gr": _GR},
+        "schema_version": "1", "site": site, "profiles": {"erviss_gr": {**_GR, **(extension or {})}},
         "surveillance": {"year_start_week": 21},
         "filters": {"location": {"default": "Greece", "options": [{"value": "Greece"}, {"value": "Attica"}]}},
         "data": {"feeds": feed_list, "phases": str(tmp_path / "phase.csv"), "phase_streams": str(tmp_path / "s.csv")},
@@ -186,3 +186,15 @@ def test_an_unknown_method_section_stops_startup(tmp_path):
 
 def test_the_library_text_has_the_same_sections_in_every_language():
     assert library_sections("en") == library_sections("el") and "overview" in library_sections("en")
+
+
+def test_censored_values_are_named_inline_from_the_profiles(tmp_path):
+    cfg = _config(tmp_path, {"en": "Values {{censored.qualities}} in {{censored.feeds}}"},
+                  extension={"qualities": ["beLOD"], "censored_qualities": ["beLOD"]})
+    md = load_methodology(cfg)["en"]["markdown"]
+    assert "`hs:t:quality.beLOD`" in md and "`hs:t:feeds.clinical`" in md
+
+
+def test_without_censored_values_the_sentence_says_none(tmp_path):
+    md = _page(tmp_path, "Values {{censored.qualities}} in {{censored.feeds}}")["markdown"]
+    assert md.count("`hs:t:methodology.none`") == 2

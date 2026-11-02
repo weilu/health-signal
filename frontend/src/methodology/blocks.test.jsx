@@ -26,7 +26,6 @@ const BLOCKS = {
                      { kind: 'rate', indicator: 'SARIrate', unit: 'per_1000_admissions', denominator: 'hospitaladmissions', per: 1000 },
                      { kind: 'constant' }],
   phase_patterns: [{ target: 'SARS-CoV-2', pattern: 'waves' }],
-  censored: [{ feed: 'wastewater', qualities: ['beLOD'] }],
   levels: { method: 'aedseo' },
 }
 
