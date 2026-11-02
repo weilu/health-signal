@@ -3,7 +3,7 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
-from health_signal import create_app
+from health_signal import create_app, load_config
 from health_signal.config import Config
 from health_signal.methodology import load_methodology
 from analytics_support import write_feed
@@ -146,3 +146,10 @@ def test_the_library_text_loads_for_each_language_it_ships(tmp_path):
         md = pages[language]["markdown"]
         assert "```hs-block\nindicator_models\n```" in md and "```hs-block\nlevels\n```" in md
     assert pages["el"]["markdown"] != pages["en"]["markdown"]
+
+
+def test_the_greece_example_methodology_loads_in_every_language():
+    pages = load_methodology(load_config("examples/greece.dashboard.yaml"))
+    for language, heading in [("en", "## How the dashboard grades"), ("el", "## Πώς βαθμολογεί ο πίνακας")]:
+        md = pages[language]["markdown"]
+        assert "```hs-block\nstreams\n```" in md and heading in md

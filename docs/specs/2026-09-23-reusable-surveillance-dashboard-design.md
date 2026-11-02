@@ -647,6 +647,11 @@ precedence over client-side routes.
   replaceable via branding) and are never cycled. A panel whose rows can't make an honest chart —
   none, mixed units, several rows per series-week, or more series than colours — shows a message
   instead of a misleading plot.
+- **Methodology page.** Replaces the configuration page (design: `docs/specs/2026-11-01-methodology-page-design.md`).
+  A deployment writes `site.methodology_dir/<language>.md` per offered language; placeholders fill values
+  (`{{surveillance.year_start_week}}`) and generated tables (`{{> streams}}`) from its settings, and `{{> method}}`
+  inlines the library's general text for the method in use. Unknown placeholders stop startup. Served behind login
+  at `/api/methodology/{language}`; rendered as CommonMark with tables and KaTeX maths, no raw HTML.
 
 ## 10. Packaging & reuse
 

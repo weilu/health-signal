@@ -127,6 +127,27 @@ deployment's text wins, so it can also reword a library string. A missing or mal
 language stops the app at startup; a label with no text shows its id. The Greece example's files are in
 `examples/locales/`.
 
+### Methodology page
+
+The **Methodology** page explains to readers how the dashboard reaches what it shows. A deployment writes it in
+Markdown, one `<language>.md` per offered language in a directory named by `site.methodology_dir`; without one, the
+page is the library's general text for its method. Placeholders are filled from the deployment's own settings, so the
+page can't drift from them:
+
+- values, inline: `{{surveillance.year_start_week}}`, `{{surveillance.year_end_week}}`, `{{analytics.min_seasons}}`,
+  `{{analytics.aedseo.wave_end.steps_with_decrease}}`, `{{analytics.aedseo.wave_end.burden_level_decrease}}`,
+  `{{phase.max_dip}}`, `{{phase.max_missing}}`, `{{method.build}}` (the aedseo build behind the current tables), and
+  the method's parameters `{{method.n_peak}}`, `{{method.conf_levels}}`, `{{method.decay_factor}}`,
+  `{{method.burden_family}}`, `{{method.onset_family}}`, `{{method.window_weeks}}`, `{{method.interval_percent}}`;
+- tables, each on a line of its own: `{{> streams}}` (each pathogen and location's two streams, named as their panels
+  are), `{{> indicator_models}}` (how each kind of indicator enters the method), `{{> phase_patterns}}` (season or
+  waves), `{{> censored}}` (values fitted as gaps), `{{> levels}}` (the levels and their colours);
+- `{{> method}}`: the library's general method text, in the reader's language (English where the library has none).
+
+The page is CommonMark with tables and `$…$` / `$$…$$` maths; raw HTML isn't rendered. Its `##` and `###` headings
+build its contents list. An unknown placeholder, a table placeholder sharing its line, or a missing file for an
+offered language stops the app at startup. The Greece example's pages are in `examples/methodology/`.
+
 ### Status, Trend and phase (`health-signal assess`)
 
 The dashboard shows Status and Trend tiles, threshold bands and season or wave phases from tables it
