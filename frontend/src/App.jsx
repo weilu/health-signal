@@ -97,7 +97,9 @@ function Shell({ config }) {
         <Container maxWidth="xl">
           {/* Filters wrap under the title when the row runs out of room. */}
           <Toolbar disableGutters sx={{ ...rule, flexWrap: 'wrap', columnGap: 4, rowGap: 2, py: 2 }}>
-            <Box sx={{ flexGrow: 1 }}>
+            {/* A flexible base rather than the title's full width, so a long title (Greek's) wraps in its own column
+                instead of pushing the filters onto the next row. */}
+            <Box sx={{ flex: '1 1 320px', minWidth: 0 }}>
               <Typography variant="h5" component="h1">{t('site.title', { defaultValue: config.title })}</Typography>
               {periods && (
                 <Typography variant="body2" color="text.secondary">{t('filters.reportingWeek', reportingWeek(t, periods.last))}</Typography>
