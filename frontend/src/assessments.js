@@ -147,6 +147,12 @@ export function toneColor(tone) {
   return tone === 'neutral' ? 'grey.500' : `${tone}.main`
 }
 
+// For words in a tone: amber at its usual shade is about 3:1 on the card, short of the 4.5:1 text needs, so words
+// take its darker shade; marks (dots, arrows) keep the usual one.
+export function toneTextColor(tone) {
+  return tone === 'neutral' ? 'text.secondary' : tone === 'warning' ? 'warning.dark' : toneColor(tone)
+}
+
 // The tone as a colour value, for what a palette path can't express (tints, shadows, the chart's canvas).
 export function tonePaint(theme, tone) {
   return tone === 'neutral' ? theme.palette.grey[500] : theme.palette[tone].main

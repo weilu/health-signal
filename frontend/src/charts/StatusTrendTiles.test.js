@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { asOfFooter, growthText, sourceFooter } from './StatusTrendTiles.jsx'
+import { asOfFooter, growthText, sourceFooter, trendFooter } from './StatusTrendTiles.jsx'
 
 // Echoes keys and their options, so the test sees what the footer asks i18n for.
 const t = (key, options) => (options ? `${key}(${Object.entries(options).map(([k, v]) => `${k}=${v}`).join(',')})` : key)
@@ -35,4 +35,14 @@ describe('sourceFooter', () => {
       .toBe('assessment.source(source=methods.aedseo.sources.trend(defaultValue=aedseo))')
     expect(sourceFooter(t, { asOf: '2025-W40', current: false }, 'aedseo', 'trend')).toContain('assessment.sourcePast(')
   })
+})
+
+
+describe('trendFooter', () => {
+  // The week is in the growth sentence; an inconclusive trend has none, so the footer must carry it.
+  const past = { asOf: '2025-W40', current: false }
+  it('is the source alone beside a growth sentence', () =>
+    expect(trendFooter(t, past, { method: 'aedseo', growth_lower: -0.1, growth_upper: 0.2 })).toContain('assessment.sourcePast('))
+  it('keeps the week when there is no sentence to give it', () =>
+    expect(trendFooter(t, past, { method: 'aedseo', growth_lower: null, growth_upper: null })).toContain('assessment.asOfPast('))
 })
