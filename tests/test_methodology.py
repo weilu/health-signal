@@ -4,8 +4,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from health_signal import create_app, load_config
-from health_signal.config import Config
-from health_signal.methodology import library_sections, load_methodology
+from health_signal.config import Config, Page, Target
+from health_signal.methodology import block_data, library_sections, load_methodology
 from analytics_support import write_feed
 from auth_stubs import AllowAll, DenyAll
 
@@ -126,6 +126,13 @@ def _client(cfg, auth=None):
 def test_it_serves_the_page_and_its_blocks(tmp_path):
     body = _client(_config(tmp_path, {"en": "Week {{surveillance.year_start_week}}"})).get("/api/methodology/en").json()
     assert "`hs:21`" in body["markdown"] and "streams" in body["blocks"]
+
+
+def test_a_target_with_no_panels_stays_out_of_the_pathogen_tables(tmp_path):
+    config = _config(tmp_path)
+    config.targets.append(Target(id="AMR", pages=[Page(id="overview")]))
+    blocks = block_data(config)
+    assert {r["target"] for r in blocks["streams"]} == {r["target"] for r in blocks["phase_patterns"]} == {"Influenza"}
 
 
 def test_the_methodology_is_behind_login(tmp_path):

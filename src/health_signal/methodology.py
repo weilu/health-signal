@@ -8,6 +8,7 @@ from pathlib import Path
 from .config import Config
 from .datasource import read_table
 from .methods import AEDSEO, MAX_DIP, MAX_MISSING
+from .profile import PATHOGENS
 
 TEXT_DIR = Path(__file__).parent / "methodology_text"
 # The library text is in named sections, so a deployment can set its own reasoning between them.
@@ -189,11 +190,12 @@ def block_data(config: Config) -> dict:
                   for d in profile.denominators]
     rules.append({"kind": "constant"})
     unique = list({json.dumps(r, sort_keys=True): r for r in rules}.values())
+    pathogens = [t for t in config.targets if t.id in PATHOGENS]
     return {
         "streams": [{"target": t.id, "location": location, "streams": streams(t.id, location)}
-                    for t in config.targets for location in locations],
+                    for t in pathogens for location in locations],
         "phase_patterns": [{"target": t.id, "pattern": "waves" if t.id in config.analytics.wave_pathogens else "season"}
-                           for t in config.targets],
+                           for t in pathogens],
         "indicator_models": unique,
         "levels": {"method": AEDSEO.name},
     }
