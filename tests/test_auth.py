@@ -118,6 +118,16 @@ def test_spa_redirects_to_login_when_unauthenticated():
     assert r.headers["location"] == "/login"
 
 
+def test_redirects_stay_under_the_mount_path():
+    # Posit Connect serves the app under /content/<guid>/; a bare "/login" would leave it for the host's own.
+    client = _client()
+    client.app.root_path = "/content/abc"
+    assert client.get("/", follow_redirects=False).headers["location"] == "/content/abc/login"
+    login = client.post("/login", data={"email": _EMAIL, "password": _PASSWORD}, follow_redirects=False)
+    assert login.headers["location"] == "/content/abc/"
+    assert client.post("/logout", follow_redirects=False).headers["location"] == "/content/abc/login"
+
+
 def test_login_wrong_password_returns_401():
     r = _client().post("/login", data={"email": _EMAIL, "password": "wrong"})
     assert r.status_code == 401

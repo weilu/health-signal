@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from . import auth as _auth
 from .assessments import (AssessmentRow, AssessmentSource, PhaseRow, PhaseSource, PhaseStreamRow,
                           PhaseStreamSource, ThresholdRow)
-from .auth import AuthProvider, User
+from .auth import AuthProvider, User, mounted
 from .config import Config
 from .datasource import DataSource, FileDataSource
 from .locales import load_overlays, public_text
@@ -45,7 +45,7 @@ def _serve_spa(request: Request, bootstrap: dict) -> Response:
     index = _UI_DIR / "index.html"
     if not index.is_file():
         return HTMLResponse(_PLACEHOLDER)
-    base_href = request.scope.get("root_path", "").rstrip("/") + "/"
+    base_href = mounted(request, "/")
     return HTMLResponse(render_index(index.read_text(encoding="utf-8"), bootstrap, base_href))
 
 
@@ -243,6 +243,6 @@ def create_app(
             return _serve_spa(request, bootstrap)
         if await provider.current_user(request) is not None:
             return _serve_spa(request, bootstrap)
-        return RedirectResponse(url="/login", status_code=303)
+        return RedirectResponse(url=mounted(request, "/login"), status_code=303)
 
     return app

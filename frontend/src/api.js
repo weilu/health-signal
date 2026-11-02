@@ -1,7 +1,9 @@
+import { url } from './base.js'
+
 // Non-OK throws with .status so callers can tell an expired session (401) from other failures.
 export async function apiGet(path, params = {}) {
   const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v != null && v !== ''))
-  const res = await fetch(qs.size ? `${path}?${qs}` : path, { credentials: 'same-origin' })
+  const res = await fetch(url(qs.size ? `${path}?${qs}` : path), { credentials: 'same-origin' })
   if (!res.ok) {
     const e = new Error(`${path}: ${res.status}`)
     e.status = res.status

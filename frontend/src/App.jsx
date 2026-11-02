@@ -5,6 +5,7 @@ import { AppBar, Toolbar, Typography, Button, Container, Box, Snackbar, Alert, S
 import { useTranslation } from 'react-i18next'
 import { fetchConfig, fetchPeriods } from './api.js'
 import { ResourceBoundary } from './ResourceBoundary.jsx'
+import { basePath, url } from './base.js'
 // Its own chunk: the Markdown renderer and KaTeX load only with this page.
 const MethodologyPage = lazy(() => import('./pages/MethodologyPage.jsx'))
 import LoginPage from './pages/LoginPage.jsx'
@@ -51,9 +52,9 @@ function Shell({ config }) {
 
   async function handleLogout() {
     // Only the server can clear the httpOnly cookie, so redirect only on a confirmed 303.
-    const res = await fetch('/logout', { method: 'POST', credentials: 'same-origin', redirect: 'manual' }).catch(() => null)
+    const res = await fetch(url('/logout'), { method: 'POST', credentials: 'same-origin', redirect: 'manual' }).catch(() => null)
     if (res && (res.ok || res.type === 'opaqueredirect' || res.status === 303)) {
-      window.location.assign('/login')
+      window.location.assign(url('/login'))
       return
     }
     setLogoutFailed(true)
@@ -155,7 +156,7 @@ function Shell({ config }) {
 
 export default function App({ config }) {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={basePath() || undefined}>
       <Shell config={config} />
     </BrowserRouter>
   )
