@@ -87,9 +87,9 @@ function Contents({ items }) {
     <Box component="nav" aria-label={t('methodology.contents')}
       sx={{ position: { md: 'sticky' }, top: 16, alignSelf: 'start', pr: 2, borderRight: { md: 1 }, borderColor: 'divider' }}>
       {items.map((h) => (
-        <Link key={slug(h.text)} href={`#${slug(h.text)}`} underline="hover" display="block"
+        <Link key={slug(h.text)} href={`#${slug(h.text)}`} underline="hover"
           aria-current={current === slug(h.text) ? 'location' : undefined}
-          sx={{ pl: h.level === 3 ? 2 : 0, py: 0.5, fontSize: '0.875rem',
+          sx={{ display: 'block', pl: h.level === 3 ? 2 : 0, py: 0.5, fontSize: '0.875rem',
                 color: current === slug(h.text) ? 'text.primary' : 'text.secondary',
                 fontWeight: current === slug(h.text) ? 600 : 400 }}>
           {h.text}

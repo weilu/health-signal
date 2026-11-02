@@ -246,6 +246,41 @@
     "phase": "Key signals"
   },
   "methodology": {
-    "contents": "Contents"
+    "contents": "Contents",
+    "notConfigured": "Not configured",
+    "caption": {
+      "streams": "This dashboard's streams",
+      "indicator_models": "How this dashboard's indicators enter the method",
+      "phase_patterns": "This dashboard's season or wave by pathogen",
+      "censored": "Values fitted as gaps",
+      "levels": "The levels and their colours"
+    },
+    "columns": {
+      "pathogen": "Pathogen",
+      "location": "Location",
+      "indicator": "Indicator",
+      "modelled": "How it's modelled",
+      "gradedAs": "Graded as",
+      "feed": "Feed",
+      "values": "Values",
+      "level": "Level",
+      "colour": "Colour"
+    },
+    "models": {
+      "count": "Counts ({{units}})",
+      "asCounts": "As counts",
+      "asRate": "As a rate of {{denominator}}, per {{per}}",
+      "other": "Any other rate or load",
+      "constant": "Against a constant exposure"
+    },
+    "pattern": {
+      "season": "One season a year",
+      "waves": "Waves through the year"
+    },
+    "tone": {
+      "success": "Green",
+      "warning": "Amber",
+      "error": "Red"
+    }
   }
 }
