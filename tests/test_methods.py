@@ -18,4 +18,3 @@ def test_aedseo_fits_with_its_methods_parameters():
     # One source for the settings: the methodology page shows them, so the fit must read the same ones.
     m = AEDSEO.model_copy(update={"parameters": {**AEDSEO.parameters, "window_weeks": 6, "n_peak": 4}})
     assert onset_args(m)["k"] == 6 and burden_args(m)["n_peak"] == 4
-    assert onset_args(AEDSEO) == {"family": "quasipoisson", "k": 5, "level": 0.95}

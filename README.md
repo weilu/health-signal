@@ -144,7 +144,9 @@ page can't drift from them:
   waves), `{{> censored}}` (values fitted as gaps), `{{> levels}}` (the levels and their colours);
 - `{{> method}}`: the library's general method text, in the reader's language (English where the library has none).
 
-The page is CommonMark with tables and `$…$` / `$$…$$` maths; raw HTML isn't rendered. Its `##` and `###` headings
+The page is CommonMark with tables and `$…$` / `$$…$$` maths; raw HTML isn't rendered. Inside maths a value
+placeholder becomes the bare value and LaTeX's own double braces are left alone; inside a fenced code block
+placeholders are shown as written. Its `##` and `###` headings
 build its contents list. An unknown placeholder, a table placeholder sharing its line, or a missing file for an
 offered language stops the app at startup. The Greece example's pages are in `examples/methodology/`.
 

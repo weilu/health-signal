@@ -153,3 +153,21 @@ def test_the_greece_example_methodology_loads_in_every_language():
     for language, heading in [("en", "## How the dashboard grades"), ("el", "## Πώς βαθμολογεί ο πίνακας")]:
         md = pages[language]["markdown"]
         assert "```hs-block\nstreams\n```" in md and heading in md
+
+
+@pytest.mark.parametrize("typo", ["{{Analytics.min_seasons}}", "{{analytics.min_season2}}", "{{analytics.min-seasons}}",
+                                  "{{analytics.min_seasons}"])
+def test_any_malformed_placeholder_stops_startup_rather_than_reach_readers(tmp_path, typo):
+    with pytest.raises(ValueError, match=r"en\.md line 1"):
+        _page(tmp_path, f"At least {typo} seasons.")
+
+
+def test_placeholders_in_a_fenced_block_are_left_as_written(tmp_path):
+    # An author showing how to write one, not asking for one.
+    source = "```\n{{> streams}}\n{{analytics.min_seasons}}\n```\n"
+    assert _page(tmp_path, source)["markdown"] == source
+
+
+def test_a_value_in_maths_is_the_bare_value_and_latex_braces_are_left(tmp_path):
+    md = _page(tmp_path, "Window $k = {{method.window_weeks}}$, and $x^{{n}}$.\n\n$$\n\\frac{{a}}{b}\n$$\n")["markdown"]
+    assert "$k = 5$" in md and "$x^{{n}}$" in md and "\\frac{{a}}{b}" in md

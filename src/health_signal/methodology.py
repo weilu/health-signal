@@ -12,6 +12,10 @@ from .methods import AEDSEO, MAX_DIP, MAX_MISSING
 TEXT_DIR = Path(__file__).parent / "methodology_text"
 BLOCKS = ("streams", "indicator_models", "phase_patterns", "censored", "levels", "method")
 _PLACEHOLDER = re.compile(r"\{\{\s*(>\s*)?([a-z_.]+)\s*\}\}")
+# Anything in double braces, so a misspelt placeholder is caught rather than shown; maths spans are set apart,
+# since LaTeX writes double braces of its own.
+_BRACES = re.compile(r"\{\{(.*?)\}\}")
+_MATH = re.compile(r"\$\$.*?\$\$|\$[^$\n]+\$")
 
 
 def load_methodology(config: Config) -> dict[str, dict]:
@@ -43,22 +47,61 @@ def _library_text(language: str, values: dict[str, str]) -> str:
 
 
 def _fill(text: str, file: str, values: dict[str, str], method_text: Callable[[], str] | None) -> str:
-    lines = []
+    lines, fenced, display_math = [], False, False
     for number, line in enumerate(text.splitlines(), start=1):
-        for match in _PLACEHOLDER.finditer(line):
-            block, name = match.group(1), match.group(2)
-            known = name in BLOCKS and (method_text is not None or name != "method") if block else name in values
-            if not known:
-                raise ValueError(f"{file} line {number}: unknown placeholder {match.group(0)}")
-            if block and line.strip() != match.group(0):
-                raise ValueError(f"{file} line {number}: {match.group(0)} must stand on its own line")
+        if line.lstrip().startswith("```"):
+            fenced = not fenced
+        # An author showing a placeholder in code means it as written.
+        if fenced or line.lstrip().startswith("```"):
+            lines.append(line)
+            continue
+        if line.strip() == "$$":
+            display_math = not display_math
+        if display_math or line.strip() == "$$":
+            lines.append(_in_maths(line, values))
+            continue
         block = _PLACEHOLDER.fullmatch(line.strip())
         if block and block.group(1):
             name = block.group(2)
+            if name not in BLOCKS or (name == "method" and method_text is None):
+                raise ValueError(f"{file} line {number}: unknown placeholder {block.group(0)}")
             lines.append(method_text() if name == "method" else f"```hs-block\n{name}\n```")
-        else:
-            lines.append(_PLACEHOLDER.sub(lambda m: values[m.group(2)], line))
+            continue
+        lines.append(_fill_line(line, f"{file} line {number}", values))
     return "\n".join(lines) + "\n"
+
+
+def _fill_line(line: str, where: str, values: dict[str, str]) -> str:
+    out, last = [], 0
+    for math in _MATH.finditer(line):
+        out += [_fill_prose(line[last:math.start()], where, values), _in_maths(math.group(0), values)]
+        last = math.end()
+    out.append(_fill_prose(line[last:], where, values))
+    return "".join(out)
+
+
+def _fill_prose(text: str, where: str, values: dict[str, str]) -> str:
+    def value(match: re.Match) -> str:
+        placeholder = _PLACEHOLDER.fullmatch(match.group(0))
+        if placeholder and placeholder.group(1):
+            raise ValueError(f"{where}: {match.group(0)} must stand on its own line")
+        if placeholder is None or placeholder.group(2) not in values:
+            raise ValueError(f"{where}: unknown placeholder {match.group(0)}")
+        return values[placeholder.group(2)]
+    filled = _BRACES.sub(value, text)
+    if "{{" in filled or "}}" in filled:
+        raise ValueError(f"{where}: a placeholder is missing a brace")
+    return filled
+
+
+def _in_maths(text: str, values: dict[str, str]) -> str:
+    # KaTeX can't show the marked value, so maths gets the bare one; LaTeX's own double braces stay.
+    def bare(match: re.Match) -> str:
+        placeholder = _PLACEHOLDER.fullmatch(match.group(0))
+        if placeholder is None or placeholder.group(1) or placeholder.group(2) not in values:
+            return match.group(0)
+        return values[placeholder.group(2)].strip("`").removeprefix("hs:")
+    return _PLACEHOLDER.sub(bare, text)
 
 
 def _value(text) -> str:
