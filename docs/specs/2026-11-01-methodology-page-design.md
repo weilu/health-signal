@@ -79,6 +79,10 @@ reader belong on the Methodology page, in context, as prose and tables.
   The full set of names is fixed by the library and listed in the README.
 - **Rendering:** CommonMark plus GFM tables, in the browser. Raw HTML is not rendered. Headings (`##`, `###`)
   build the contents list and get anchors.
+- **Maths (decided with the user):** `$…$` inline and `$$…$$` on a line of its own, typeset with KaTeX. The
+  library's own Trend section needs it (the growth model $\log \mathbb{E}[y_t] = a + r\,t$, and $e^{r} - 1$), and
+  MEM's text will too. KaTeX and its fonts load only with the Methodology page, so the dashboard pages don't grow.
+  KaTeX typesets maths only, so it doesn't reopen raw HTML.
 - **Where values come from:**
   - config: `surveillance.year_start_week`, `analytics.*`, `analytics.phase_streams`, panels, profiles;
   - the method's own parameters (`n_peak`, `conf_levels`, `decay_factor`, `k`, the interval level): today they
