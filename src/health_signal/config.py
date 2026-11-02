@@ -40,6 +40,10 @@ class SiteConfig(BaseModel):
             normalized.append("/" + p.strip("/"))
         return normalized
 
+    def opens(self, path: str) -> bool:
+        # By prefix at a path boundary ("/" = whole site).
+        return any(prefix == "/" or path == prefix or path.startswith(prefix + "/") for prefix in self.public_paths)
+
     @model_validator(mode="after")
     def _default_locale_is_offered(self) -> "SiteConfig":
         # fallbackLng is default_locale; one outside the configured locales renders raw keys.
@@ -85,6 +89,8 @@ class Panel(BaseModel):
 
 
 _PAGE_ID = re.compile(r"[a-z0-9_-]+")  # a URL segment as-is: no encoding, no case folding
+_TARGET_ID = re.compile(r"[A-Za-z0-9_-]+")  # lower-cased into its URL segment
+_APP_ROUTES = {"login", "logout", "api", "config", "docs", "redoc", "healthz", "assets", "methodology"}
 
 
 def page_path(target_id: str, page_id: str) -> str:
@@ -118,17 +124,24 @@ class Page(BaseModel):
 
 
 class Target(BaseModel):
-    # A surveillance subject: its id is a pathogen registry key, so tabs, phases and tiles share one key.
+    # A surveillance subject: once it has panels, its id is a pathogen registry key, so tabs, phases and tiles share
+    # one key. Until then (a tab announced before its data, like AMR) any id that is its own URL segment will do.
     model_config = ConfigDict(extra="forbid")
     id: str
     pages: list[Page] = Field(default_factory=list)
 
     @field_validator("id")
     @classmethod
-    def _is_pathogen(cls, target_id: str) -> str:
-        if target_id not in PATHOGENS:
-            raise ValueError(f"target id {target_id!r} is not in the pathogen registry {sorted(PATHOGENS)}")
+    def _url_safe(cls, target_id: str) -> str:
+        if not _TARGET_ID.fullmatch(target_id) or target_id.lower() in _APP_ROUTES:
+            raise ValueError(f"target id {target_id!r} must be letters, digits, '-' or '_', and not an app route")
         return target_id
+
+    @model_validator(mode="after")
+    def _is_pathogen(self) -> "Target":
+        if any(page.panels for page in self.pages) and self.id not in PATHOGENS:
+            raise ValueError(f"target id {self.id!r} has panels but is not in the pathogen registry {sorted(PATHOGENS)}")
+        return self
 
     @computed_field
     @property
@@ -425,7 +438,8 @@ class Config(BaseModel):
 
     def _client_page(self, target: Target, page: Page, shared: dict[tuple, list[str]]) -> dict:
         keys = {p.id: key for p in page.panels if p.query and (key := self._canonical_query(p.query))}
-        return {**page.model_dump(mode="json"), "path": page_path(target.id, page.id),
+        path = page_path(target.id, page.id)
+        return {**page.model_dump(mode="json"), "path": path, "public": self.site.opens(path),
                 "panels": [self._client_panel(x, shared, keys) for x in page.panels]}
 
     def _client_panel(self, panel: Panel, shared: dict[tuple, list[str]], page_keys: dict[str, tuple]) -> dict:

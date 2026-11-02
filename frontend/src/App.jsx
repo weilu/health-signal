@@ -12,6 +12,7 @@ import LoginPage from './pages/LoginPage.jsx'
 import TargetPage from './pages/TargetPage.jsx'
 import { HeaderFilters } from './HeaderFilters.jsx'
 import { LocaleToggle } from './LocaleToggle.jsx'
+import { TabLabel } from './TabLabel.jsx'
 import { configLabel, reportingWeek } from './labels.js'
 import { activePage } from './nav.js'
 import { selectedLocation, selectedRange, withFilters } from './filters.js'
@@ -121,7 +122,8 @@ function Shell({ config }) {
           <Tabs value={active?.target.id ?? false} variant="scrollable" allowScrollButtonsMobile sx={rule}>
             {targets.map((target) => (
               <Tab key={target.id} value={target.id} component={NavLink} end to={withFilters(target.pages[0].path, search)}
-                label={configLabel(t, target.label_key, target.id)} sx={{ typography: 'h6' }} />
+                label={<TabLabel label={configLabel(t, target.label_key, target.id)} lock={!target.pages.some((p) => p.public) && t('nav.signedInOnly')} />}
+                sx={{ typography: 'h6' }} />
             ))}
           </Tabs>
         </Container>
@@ -131,7 +133,8 @@ function Shell({ config }) {
           <Container maxWidth="xl">
             <Tabs value={active.page.path} variant="scrollable" allowScrollButtonsMobile sx={{ ...rule, bgcolor: 'background.paper' }}>
               {active.target.pages.map((p) => (
-                <Tab key={p.path} value={p.path} component={NavLink} end to={withFilters(p.path, search)} label={configLabel(t, p.label_key, p.id)} />
+                <Tab key={p.path} value={p.path} component={NavLink} end to={withFilters(p.path, search)} 
+                  label={<TabLabel label={configLabel(t, p.label_key, p.id)} lock={!p.public && t('nav.signedInOnly')} />} />
               ))}
             </Tabs>
           </Container>
