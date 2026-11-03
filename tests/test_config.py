@@ -192,6 +192,13 @@ def test_duplicate_target_ids_fail_at_load():
                targets=[Target(id="Influenza", pages=[Page(id="a")]), Target(id="Influenza", pages=[Page(id="b")])])
 
 
+def test_target_ids_differing_only_in_case_fail_at_load():
+    # Their pages would share one lower-cased path, leaving the second target unreachable.
+    with pytest.raises(ValidationError, match="target ids"):
+        Config(schema_version="1", site=SiteConfig(title="T"),
+               targets=[Target(id="AMR", pages=[Page(id="overview")]), Target(id="amr", pages=[Page(id="overview")])])
+
+
 def test_duplicate_panel_ids_on_a_page_fail_at_load():
     with pytest.raises(ValidationError):
         Page(id="o", panels=[Panel(**_PANEL), Panel(**_PANEL)])

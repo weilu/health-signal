@@ -366,10 +366,10 @@ class Config(BaseModel):
 
     @model_validator(mode="after")
     def _unique_pages(self) -> "Config":
-        # Target ids key tabs and derived paths.
-        target_ids = [t.id for t in self.targets]
+        # Target ids key tabs and derived paths, which lower-case them.
+        target_ids = [t.id.lower() for t in self.targets]
         if len(target_ids) != len(set(target_ids)):
-            raise ValueError("duplicate target ids")
+            raise ValueError("duplicate target ids (compared ignoring case, as their paths are)")
         return self
 
     @model_validator(mode="after")
