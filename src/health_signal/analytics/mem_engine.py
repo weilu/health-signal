@@ -3,7 +3,7 @@ import math
 
 from ..methods import MEM
 from .backend import NO_BANDS, FitError, MemBackend, MemFit
-from .engine import SeriesResult, _usable
+from .engine import SeriesResult
 from .rules import MIN_SEASON_WEEKS, SeasonState, level_for, mem_trend, season_of, weeks_between
 from .series import Series
 
@@ -14,6 +14,18 @@ def _slot(period: str, start_week: int) -> int:
     # Week numbers in season order, week 53 its own slot, so week 1 lines up in every season.
     week = int(period.split("-W")[1])
     return week - start_week if week >= start_week else SLOTS - start_week + week
+
+
+def _graded_bounds(thresholds: tuple[float, ...]) -> tuple[float, ...]:
+    # mem doesn't order its thresholds: after low-peaked seasons the medium one can fall below the epidemic one, and
+    # MEM then grades every epidemic week at least medium. Raising each to the one below grades the same and draws.
+    if not all(math.isfinite(t) for t in thresholds):
+        return NO_BANDS
+    bounds, floor = [], -math.inf
+    for t in thresholds:
+        floor = max(floor, t)
+        bounds.append(floor)
+    return tuple(bounds)
 
 
 def assess_mem_series(series: Series, weeks: list[str], backend: MemBackend, *, start_week: int, seasons: int,
@@ -40,7 +52,7 @@ def assess_mem_series(series: Series, weeks: list[str], backend: MemBackend, *, 
             except FitError:
                 fits[season] = (None, len(history))
         fit, behind = fits[season]
-        thresholds = _usable(fit.thresholds) if fit else NO_BANDS
+        thresholds = _graded_bounds(fit.thresholds) if fit else NO_BANDS
         i = index[week]
         value = series.values[i]
         level = None if unmodelled[i] or thresholds is NO_BANDS else level_for(value, thresholds, MEM.levels)

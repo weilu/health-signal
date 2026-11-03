@@ -107,3 +107,19 @@ def test_a_censored_value_is_missing_to_mem_but_its_week_is_graded():
     series = _series(periods + ["2019-W40", "2019-W41"], values + [30, 0], censored=censored)
     rows = _grade(series, ["2019-W40", "2019-W41"], FakeMem()).rows
     assert rows[1]["level"] == "baseline" and rows[1]["trend"] == "not_assessed"
+
+
+class CrossedMem(FakeMem):
+    # As mem can return after low-peaked seasons: the medium-intensity threshold below the epidemic one.
+    def fit_season(self, history):
+        self.calls.append(history)
+        return MemFit((44.8, 26.8, 253.0, 683.0), 11.0, -11.0)
+
+
+def test_thresholds_that_dont_rise_still_grade_as_mem_does():
+    # Below the epidemic threshold is baseline, whatever the intensity thresholds; above it, the highest reached.
+    periods, values = _seasons(4)
+    tail = ["2019-W40", "2019-W41"]
+    result = _grade(_series(periods + tail, values + [35, 50]), tail, CrossedMem())
+    assert [r["level"] for r in result.rows] == ["baseline", "medium"]
+    assert result.bounds[0][1] == (44.8, 44.8, 253.0, 683.0)   # drawn as MEM grades: no low band left
