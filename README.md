@@ -15,7 +15,7 @@ and languages.
 first (ECDC/WHO **ERVISS** clinical indicators + **PHES-ODM** wastewater); further domains
 (e.g. AMR, vaccine-preventable diseases) are added as configuration plus a schema profile, not a
 fork. It is packaged as a Python library that a country's own repository configures and deploys
-(for example, to Posit Connect).
+(for example, to Posit Connect, where it runs below the content's own path, `/content/<guid>/`).
 
 **Audience:** public-health agencies, epidemiologists, and the teams building surveillance
 dashboards for them.
