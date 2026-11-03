@@ -8,7 +8,9 @@ from health_signal.analytics.store import SettingsChanged, lock_assessments
 from health_signal.assessments import AssessmentSource, PhaseSource, PhaseStreamSource
 from health_signal.config import Config
 from health_signal.profile import ERVISS
-from analytics_support import (ERVISS_HEADER, FakeBackend, FlakyBackend, NeverFitsBackend, RecordingBackend,
+from health_signal.analytics.run import graded_series
+from health_signal.analytics.series import Series
+from analytics_support import (ERVISS_HEADER, FakeBackend, FakeMem, FlakyBackend, NeverFitsBackend, RecordingBackend,
                                erviss_rows, write_feed)
 
 
@@ -366,3 +368,60 @@ def test_tables_phased_before_waves_started_only_on_their_own_alarm_need_a_full_
     settings.write_text("".join(line for line in settings.read_text().splitlines(keepends=True) if "wave_start" not in line))
     with pytest.raises(SettingsChanged, match="wave_start"):
         assess(cfg, backend=FakeBackend)
+
+
+_BOTH = {"aedseo": FakeBackend, "mem": FakeMem}
+
+
+def _methods(tmp_path):
+    return {r.method for r in AssessmentSource(tmp_path / "a", ERVISS).assessments()}
+
+
+def test_each_graded_method_writes_its_own_rows(tmp_path):
+    assess(_config(tmp_path, analytics={"methods": ["aedseo", "mem"]}), backend=_BOTH)
+    assert _methods(tmp_path) == {"aedseo", "mem"}
+
+
+def test_an_allowlist_grades_only_its_panels(tmp_path):
+    assess(_config(tmp_path, analytics={"methods": ["aedseo", "mem"], "mem": {"panels": ["Influenza/clinical/ili"]}}),
+           backend=_BOTH)
+    rows = AssessmentSource(tmp_path / "a", ERVISS).assessments()
+    assert {r.indicator for r in rows if r.method == "mem"} == {"ILIconsultationrate"}
+
+
+def _long_feed(tmp_path, n=100):
+    # Two seasons, so MEM has a complete past season to fit.
+    values = [5 + (i % 52) for i in range(n)]
+    write_feed(tmp_path / "c", erviss_rows("Greece", "ILIconsultationrate", "per_100k", values)
+               + erviss_rows("Greece", "SARIrate", "per_100k", values, survtype="SARI syndromic"))
+
+
+def test_full_for_one_method_keeps_the_others_rows(tmp_path):
+    cfg = _config(tmp_path, analytics={"methods": ["aedseo", "mem"]})
+    _long_feed(tmp_path)
+    assess(cfg, backend=_BOTH)
+    aedseo = [r for r in AssessmentSource(tmp_path / "a", ERVISS).assessments() if r.method == "aedseo"]
+    changed = _config(tmp_path, analytics={"methods": ["aedseo", "mem"], "mem": {"seasons": 4}})
+    _long_feed(tmp_path)
+    with pytest.raises(SettingsChanged, match="mem.seasons"):
+        assess(changed, backend=_BOTH)
+    assert assess(changed, full=True, method="mem", backend=_BOTH).weeks == 200   # MEM's 2 x 100 weeks, no aedseo
+    assert [r for r in AssessmentSource(tmp_path / "a", ERVISS).assessments() if r.method == "aedseo"] == aedseo
+
+
+def _wave_only_series():
+    return Series("clinical", {"SARS-CoV-2"}, "Greece", "ILIconsultationrate", {}, "per_100k", [], [], "incidence",
+                  panels={"SARS-CoV-2/clinical/ili"})
+
+
+def test_a_method_without_phases_leaves_out_series_graded_in_waves(tmp_path):
+    cfg = _config(tmp_path, covid_too=True, analytics={"methods": ["aedseo", "mem"]})
+    assert graded_series(cfg, "mem", [_wave_only_series()]) == []
+    assert graded_series(cfg, "aedseo", [_wave_only_series()]) != []
+
+
+def test_listing_a_series_graded_in_waves_stops_a_method_without_phases(tmp_path):
+    cfg = _config(tmp_path, covid_too=True,
+                  analytics={"methods": ["aedseo", "mem"], "mem": {"panels": ["SARS-CoV-2/clinical/ili"]}})
+    with pytest.raises(ValueError, match="waves"):
+        graded_series(cfg, "mem", [_wave_only_series()])
