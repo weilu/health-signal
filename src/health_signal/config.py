@@ -460,8 +460,10 @@ class Config(BaseModel):
         specific = indicator in profile.pathogen_specific or implied
         out["group"] = {"feed": feed, "kind": "pathogen_specific" if specific else "syndromic", "targets": shared[key]}
         # Whether a chart title adds the tab's pathogen: not for a syndromic series shared by every tab, nor where the
-        # name already says it (a measure like fluA, or a panel told apart by pathogen type).
-        out["name"]["pathogen"] = specific and not implied and not any(d.startswith("pathogen") for d in out["name"]["dimensions"])
+        # name already says it (a measure like fluA, or a panel told apart by pathogen type), nor where its lines are
+        # several pathogens.
+        out["name"]["pathogen"] = (specific and not implied and panel.series_by != "pathogen"
+                                   and not any(d.startswith("pathogen") for d in out["name"]["dimensions"]))
         return out
 
     def bootstrap_config(self) -> dict:

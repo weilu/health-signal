@@ -469,7 +469,8 @@ def test_a_panel_is_named_by_its_indicator_and_what_sets_it_apart_on_its_page():
 
 def test_a_chart_title_names_the_tabs_pathogen_only_where_the_panel_does_not():
     # "Hospital admissions · COVID-19 (Attica)" keeps context after scrolling past the tabs, but a syndromic series
-    # (shared by every tab), a measure that names its pathogen (fluA) or a panel told apart by type mustn't repeat it.
+    # (shared by every tab), a measure that names its pathogen (fluA), a panel told apart by type, or one split into a
+    # line per pathogen mustn't repeat it.
     q = lambda feed, indicator, **dims: {"feed": feed, "indicator": indicator, "dimensions": dims}
     icu = lambda ptype: q("clinical", "ICUadmissions", survtype="non-sentinel", pathogen="Influenza", pathogentype=ptype,
                           age="total")
@@ -479,9 +480,11 @@ def test_a_chart_title_names_the_tabs_pathogen_only_where_the_panel_does_not():
                                     age="total")),
             Panel(id="ili", query=q("clinical", "ILIconsultationrate", survtype="primary care sentinel", age="total")),
             Panel(id="ww", query=q("wastewater", "fluA", aggregation="floMean")),
-            Panel(id="icu_a", query=icu("Influenza A")), Panel(id="icu_b", query=icu("Influenza B"))])])])
+            Panel(id="icu_a", query=icu("Influenza A")), Panel(id="icu_b", query=icu("Influenza B")),
+            Panel(id="by_pathogen", query=q("clinical", "deaths", survtype="non-sentinel", age="total"),
+                  series_by="pathogen")])])])
     named = {p["id"]: p["name"]["pathogen"] for p in cfg.client_config()["targets"][0]["pages"][0]["panels"]}
-    assert named == {"adm": True, "ili": False, "ww": False, "icu_a": False, "icu_b": False}
+    assert named == {"adm": True, "ili": False, "ww": False, "icu_a": False, "icu_b": False, "by_pathogen": False}
 
 
 def test_a_chart_can_ask_for_a_log_axis_and_is_linear_otherwise():
