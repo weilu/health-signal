@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { panelParams, rangePresets, selectedLocation, selectedRange, updateSearch, withFilters, yearLabel } from './filters.js'
+import { panelParams, rangePresets, selectedLocation, selectedMethod, selectedRange, updateSearch, withFilters, yearLabel } from './filters.js'
 
 const filter = { default: 'Greece', options: [{ value: 'Greece' }, { value: 'Attica' }] }
 
@@ -74,4 +74,14 @@ describe('panelParams', () => {
       feed: 'clinical', indicator: 'positivity', survtype: 'SARI virological', pathogen: 'RSV', location: 'Attica', week_from: '2024-W43', week_to: '2025-W42',
     }))
   it('omits filters that are not set', () => expect(panelParams({ feed: 'clinical', indicator: 'deaths' }, null, null)).toEqual({ feed: 'clinical', indicator: 'deaths' }))
+})
+
+describe('selectedMethod', () => {
+  it('reads the method from the link, and an unknown one as the default', () => {
+    expect(selectedMethod(['aedseo', 'mem'], '?method=mem')).toBe('mem')
+    expect(selectedMethod(['aedseo', 'mem'], '?method=nope')).toBe('aedseo')
+    expect(selectedMethod(['aedseo'], '')).toBe('aedseo')
+  })
+  it('keeps the method when moving between pages', () =>
+    expect(withFilters('/rsv/overview', '?method=mem&x=1')).toBe('/rsv/overview?method=mem'))
 })

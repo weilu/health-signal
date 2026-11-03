@@ -503,7 +503,17 @@ class Config(BaseModel):
         keys = {p.id: key for p in page.panels if p.query and (key := self._canonical_query(p.query))}
         path = page_path(target.id, page.id)
         return {**page.model_dump(mode="json"), "path": path, "public": self.site.opens(path),
-                "panels": [self._client_panel(x, shared, keys) for x in page.panels]}
+                "panels": [{**self._client_panel(x, shared, keys), "methods": self._grading(target, page, x)}
+                           for x in page.panels]}
+
+    def _grading(self, target: Target, page: Page, panel: Panel) -> list[str]:
+        # The methods that grade this panel, so the browser can say "not graded with" rather than show another's grade.
+        if panel.query is None or panel.series_by is not None:
+            return []
+        ref = f"{target.id}/{page.id}/{panel.id}"
+        waves = target.id in self.analytics.wave_pathogens
+        return [m for m in self.analytics.methods
+                if (self.method_panels(m) is None or ref in self.method_panels(m)) and (METHODS[m].phases or not waves)]
 
     def _client_panel(self, panel: Panel, shared: dict[tuple, list[str]], page_keys: dict[str, tuple]) -> dict:
         out = panel.model_dump(mode="json")
@@ -560,7 +570,8 @@ class Config(BaseModel):
             "filters": {**self.filters.model_dump(mode="json"),
                         "date_range": {**self.filters.date_range.model_dump(mode="json"),
                                        "year_start_week": self.surveillance.year_start_week}},
-            "methods": {name: m.model_dump(mode="json", exclude={"name"}) for name, m in METHODS.items()},
+            # The graded methods, in the deployment's order: the first is the one shown by default.
+            "methods": {name: METHODS[name].model_dump(mode="json", exclude={"name"}) for name in self.analytics.methods},
         }
 
 

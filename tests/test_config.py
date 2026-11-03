@@ -380,8 +380,8 @@ def test_a_panel_must_query_its_targets_pathogen():
 
 def test_methods_reach_the_client():
     methods = Config(schema_version="1", site=SiteConfig(title="T")).client_config()["methods"]
-    # Every registered method, minus its name (the key already says it).
-    assert methods == {name: m.model_dump(mode="json", exclude={"name"}) for name, m in METHODS.items()}
+    # The graded methods, minus their name (the key already says it).
+    assert methods == {"aedseo": METHODS["aedseo"].model_dump(mode="json", exclude={"name"})}   # graded by default
 
 
 def test_feeds_and_phases_take_optional_assessment_dirs():
@@ -527,3 +527,18 @@ def test_an_allowlist_names_existing_single_series_panels(ref):
 def test_graded_methods_are_registered_and_distinct(methods):
     with pytest.raises(ValidationError, match="methods"):
         _two_panel_config({"methods": methods})
+
+
+def test_the_browser_gets_the_graded_methods_and_which_grade_each_panel():
+    c = _two_panel_config({"methods": ["mem", "aedseo"], "aedseo": {"panels": ["Influenza/c/ili"]}}).client_config()
+    assert list(c["methods"]) == ["mem", "aedseo"]   # the deployment's order: the first is the default
+    panels = {p["id"]: p["methods"] for p in c["targets"][0]["pages"][0]["panels"]}
+    assert panels == {"ili": ["mem", "aedseo"], "split": []}
+
+
+def test_mem_doesnt_grade_a_panel_on_a_wave_pathogens_tab():
+    ili = {"feed": "clinical", "indicator": "ILIconsultationrate",
+           "dimensions": {"survtype": "primary care syndromic", "age": "total"}}
+    c = Config(schema_version="1", site=SiteConfig(title="T"), data=_FEEDS, analytics={"methods": ["aedseo", "mem"]},
+               targets=[Target(id="SARS-CoV-2", pages=[Page(id="c", panels=[Panel(id="ili", query=ili)])])]).client_config()
+    assert c["targets"][0]["pages"][0]["panels"][0]["methods"] == ["aedseo"]

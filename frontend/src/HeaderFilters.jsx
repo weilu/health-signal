@@ -23,7 +23,7 @@ function weekOptions(t, periods) {
   })
 }
 
-export function HeaderFilters({ locationFilter, location, locationLabel, rangeFilter, periods, range }) {
+export function HeaderFilters({ locationFilter, location, locationLabel, rangeFilter, periods, range, methods = [], method }) {
   const { t } = useTranslation()
   const { pathname, search } = useLocation()
   const navigate = useNavigate()
@@ -67,6 +67,11 @@ export function HeaderFilters({ locationFilter, location, locationLabel, rangeFi
               onChange={(e) => setCustom(range.from, e.target.value)}>{weeks}</TextField>
           </Stack>
         </>
+      )}
+      {methods.length > 1 && (
+        <TextField {...field(120)} label={t('filters.method')} value={method} onChange={(e) => go({ method: e.target.value })}>
+          {methods.map((m) => <MenuItem key={m} value={m}>{t(`methods.${m}.name`, { defaultValue: m })}</MenuItem>)}
+        </TextField>
       )}
     </Stack>
   )

@@ -23,7 +23,8 @@
   "filters": {
     "location": "Region",
     "dateRange": "Date range",
-    "reportingWeek": "Reporting week {{stamp}}"
+    "reportingWeek": "Reporting week {{stamp}}",
+    "method": "Method"
   },
   "range": {
     "last_one": "Last week",
@@ -164,7 +165,11 @@
       "phase_rule": {
         "season": "In season while both its streams, community spread and health-system load, are active. A stream turns active when it rises above its disease threshold, and stays active until it falls back below it.",
         "waves": "In a wave while both its streams, community spread and health-system load, are active. A stream turns active when it rises above its disease threshold, and stays active until it falls back below it."
-      }
+      },
+      "name": "aedseo"
+    },
+    "mem": {
+      "name": "MEM"
     }
   },
   "dimensions": {
