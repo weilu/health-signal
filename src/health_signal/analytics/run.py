@@ -16,6 +16,7 @@ from .aedseo_r import RAedseo
 from .backend import Backend
 from .engine import SeriesResult, assess_series
 from .mem_engine import assess_mem_series
+from .mem_r import RMem
 from .phase import pathogen_phases, stream_rows
 from .series import Series, assessed_series
 from .store import FeedStore, lock_assessments, write_validated
@@ -52,7 +53,7 @@ def _fit_in_worker(job: tuple) -> SeriesResult:
 
 
 def _default_backends() -> dict[str, Callable]:
-    return {"aedseo": RAedseo}
+    return {"aedseo": RAedseo, "mem": RMem}
 
 
 def assess(config: Config, *, full: bool = False, method: str | None = None, jobs: int = 1,

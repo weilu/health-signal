@@ -44,7 +44,7 @@ jobs:
           use-public-rspm: true
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          packages: any::remotes
+          packages: any::remotes, any::mem
           cache-version: 1
       # aedseo's development commit with ssi-dk/aedseo#114 (waves across a reporting gap), until it reaches CRAN; pinned
       # by commit, which assessed_with.csv records, so the tests always meet the build assess runs with.

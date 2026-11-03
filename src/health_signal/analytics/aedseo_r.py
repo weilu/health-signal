@@ -30,16 +30,22 @@ _WAVES = dict(family=_ONSET["family"], k=_ONSET["k"],
 _NAN3 = (math.nan,) * 3
 
 
-def load_r():
+def load_r(package: str = "aedseo"):
     try:
         # Lazy: importing health_signal.analytics must not need R; only fitting does.
         import rpy2.robjects as ro  # noqa: PLC0415
         from rpy2.rinterface_lib.embedded import RRuntimeError  # noqa: PLC0415
         from rpy2.robjects.packages import importr  # noqa: PLC0415
-        return ro, importr("aedseo"), importr("base"), importr("utils"), RRuntimeError
+        return ro, importr(package), importr("base"), importr("utils"), RRuntimeError
     except Exception as e:  # noqa: BLE001 - any R/rpy2 init failure gets the same actionable message
-        raise RuntimeError("assess needs R with the aedseo package via rpy2: install R and aedseo as the README "
-                           "says, `pip install health-signal[analytics]`, and set R_HOME") from e
+        raise RuntimeError(f"assess needs R with the {package} package via rpy2: install R and {package} as the "
+                           f"README says, `pip install health-signal[analytics]`, and set R_HOME") from e
+
+
+def package_version(utils, package: str) -> str:
+    fields = utils.packageDescription(package)
+    description = {name: str(value[0]) for name, value in zip(fields.names, fields)}
+    return build_version(description["Version"], description.get("RemoteSha"))
 
 
 def build_version(version: str, remote_sha: str | None) -> str:
@@ -51,9 +57,7 @@ def build_version(version: str, remote_sha: str | None) -> str:
 class RAedseo:
     def __init__(self):
         self._ro, self._aedseo, self._base, utils, self._RError = load_r()
-        fields = utils.packageDescription("aedseo")
-        description = {name: str(value[0]) for name, value in zip(fields.names, fields)}
-        self.version = build_version(description["Version"], description.get("RemoteSha"))
+        self.version = package_version(utils, "aedseo")
 
     def _numbers(self, frame, column) -> np.ndarray:
         # base.as_numeric first: an R integer NA would otherwise cast to INT_MIN, a finite non-value.

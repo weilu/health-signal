@@ -185,6 +185,7 @@ week by week, each week from the data available up to it. It needs R, which the 
 # once: R (https://cran.r-project.org) with aedseo, and the analytics extra. Until ssi-dk/aedseo#114 reaches
 # CRAN, aedseo from this development commit: CRAN's 1.1.0 can't place a wave after a reporting gap
 Rscript -e 'install.packages("remotes"); remotes::install_github("ssi-dk/aedseo@f65ddf153060773f9bac4759a458b2ff76df6027")'
+Rscript -e 'install.packages("mem")'          # only if analytics.methods includes mem
 pip install "health-signal[analytics]"        # or: uv sync --extra analytics
 
 health-signal assess --config dashboard.yaml --full --jobs 8   # first run: every week of history
@@ -204,6 +205,23 @@ Phase tables may come from another producer, so `assess` writes them only while 
 lists streams: to stop showing its phases, remove `data.phases` and `data.phase_streams` too. The
 policy settings live under `analytics:` (see the example config); countries may also write the tables
 themselves in the same format, with or without aedseo.
+
+**More than one method.** `analytics.methods` lists the methods `assess` grades with, `[aedseo]` by default; the first
+is the one the dashboard shows by default. The other is the **Moving Epidemic Method** ([mem](https://cran.r-project.org/package=mem),
+Vega et al.), as ERVISS uses it for ILI/ARI: each season's epidemic and intensity thresholds come from the
+`analytics.mem.seasons` (default 5) complete seasons before it, in MEM's own window starting at
+`analytics.mem.season_start_week` (default 40), and stay fixed for the season. Its levels are baseline, low, medium,
+high and very high; its trend compares each week with the last, and isn't assessed below the epidemic threshold.
+MEM assumes one epidemic a season and sets no phases, so it leaves out series graded in waves. Each method grades
+every single-series panel unless it lists some, as `"<target>/<page>/<panel>"`:
+
+```yaml
+analytics:
+  methods: [aedseo, mem]
+  mem: { season_start_week: 25, seasons: 5, panels: [Influenza/clinical/ili_rate] }
+```
+
+`assess --full --method mem` recomputes one method's tables and keeps the others'.
 
 ### Authentication & access
 
