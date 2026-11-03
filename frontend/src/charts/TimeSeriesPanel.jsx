@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Navigate } from 'react-router-dom'
 import { Alert, Button, Paper, Stack, Typography } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import { useTranslation } from 'react-i18next'
 import { fetchAssessments, fetchData, fetchThresholds } from '../api.js'
 import { activeWeeks, bandsFor, combinedState, ofSeries, pickInRange, plottedSeries, singleSeries } from '../assessments.js'
@@ -9,12 +10,12 @@ import { useMethod } from '../useMethod.js'
 import { StatusTrendTiles, TileGrid } from './StatusTrendTiles.jsx'
 import { ResourceBoundary } from '../ResourceBoundary.jsx'
 import { toChartModel } from '../series.js'
-import { configLabel, weekStamp } from '../labels.js'
+import { chartSubtitle, chartTitle, panelLabel, seriesLabel, weekStamp } from '../labels.js'
 import { panelParams } from '../filters.js'
 import { SeriesTable } from './SeriesTable.jsx'
 import { TimeSeriesChart, useChartPalette } from './TimeSeriesChart.jsx'
 
-export function TimeSeriesPanel({ panel, location, range, latest }) {
+export function TimeSeriesPanel({ panel, target, location, range, latest }) {
   const { t } = useTranslation()
   const palette = useChartPalette()
   const method = useMethod()
@@ -44,12 +45,23 @@ export function TimeSeriesPanel({ panel, location, range, latest }) {
     levels: method.levels,
     shading: activeWeeks(assessedRows, method.active_phases),
   } : {}
-  const title = configLabel(t, panel.label_key, panel.id)
+  const title = panelLabel(t, panel)
+  const heading = chartTitle(t, panel, target, location)
+  const subtitle = chartSubtitle(t, panel, target, location)
   const card = (
-    <Paper component="section" variant="outlined" aria-label={title} sx={{ p: 2, minWidth: 0 }}>
-      <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-        <Typography variant="h6" component="h2">{title}</Typography>
-        <Button size="small" onClick={() => setAsTable((v) => !v)}>{t(asTable ? 'chart.showChart' : 'chart.showTable')}</Button>
+    <Paper component="section" variant="outlined" aria-label={heading} sx={{ p: 2, minWidth: 0 }}>
+      <Stack direction="row" spacing={2} sx={{ alignItems: 'flex-start', justifyContent: 'space-between', mb: 1 }}>
+        <div>
+          <Typography variant="h6" component="h2">{heading}</Typography>
+          {subtitle && (
+            <Typography variant="body2" sx={{ fontStyle: 'italic', color: (theme) => alpha(theme.palette.text.secondary, 0.85) }}>
+              {subtitle}
+            </Typography>
+          )}
+        </div>
+        <Button size="small" sx={{ flexShrink: 0 }} onClick={() => setAsTable((v) => !v)}>
+          {t(asTable ? 'chart.showChart' : 'chart.showTable')}
+        </Button>
       </Stack>
       <ResourceBoundary query={query}>
         {(rows) => {
@@ -60,11 +72,11 @@ export function TimeSeriesPanel({ panel, location, range, latest }) {
               : location ? t('chart.emptyAt', { location: location.label, ...span }) : t('chart.emptyIn', span)
             return <Alert severity={model.status === 'empty' ? 'info' : 'warning'}>{message}</Alert>
           }
-          const series = model.series.map((s) => ({ ...s, label: panel.series_by ? s.key || t('chart.unspecified') : title }))
+          const series = model.series.map((s) => ({ ...s, label: panel.series_by ? seriesLabel(t, panel.series_by, s.key) : title }))
           const unit = t(`unit.${model.unit}`, { defaultValue: model.unit })
           return asTable
             ? <SeriesTable periods={model.periods} series={series} unit={unit} />
-            : <TimeSeriesChart periods={model.periods} series={series} unit={unit} {...chartExtras} />
+            : <TimeSeriesChart periods={model.periods} series={series} unit={unit} scale={panel.y_scale} {...chartExtras} />
         }}
       </ResourceBoundary>
     </Paper>

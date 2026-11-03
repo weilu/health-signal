@@ -10,14 +10,18 @@ RULES: dict[str, Callable[[list[str]], bool]] = {
     AEDSEO.name: lambda phases: all(p in AEDSEO.active_phases for p in phases)}
 
 
-def pathogen_phases(entry: PhaseStreamsEntry, by_role: dict[str, dict[str, str | None]], waves: bool) -> list[dict]:
+def pathogen_phases(entry: PhaseStreamsEntry, by_role: dict[str, dict[str, str | None]], waves: bool,
+                    provisional: dict[str, dict[str, bool]] | None = None) -> list[dict]:
     """The pathogen's phase for each week every stream has one: a lagging stream leaves the week out rather
-    than reading as out of season."""
+    than reading as out of season. Provisional when any stream's grade that week is: a phase is as settled as
+    its thinnest stream."""
     active, inactive = ("in_wave", "between_waves") if waves else ("in_season", "out_of_season")
     rule = RULES[entry.method]
+    provisional = provisional or {}
     weeks = set.intersection(*({p for p, phase in phases.items() if phase} for phases in by_role.values()))
     return [{"location": entry.location, "pathogen": entry.pathogen, "period": week, "method": entry.method,
-             "phase": active if rule([by_role[role][week] for role in by_role]) else inactive}
+             "phase": active if rule([by_role[role][week] for role in by_role]) else inactive,
+             "provisional": any(provisional.get(role, {}).get(week, False) for role in by_role)}
             for week in sorted(weeks)]
 
 

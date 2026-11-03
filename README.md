@@ -12,7 +12,7 @@ and languages.
 
 `health-signal` is a [FastAPI](https://fastapi.tiangolo.com/) application that serves a React
 ([MUI](https://mui.com/)) single-page app plus a gated JSON API. It ships a respiratory profile
-first (ECDC/WHO **ERVISS** clinical indicators + US CDC **NWSS** wastewater); further domains
+first (ECDC/WHO **ERVISS** clinical indicators + **PHES-ODM** wastewater); further domains
 (e.g. AMR, vaccine-preventable diseases) are added as configuration plus a schema profile, not a
 fork. It is packaged as a Python library that a country's own repository configures and deploys
 (for example, to Posit Connect).
@@ -61,6 +61,72 @@ locales), translation overrides, and a data feed adhering to the contract. See
 `branding.theme` is a [MUI theme-options](https://mui.com/material-ui/customization/theming/) object
 merged over the library's neutral default, so a government restyles with no rebuild.
 
+### Data feeds and profiles
+
+Each feed in `data.feeds` names a **profile**: the columns, indicators, units and dimension values its CSVs
+must use, checked when the app starts. Two are built in: `erviss` (ECDC/WHO ERVISS respiratory indicators,
+vocabulary pinned to its published dataset) and `phes_odm` (PHES-ODM v3 wastewater measures).
+
+A country whose own series mostly fit a built-in profile can **extend** it in config rather than in the
+library. Extensions are additive, so data valid under the base stays valid. They may add indicators, units,
+dimension values, qualities, count and censored units, pathogen-specific indicators and denominators; they
+may not add a dimension, extend the shared pathogen list, extend another extension, or reuse a built-in's name.
+An extended profile reports its version as `<base version>+<name>`.
+
+```yaml
+profiles:
+  erviss_gr:
+    extends: erviss
+    units: [per_1000_admissions]
+    dimension_vocab: { survtype: [private hospital] }
+    denominators:   # a rate in this unit is modelled against admissions, not as a constant exposure
+      - { rate: SARIrate, unit: per_1000_admissions, denominator: hospitaladmissions, per: 1000 }
+data:
+  feeds:
+    - { id: clinical, profile: erviss_gr, dir: data/clinical, assessments: data/clinical/assessed }
+```
+
+`examples/greece.dashboard.yaml` uses this for EODY's series: rates per 1,000 admissions and consultations,
+the private-hospital network, and SARI's paediatric group, which EODY defines by hospital rather than age band.
+
+### Deployment text (i18n)
+
+The library ships its own interface text in English and Greek, including names for everything it defines: the
+pathogens targets are keyed by, and the indicators, units and named dimension values of its built-in profiles.
+A deployment can offer another language with a file of its own; whatever that file leaves out reads in English.
+A panel is therefore named by default from its query: its indicator, plus the values that set it apart from the
+page's other panels of that indicator (e.g. "Test positivity · SARI virological"), or "by <dimension>" for a split
+panel. A deployment supplies the rest: its page and location names, labels for any units or dimension values its
+profile extensions add, and, optionally, its own panel names. Both use the same keys, so a deployment can also
+reword any library text, or a panel's default name, by setting its key. Config carries only ids, each
+labelled by convention (`pages.<page id>`, `targets.<target id>`, a location option's `label_key`, `unit.<unit>`,
+`dimensions.<dimension>.<value>` for a split chart's lines, and `panels.<panel id>` to replace a panel's default name).
+
+A time-series panel can set `y_scale: log` for values spanning orders of magnitude, such as wastewater loads.
+Weeks whose value is zero (e.g. a below-detection stand-in) then show as a gap with a mark at the axis floor.
+
+A chart's title also names the tab's pathogen and the selected location ("Hospital admissions · COVID-19 (Attica)"),
+so it keeps its context once the tabs scroll out of view; so do the overview's cards ("Key signals · COVID-19 (Attica)"). A deployment can add a subtitle under it with
+`subtitles.<panel id>`, which may use `{{pathogen}}` and `{{location}}`. More specific keys win where present:
+`subtitles.<target id>.<panel id>` for one target, and a `_<location>` suffix for one location
+(`subtitles.hospital_admissions_Attica`). Put one `<language>.json` per offered language in a directory and point
+`site.locales_dir` at it:
+
+```yaml
+site:
+  locales: [en, el]
+  locales_dir: locales   # locales/en.json, locales/el.json
+```
+
+```json
+{ "panels": { "hospital_admissions": "Εισαγωγές σε νοσοκομείο" }, "unit": { "per_1000_admissions": "ανά 1.000 εισαγωγές" } }
+```
+
+After sign-in, the app fetches the file for the current language and merges it over the library's text. The
+deployment's text wins, so it can also reword a library string. A missing or malformed file for an offered
+language stops the app at startup; a label with no text shows its id. The Greece example's files are in
+`examples/locales/`.
+
 ### Status, Trend and phase (`health-signal assess`)
 
 The dashboard shows Status and Trend tiles, threshold bands and season or wave phases from tables it
@@ -69,8 +135,9 @@ loads at startup (spec §6.3). `health-signal assess` writes them from the feeds
 week by week, each week from the data available up to it. It needs R, which the app itself doesn't:
 
 ```bash
-# once: R (https://cran.r-project.org) with aedseo, and the analytics extra
-Rscript -e 'install.packages("aedseo")'
+# once: R (https://cran.r-project.org) with aedseo, and the analytics extra. Until ssi-dk/aedseo#114 reaches
+# CRAN, aedseo from this development commit: CRAN's 1.1.0 can't place a wave after a reporting gap
+Rscript -e 'install.packages("remotes"); remotes::install_github("ssi-dk/aedseo@f65ddf153060773f9bac4759a458b2ff76df6027")'
 pip install "health-signal[analytics]"        # or: uv sync --extra analytics
 
 health-signal assess --config dashboard.yaml --full --jobs 8   # first run: every week of history
@@ -78,11 +145,14 @@ health-signal assess --config dashboard.yaml                   # then after each
 ```
 
 It writes each feed's `assessments` dir and `data.phases` / `data.phase_streams`, and records the
-settings it used in `assessed_with.csv`: when `surveillance.year_start_week`, `analytics` or the aedseo
-version change, it stops and asks for `--full`. Run `--full` too after a feed revises past weeks. It
+settings it used in `assessed_with.csv`: when `surveillance.year_start_week`, `analytics`, a feed profile's
+modelling rules (count units, censored qualities, denominators) or the aedseo build change, it stops and asks
+for `--full`. Run `--full` too after a feed revises past weeks. It
 checkpoints each series as it finishes (in `.assess-checkpoint/` beside the tables), so an interrupted run
 resumes where it stopped when run again without `--full`; the served tables change only when a run completes,
 all of them together. It runs at low priority, so `--jobs` up to the core count leaves the machine usable.
+A phase is marked provisional (an optional `provisional` column) when either of its streams' grades is, so
+the season tile shows the same chip as the status tile.
 Phase tables may come from another producer, so `assess` writes them only while `analytics.phase_streams`
 lists streams: to stop showing its phases, remove `data.phases` and `data.phase_streams` too. The
 policy settings live under `analytics:` (see the example config); countries may also write the tables
@@ -139,12 +209,16 @@ npm --prefix frontend ci && npm --prefix frontend run build
 frontend dependency, use `npm --prefix frontend install <pkg>` instead and commit the updated lockfile.
 
 Then wrap `create_app` in a module and serve it. Each feed in `data.feeds` must be an existing
-directory: put that profile's CSV files in it (`data/clinical` for ERVISS rows, `data/wastewater` for
-PHES-ODM rows); left empty, the dashboard starts and every panel says there's no data. Auth needs a
+directory: put that profile's CSV files in it (`data/clinical` for ERVISS-shaped rows, read with the
+example's `erviss_gr` extension; `data/wastewater` for PHES-ODM rows). The example also reads the tables
+`health-signal assess` writes: its `assessments` dirs and phase files must exist, so create them empty (header
+only) until the first run. Left empty, the dashboard starts and every panel says there's no data. Auth needs a
 secret and at least one account (email → argon2 hash):
 
 ```bash
-mkdir -p data/clinical data/wastewater
+mkdir -p data/clinical/assessed data/wastewater/assessed
+echo "location,pathogen,period,method,phase" > data/phase.csv
+echo "location,pathogen,method,role,feed,series" > data/phase_streams.csv
 export HEALTH_SIGNAL_SECRET_KEY=$(python -c "import secrets; print(secrets.token_urlsafe(32))")
 export HEALTH_SIGNAL_ACCOUNTS=$(uv run python -c "import json; from argon2 import PasswordHasher as P; print(json.dumps({'you@example.org': P().hash('change-me')}))")
 

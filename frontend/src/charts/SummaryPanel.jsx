@@ -3,10 +3,11 @@ import { Navigate, Link as RouterLink, useLocation } from 'react-router-dom'
 import { Alert, Box, Chip, CircularProgress, Link, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { fetchAssessments, fetchPhaseStreams } from '../api.js'
-import { combinedState, levelTone, pickInRange, sameSeries, toneColor } from '../assessments.js'
+import { combinedState, levelTone, pickInRange, sameSeries } from '../assessments.js'
+import { ToneDot, TrendMark } from './TrendMark.jsx'
 import { panelParams, withFilters } from '../filters.js'
 import { groupPanels } from '../groups.js'
-import { configLabel, weekStamp } from '../labels.js'
+import { chartTitle, panelLabel, weekStamp } from '../labels.js'
 import { useMethod } from '../useMethod.js'
 import { phaseQuery } from './PhasePanel.jsx'
 
@@ -31,7 +32,7 @@ export function SummaryPanel({ panel, target, location, range, latest }) {
   const rows = entries
     .map((e, i) => ({ ...e, data: results[i].data }))
     .filter((e) => e.data?.length)
-  const title = configLabel(t, panel.label_key, panel.id)
+  const title = chartTitle(t, panel, target, location)
   const groups = groupPanels(t, rows, { panelOf: (r) => r.panel, alwaysSource: true })
   if (state === 'unauth') return <Navigate to="/login" replace />
   return (
@@ -78,9 +79,8 @@ export function SummaryPanel({ panel, target, location, range, latest }) {
                   : row ? (row.level ? t(`level.${row.level}`) : t('assessment.ungraded')) : '—'
                 const trend = row?.trend ? t(`trend.${row.trend}`) : '—'
                 const asOf = pick?.ambiguous ? '—' : row ? weekStamp(t, pick.asOf) : t('assessment.noneInRange')
-                const dot = row && !pick?.ambiguous && (
-                  <Box sx={{ width: 10, height: 10, borderRadius: '50%', flexShrink: 0, bgcolor: toneColor(levelTone(method.levels, row.level)) }} />
-                )
+                const mark = row?.trend && !pick?.ambiguous && <TrendMark trend={row.trend} />
+                const dot = row && !pick?.ambiguous && <ToneDot tone={levelTone(method.levels, row.level)} />
                 return (
                   // A real row with a real link, stretched over the row so the whole row is clickable. A stream is
                   // marked by its role chip alone: the amber there is the table's one accent.
@@ -91,19 +91,23 @@ export function SummaryPanel({ panel, target, location, range, latest }) {
                       <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                         <Link component={RouterLink} to={withFilters(page.path, search)} underline="hover" color="inherit"
                           sx={{ '&::after': { content: '""', position: 'absolute', inset: 0 } }}>
-                          {configLabel(t, p.label_key, p.id)}
+                          {panelLabel(t, p)}
                         </Link>
                         {stream && <Chip size="small" variant="outlined" color="primary" label={t(`role.${stream.role}`, { defaultValue: stream.role })} />}
                       </Stack>
                       <Stack direction="row" spacing={1} sx={{ ...NARROW, alignItems: 'center', mt: 0.5, color: 'text.secondary' }}>
                         {dot}
-                        <Typography variant="body2" component="span">{[status, trend, asOf].join(' · ')}</Typography>
+                        <Typography variant="body2" component="span">{status} ·{' '}</Typography>
+                        {mark}
+                        <Typography variant="body2" component="span">{trend} · {asOf}</Typography>
                       </Stack>
                     </TableCell>
                     <TableCell sx={WIDE}>
                       <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>{dot}<span>{status}</span></Stack>
                     </TableCell>
-                    <TableCell sx={WIDE}>{trend}</TableCell>
+                    <TableCell sx={WIDE}>
+                      <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>{mark}<span>{trend}</span></Stack>
+                    </TableCell>
                     <TableCell sx={{ ...WIDE, color: pick?.current ? 'text.primary' : 'text.secondary' }}>{asOf}</TableCell>
                   </TableRow>
                 )

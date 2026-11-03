@@ -3,7 +3,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
-import { fetchConfig, fetchPhases, fetchPhaseStreams } from '../api.js'
+import { fetchConfig, fetchData, fetchPhases, fetchPhaseStreams } from '../api.js'
 import { initI18n } from '../i18n.js'
 import { PhasePanel } from './PhasePanel.jsx'
 
@@ -73,4 +73,47 @@ it('lists the waves in the range with their weeks, as the charts shade them', as
 it('says when no wave falls in the range', async () => {
   const tile = await runsTile([['2023-W48', 'between_waves'], ['2023-W49', 'between_waves']], { from: '2023-W40', to: '2023-W49' })
   expect(tile).toContain('No wave in this range')
+})
+
+
+function renderPhase({ target, phases, streams = [], data = [] }) {
+  initI18n({ defaultLocale: 'en', locales: ['en'] })
+  fetchConfig.mockResolvedValue({ methods: { aedseo: { levels: ['very_low'], trend: true, stream_roles: ['cases', 'admissions'],
+    phases: ['in_season', 'out_of_season', 'in_wave', 'between_waves'], active_phases: ['in_season', 'in_wave'] } } })
+  fetchPhases.mockReturnValue(phases)
+  fetchPhaseStreams.mockResolvedValue(streams)
+  fetchData.mockResolvedValue(data)
+  render(
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <MemoryRouter>
+        <PhasePanel panel={{ id: 'phase', type: 'phase', label_key: 'panels.phase' }} target={target}
+          location={{ value: 'Greece', label: 'Greece' }} range={{ from: '2026-W09', to: '2026-W10' }} latest="2026-W10" />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+}
+
+it("titles the card Key signals and the tab's pathogen and region, with or without a season or wave", async () => {
+  renderPhase({ target: { id: 'SARS-CoV-2', pages: [] },
+                phases: Promise.resolve([{ location: 'Greece', pathogen: 'SARS-CoV-2', period: '2026-W10', method: 'aedseo', phase: 'between_waves' }]) })
+  expect(await screen.findByRole('heading', { name: 'Key signals · SARS-CoV-2 (Greece)', level: 2 })).toBeTruthy()
+})
+
+it('names each stream chart by its role and the panel that measures it', async () => {
+  const panel = { id: 'hospital_admissions', type: 'timeseries', label_key: 'panels.hospital_admissions', query: { feed: 'clinical', indicator: 'hospitaladmissions', dimensions: {} },
+                  name: { indicator: 'hospitaladmissions', dimensions: {}, pathogen: true } }
+  renderPhase({ target: { id: 'Influenza', pages: [{ panels: [panel] }] },
+                phases: Promise.resolve([{ location: 'Greece', pathogen: 'Influenza', period: '2026-W10', method: 'aedseo', phase: 'in_season' }]),
+                streams: [{ location: 'Greece', pathogen: 'Influenza', method: 'aedseo', role: 'admissions', feed: 'clinical',
+                            series: { indicator: 'hospitaladmissions' } }] })
+  expect(await screen.findByRole('heading', { name: 'Health-system load · measured by hospital admissions', level: 3 }))
+    .toBeTruthy()
+})
+
+it('marks a phase resting on too little history as provisional, as the status tile does', async () => {
+  renderPhase({ target: { id: 'Influenza', pages: [] },
+                phases: Promise.resolve([{ location: 'Greece', pathogen: 'Influenza', period: '2026-W10', method: 'aedseo',
+                                           phase: 'out_of_season', provisional: true }]) })
+  const tile = (await screen.findByText('Season status')).closest('section')
+  expect(tile.textContent).toContain('Provisional')
 })

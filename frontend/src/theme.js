@@ -5,6 +5,10 @@ import { deepmerge } from '@mui/utils'
 const BASE = {
   palette: {
     primary: { main: '#44617a' },
+    // Status tones muted towards the warm surface, so a dot reads as a reading rather than an alarm.
+    success: { main: '#4F7C5E' },
+    warning: { main: '#B5860B' },
+    error: { main: '#A93527' },
     // Fixed-order categorical palette (dataviz reference; CVD-checked on #fff, #FBFAF6, #121212). Three light
     // slots are under 3:1 against the surface, which is why every chart has a table view.
     chart: {
@@ -22,6 +26,16 @@ const BASE = {
     button: { fontWeight: 500, textTransform: 'none' },
   },
   shape: { borderRadius: 8 },
+  components: {
+    // A reading width with room either side, so a wide screen doesn't stretch charts edge to edge.
+    MuiContainer: {
+      styleOverrides: {
+        maxWidthXl: { '@media (min-width: 1536px)': { maxWidth: 1400 } },
+        root: { '@media (min-width: 900px)': { paddingLeft: 56, paddingRight: 56 },
+                '@media (min-width: 1200px)': { paddingLeft: 80, paddingRight: 80 } },
+      },
+    },
+  },
 }
 
 // Merge before createTheme so overridden colours re-derive their shades. Malformed config throws,

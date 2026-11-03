@@ -96,6 +96,21 @@ def test_phases_load_and_validate(tmp_path):
         PhaseSource(f)
 
 
+def test_a_phase_may_say_it_is_provisional_and_is_not_when_it_says_nothing(tmp_path):
+    # Optional: a deployment declaring its seasons by hand has no history behind them to qualify.
+    f = tmp_path / "phase.csv"
+    f.write_text("location,pathogen,period,method,phase,provisional\n"
+                 "Testville,Influenza,2025-W02,aedseo,in_season,true\nTestville,Influenza,2025-W03,aedseo,in_season,false\n",
+                 encoding="utf-8")
+    assert [p.provisional for p in PhaseSource(f).phases()] == [True, False]
+    f.write_text(_P + "Testville,Influenza,2025-W02,aedseo,in_season\n", encoding="utf-8")
+    assert [p.provisional for p in PhaseSource(f).phases()] == [False]
+    f.write_text("location,pathogen,period,method,phase,provisional\nTestville,Influenza,2025-W02,aedseo,in_season,maybe\n",
+                 encoding="utf-8")
+    with pytest.raises(ValueError, match=r"phase\.csv row 1: .*provisional"):
+        PhaseSource(f)
+
+
 def test_a_missing_phases_file_fails_at_load(tmp_path):
     # A configured path that doesn't exist is a typo, not "no phases".
     with pytest.raises(ValueError, match="phases file"):

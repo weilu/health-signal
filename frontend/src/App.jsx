@@ -10,10 +10,14 @@ import LoginPage from './pages/LoginPage.jsx'
 import TargetPage from './pages/TargetPage.jsx'
 import { HeaderFilters } from './HeaderFilters.jsx'
 import { LocaleToggle } from './LocaleToggle.jsx'
+import { TabLabel } from './TabLabel.jsx'
 import { configLabel, reportingWeek } from './labels.js'
 import { activePage } from './nav.js'
 import { selectedLocation, selectedRange, withFilters } from './filters.js'
+import { useDeploymentText } from './useDeploymentText.js'
 
+// On the page-width boxes, not the full-width rows: the page reads as one sheet, its lines ending where its
+// content does.
 const rule = { borderBottom: 1, borderColor: 'divider' }
 
 function AppRoutes({ view, location, range, latest }) {
@@ -42,6 +46,7 @@ function Shell({ config }) {
   const onLogin = pathname === '/login'
   const configQuery = useQuery({ queryKey: ['config'], queryFn: fetchConfig, enabled: !onLogin })
   const periodsQuery = useQuery({ queryKey: ['periods'], queryFn: fetchPeriods, enabled: !onLogin })
+  const deploymentText = useDeploymentText(!onLogin)
 
   async function handleLogout() {
     // Only the server can clear the httpOnly cookie, so redirect only on a confirmed 303.
@@ -52,6 +57,9 @@ function Shell({ config }) {
     }
     setLogoutFailed(true)
   }
+
+  // Can be the only request a language switch makes once the rest is cached, so it too must catch a lost session.
+  if (!onLogin && deploymentText.error?.status === 401) return <Navigate to="/login" replace />
 
   // /login is chrome-less and the only unauthenticated route (no client-readable session flag).
   if (onLogin) {
@@ -74,9 +82,9 @@ function Shell({ config }) {
   const range = filters ? selectedRange(filters.date_range, periods, search) : null
   return (
     <>
-      <Box sx={rule}>
+      <Box>
         <Container maxWidth="xl">
-          <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end', alignItems: 'center', py: 0.5 }}>
+          <Stack direction="row" spacing={1} sx={{ ...rule, justifyContent: 'flex-end', alignItems: 'center', py: 0.5 }}>
             <LocaleToggle locales={config.locales} />
             {/* Outside the tab rows, so the selected state is styled off NavLink's aria-current. */}
             <Button size="small" component={NavLink} to={withFilters('/config', search)} sx={{ '&[aria-current="page"]': { bgcolor: 'action.selected' } }}>
@@ -86,12 +94,14 @@ function Shell({ config }) {
           </Stack>
         </Container>
       </Box>
-      <AppBar position="static" color="transparent" elevation={0} sx={rule}>
+      <AppBar position="static" color="transparent" elevation={0}>
         <Container maxWidth="xl">
           {/* Filters wrap under the title when the row runs out of room. */}
-          <Toolbar disableGutters sx={{ flexWrap: 'wrap', columnGap: 4, rowGap: 2, py: 2 }}>
-            <Box sx={{ flexGrow: 1 }}>
-              <Typography variant="h5" component="h1">{config.title}</Typography>
+          <Toolbar disableGutters sx={{ ...rule, flexWrap: 'wrap', columnGap: 4, rowGap: 2, py: 2 }}>
+            {/* A flexible base rather than the title's full width, so a long title (Greek's) wraps in its own column
+                instead of pushing the filters onto the next row. */}
+            <Box sx={{ flex: '1 1 320px', minWidth: 0 }}>
+              <Typography variant="h5" component="h1">{t('site.title', { defaultValue: config.title })}</Typography>
               {periods && (
                 <Typography variant="body2" color="text.secondary">{t('filters.reportingWeek', reportingWeek(t, periods.last))}</Typography>
               )}
@@ -104,22 +114,24 @@ function Shell({ config }) {
           </Toolbar>
         </Container>
       </AppBar>
-      <Box component="nav" aria-label={t('config.targets')} sx={rule}>
+      <Box component="nav" aria-label={t('config.targets')}>
         <Container maxWidth="xl">
-          <Tabs value={active?.target.id ?? false} variant="scrollable" allowScrollButtonsMobile>
+          <Tabs value={active?.target.id ?? false} variant="scrollable" allowScrollButtonsMobile sx={rule}>
             {targets.map((target) => (
               <Tab key={target.id} value={target.id} component={NavLink} end to={withFilters(target.pages[0].path, search)}
-                label={configLabel(t, target.label_key, target.id)} sx={{ typography: 'h6' }} />
+                label={<TabLabel label={configLabel(t, target.label_key, target.id)} lock={!target.pages.some((p) => p.public) && t('nav.signedInOnly')} />}
+                sx={{ typography: 'h6' }} />
             ))}
           </Tabs>
         </Container>
       </Box>
       {active && active.target.pages.length > 1 && (
-        <Box component="nav" aria-label={configLabel(t, active.target.label_key, active.target.id)} sx={{ ...rule, bgcolor: 'background.paper' }}>
+        <Box component="nav" aria-label={configLabel(t, active.target.label_key, active.target.id)}>
           <Container maxWidth="xl">
-            <Tabs value={active.page.path} variant="scrollable" allowScrollButtonsMobile>
+            <Tabs value={active.page.path} variant="scrollable" allowScrollButtonsMobile sx={{ ...rule, bgcolor: 'background.paper' }}>
               {active.target.pages.map((p) => (
-                <Tab key={p.path} value={p.path} component={NavLink} end to={withFilters(p.path, search)} label={configLabel(t, p.label_key, p.id)} />
+                <Tab key={p.path} value={p.path} component={NavLink} end to={withFilters(p.path, search)} 
+                  label={<TabLabel label={configLabel(t, p.label_key, p.id)} lock={!p.public && t('nav.signedInOnly')} />} />
               ))}
             </Tabs>
           </Container>

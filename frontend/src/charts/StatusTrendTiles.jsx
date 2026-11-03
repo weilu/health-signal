@@ -1,27 +1,30 @@
 import { Box, Chip, Paper, Stack, Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { weekStamp } from '../labels.js'
-import { levelTone, toneColor } from '../assessments.js'
+import { levelTone, toneTextColor, trendTone } from '../assessments.js'
+import { ToneDot, TrendMark } from './TrendMark.jsx'
 
 // growth_* are proportional change per period (spec §6.3), so -0.2 reads -20%/wk.
 const pct = (v) => `${v > 0 ? '+' : ''}${Math.round(v * 100)}%`
 
-// The chart card and its tiles as sibling cards; one column on phones.
+// The chart card and its tiles as sibling cards: the tiles hold a word and a footnote, so a bounded column and the
+// chart the rest; below a laptop's width they stack, rather than squeeze the chart.
 export function TileGrid({ card, tiles }) {
   if (!tiles) return card
   return (
-    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1.85fr 1fr' }, gap: 3, alignItems: 'start' }}>
+    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1fr) clamp(320px, 28%, 420px)' }, gap: 3, alignItems: 'start' }}>
       {card}
       {tiles}
     </Box>
   )
 }
 
-// Not-current tiles are dashed and muted so a past state isn't read as now (spec §9).
+// Not-current tiles are dashed so a past state isn't read as now (spec §9); not faded, which would take a
+// tone-coloured word below text contrast.
 export function Tile({ title, current, footer, note, children }) {
   return (
     <Paper component="section" variant="outlined" aria-label={title}
-      sx={{ px: 3, py: 2.75, opacity: current ? 1 : 0.75, borderStyle: current ? 'solid' : 'dashed' }}>
+      sx={{ px: 3, py: 2.75, borderStyle: current ? 'solid' : 'dashed' }}>
       <Typography variant="overline" color="text.secondary" component="p">{title}</Typography>
       {children}
       <Typography variant="caption" color="text.secondary" component="p" sx={{ mt: 1 }}>{footer}</Typography>
@@ -46,27 +49,54 @@ export function asOfFooter(t, pick, method, tile) {
   return t(pick.current ? 'assessment.asOf' : 'assessment.asOfPast', { week: weekStamp(t, pick.asOf), source })
 }
 
+// For a tile whose sentence already gives the week: just the source, and whether the week is the latest.
+export function sourceFooter(t, pick, method, tile) {
+  const source = t(`methods.${method}.sources.${tile}`, { defaultValue: method })
+  return t(pick.current ? 'assessment.source' : 'assessment.sourcePast', { source })
+}
+
+const hasGrowth = (row) => row.growth_lower != null && row.growth_upper != null
+
+// The growth sentence gives the week, so beside it the footer needs only the source; an inconclusive trend has no
+// sentence, so the footer keeps the week.
+export function trendFooter(t, pick, row) {
+  return hasGrowth(row) ? sourceFooter(t, pick, row.method, 'trend') : asOfFooter(t, pick, row.method, 'trend')
+}
+
+// The interval alone: it decides the label (stable when it holds 0), so a point estimate would only invite a
+// reading the label doesn't make. Worded by the method, whose window it is; the week named only when looking back.
+export function growthText(t, pick, row) {
+  return t(`methods.${row.method}.growth`, { lower: pct(row.growth_lower), upper: pct(row.growth_upper),
+                                            week: weekStamp(t, pick.asOf), context: pick.current ? undefined : 'past' })
+}
+
 export function StatusTrendTiles({ pick, method }) {
   const { t } = useTranslation()
   if (!pick.row) return <NoneInRange />
   const { row, current } = pick
-  const tone = toneColor(levelTone(method.levels, row.level))
+  const tone = levelTone(method.levels, row.level)
+  const trend = trendTone(row.trend)
   return (
     <Stack spacing={2.25}>
       <Tile title={t('assessment.status')} current={current} footer={asOfFooter(t, pick, row.method, 'status')}>
         <Stack direction="row" spacing={1.25} sx={{ alignItems: 'center' }}>
-          <Box sx={{ width: 12, height: 12, borderRadius: '50%', flexShrink: 0, bgcolor: tone }} />
-          <Typography variant="h5" component="p" sx={{ color: tone === 'grey.500' ? 'text.secondary' : tone }}>
+          <ToneDot tone={tone} size={16} />
+          <Typography variant="h5" component="p" sx={{ color: toneTextColor(tone) }}>
             {row.level ? t(`level.${row.level}`) : t('assessment.ungraded')}
           </Typography>
           {row.provisional && <Chip size="small" variant="outlined" label={t('assessment.provisional')} />}
         </Stack>
       </Tile>
-      <Tile title={t('assessment.trend')} current={current} footer={asOfFooter(t, pick, row.method, 'trend')}>
-        <Typography variant="h5" component="p">{row.trend ? t(`trend.${row.trend}`) : '—'}</Typography>
-        {row.growth_rate != null && (
+      <Tile title={t('assessment.trend')} current={current} footer={trendFooter(t, pick, row)}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+          {row.trend && <TrendMark trend={row.trend} size={28} />}
+          <Typography variant="h5" component="p" sx={{ color: toneTextColor(trend) }}>
+            {row.trend ? t(`trend.${row.trend}`) : '—'}
+          </Typography>
+        </Stack>
+        {hasGrowth(row) && (
           <Typography variant="body2" color="text.secondary">
-            {t('assessment.growth', { rate: pct(row.growth_rate), lower: pct(row.growth_lower), upper: pct(row.growth_upper) })}
+            {growthText(t, pick, row)}
           </Typography>
         )}
       </Tile>

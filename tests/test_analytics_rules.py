@@ -89,8 +89,31 @@ def test_an_unfit_week_has_no_phase_and_keeps_the_state():
     assert phase is None and after == state
 
 
-def test_wave_phase():
-    assert (wave_phase(True), wave_phase(False), wave_phase(None)) == ("in_wave", "between_waves", None)
+def test_a_wave_starts_only_on_its_own_weeks_alarm():
+    # aedseo replays the whole history with this week's threshold, so it can place a wave's start in the past
+    # where no week, as of itself, flagged one (ICU, Greece, 2024-W21): that week is still between waves.
+    assert wave_phase(SeasonState(last_period="2024-W20"), "2024-W21", True, False)[0] == "between_waves"
+    assert wave_phase(SeasonState(last_period="2024-W20"), "2024-W21", True, True)[0] == "in_wave"
+
+
+def test_a_wave_continues_while_aedseo_keeps_it_and_ends_when_it_does():
+    wave = SeasonState(True, 0, "2025-W01")
+    assert wave_phase(wave, "2025-W02", True, False) == ("in_wave", SeasonState(True, 0, "2025-W02"))
+    assert wave_phase(wave, "2025-W02", False, False) == ("between_waves", SeasonState(False, 0, "2025-W02"))
+
+
+def test_a_wave_carries_across_a_reporting_gap_but_not_a_long_silence():
+    wave = SeasonState(True, 0, "2025-W37")
+    assert wave_phase(wave, "2025-W44", True, False)[0] == "in_wave"     # the 2025 admissions outage
+    assert wave_phase(wave, "2025-W48", True, False)[0] == "between_waves"
+
+
+def test_an_unknown_wave_state_is_no_phase_and_keeps_the_state():
+    state = SeasonState(True, 0, "2025-W01")
+    assert wave_phase(state, "2025-W02", None, True) == (None, state)
+    # Whether a wave started can't be told without the onset alarm.
+    idle = SeasonState(last_period="2025-W01")
+    assert wave_phase(idle, "2025-W02", True, None) == (None, idle)
 
 
 def test_an_unavailable_onset_alarm_is_no_phase_not_out_of_season():

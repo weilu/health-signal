@@ -10,7 +10,7 @@ vi.mock('../api.js', () => ({ fetchConfig: vi.fn(), fetchData: vi.fn(), fetchPha
 // The chart draws on a canvas; its props are what the panel decides.
 const charted = []
 // Each mock chart reports a y-axis width by its label, as a real one reports its fitted axis.
-const AXIS = { cases: 60, admissions: 110 }
+const AXIS = { ILIconsultationrate: 60, SARIrate: 110 }
 // The mock joins its group through the real hook, so the panel's grouping is what the test exercises.
 vi.mock('./TimeSeriesChart.jsx', async () => {
   const { useEffect } = await import('react')
@@ -114,7 +114,7 @@ describe('PhasePanel', () => {
     renderPanel()
     await vi.waitFor(() => {
       const last = Object.fromEntries(charted.map((p) => [p.series[0].label, p.axisWidth]))
-      expect(last).toEqual({ cases: 110, admissions: 110 })
+      expect(last).toEqual({ ILIconsultationrate: 110, SARIrate: 110 })
     })
   })
 
@@ -133,6 +133,6 @@ describe('PhasePanel', () => {
     fetchPhaseStreams.mockResolvedValue([STREAM])
     fetchData.mockResolvedValue([])
     renderPanel(null)
-    expect(await screen.findByRole('heading', { name: 'cases · Greece' })).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: 'phase.streamTitle (Greece)' })).toBeTruthy()
   })
 })

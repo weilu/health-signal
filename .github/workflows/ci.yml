@@ -46,8 +46,13 @@ jobs:
         with:
           packages: any::remotes
           cache-version: 1
+      # aedseo's development commit with ssi-dk/aedseo#114 (waves across a reporting gap), until it reaches CRAN; pinned
+      # by commit, which assessed_with.csv records, so the tests always meet the build assess runs with.
       - name: Install aedseo (pinned, as assessed_with.csv records it)
-        run: Rscript -e 'remotes::install_version("aedseo", version = "1.1.0", repos = "https://cloud.r-project.org")'
+        env:
+          # remotes asks GitHub's API for the commit; unauthenticated, shared runners hit its rate limit.
+          GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+        run: Rscript -e 'remotes::install_github("ssi-dk/aedseo@f65ddf153060773f9bac4759a458b2ff76df6027", upgrade = "never")'
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true

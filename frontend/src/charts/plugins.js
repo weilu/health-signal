@@ -95,3 +95,25 @@ export const endLabels = {
     ctx.restore()
   },
 }
+
+// On a log axis, a week whose value was a zero stand-in (a non-detect) as a small tick at the floor: sampled,
+// not missing.
+export const floorMarkers = {
+  id: 'floorMarkers',
+  afterDatasetsDraw(chart, _args, opts) {
+    if (!opts.points?.length) return
+    const { ctx, chartArea: area, scales: { x } } = chart
+    ctx.save()
+    for (const [dataset, index] of opts.points) {
+      const px = x.getPixelForValue(index)
+      ctx.fillStyle = opts.colours[dataset]
+      ctx.beginPath()
+      ctx.moveTo(px, area.bottom - 7)
+      ctx.lineTo(px - 4, area.bottom)
+      ctx.lineTo(px + 4, area.bottom)
+      ctx.closePath()
+      ctx.fill()
+    }
+    ctx.restore()
+  },
+}

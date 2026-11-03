@@ -1,0 +1,21 @@
+import { useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
+import { fetchLocale } from './api.js'
+import { addDeploymentText } from './i18n.js'
+
+// The deployment's own text for the current language (its tab, panel and location names), merged over the
+// library's catalogue once signed in; switching language loads that language's file.
+export function useDeploymentText(enabled) {
+  const { i18n } = useTranslation()
+  // The language asked for, not the one resolved: a language the library doesn't ship resolves to a fallback
+  // until its text arrives.
+  const lng = i18n.language
+  const query = useQuery({ queryKey: ['locales', lng], queryFn: () => fetchLocale(lng), enabled: enabled && !!lng,
+                           staleTime: Infinity })
+  useEffect(() => {
+    if (query.data) addDeploymentText(lng, query.data)
+  }, [lng, query.data])
+  // The shell's to act on: a 401 means the session is gone.
+  return query
+}

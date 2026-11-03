@@ -3,10 +3,11 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, PositiveInt, computed_field, field_validator, model_validator
+from pydantic import (BaseModel, ConfigDict, Field, PositiveInt, PrivateAttr, computed_field,
+                      field_validator, model_validator)
 
 from .methods import METHODS
-from .profile import PATHOGENS, PROFILES, implies_message
+from .profile import PATHOGENS, PROFILES, DenominatorRule, Profile, implies_message
 
 
 class Branding(BaseModel):
@@ -22,6 +23,8 @@ class SiteConfig(BaseModel):
     locales: list[str] = Field(default_factory=lambda: ["en"])
     # Path prefixes that bypass auth. Default empty = everything is locked (opt-in public).
     public_paths: list[str] = Field(default_factory=list)
+    # Server-only: the deployment's own UI text, <language>.json per offered language (spec §9).
+    locales_dir: Path | None = None
 
     @field_validator("public_paths")
     @classmethod
@@ -34,6 +37,10 @@ class SiteConfig(BaseModel):
                 raise ValueError(f'{p!r} is not a valid path prefix; use "/" (exactly) for the whole site')
             normalized.append("/" + p.strip("/"))
         return normalized
+
+    def opens(self, path: str) -> bool:
+        # By prefix at a path boundary ("/" = whole site).
+        return any(prefix == "/" or path == prefix or path.startswith(prefix + "/") for prefix in self.public_paths)
 
     @model_validator(mode="after")
     def _default_locale_is_offered(self) -> "SiteConfig":
@@ -60,14 +67,17 @@ class Panel(BaseModel):
     type: Literal["timeseries", "phase", "summary"] = "timeseries"  # phase and summary build the Overview
     query: PanelQuery | None = None
     series_by: str | None = None  # one line per value of this dimension
+    # Log for values spanning orders of magnitude (wastewater loads), where linear flattens all but the peaks.
+    y_scale: Literal["linear", "log"] = "linear"
 
     @model_validator(mode="after")
     def _fields_fit_the_kind(self) -> "Panel":
         # phase and summary work from their target and the location filter, not a query.
         if self.type == "timeseries" and self.query is None:
             raise ValueError(f"panel {self.id!r}: a timeseries panel needs a query")
-        if self.type != "timeseries" and (self.query is not None or self.series_by is not None):
-            raise ValueError(f"panel {self.id!r}: a {self.type} panel takes no query or series_by")
+        if self.type != "timeseries" and (self.query is not None or self.series_by is not None
+                                          or self.y_scale != "linear"):
+            raise ValueError(f"panel {self.id!r}: a {self.type} panel takes no query, series_by or y_scale")
         return self
 
     @computed_field
@@ -77,6 +87,8 @@ class Panel(BaseModel):
 
 
 _PAGE_ID = re.compile(r"[a-z0-9_-]+")  # a URL segment as-is: no encoding, no case folding
+_TARGET_ID = re.compile(r"[A-Za-z0-9_-]+")  # lower-cased into its URL segment
+_APP_ROUTES = {"login", "logout", "api", "config", "docs", "redoc", "healthz", "assets", "methodology"}
 
 
 def page_path(target_id: str, page_id: str) -> str:
@@ -110,17 +122,24 @@ class Page(BaseModel):
 
 
 class Target(BaseModel):
-    # A surveillance subject: its id is a pathogen registry key, so tabs, phases and tiles share one key.
+    # A surveillance subject: once it has panels, its id is a pathogen registry key, so tabs, phases and tiles share
+    # one key. Until then (a tab announced before its data, like AMR) any id that is its own URL segment will do.
     model_config = ConfigDict(extra="forbid")
     id: str
     pages: list[Page] = Field(default_factory=list)
 
     @field_validator("id")
     @classmethod
-    def _is_pathogen(cls, target_id: str) -> str:
-        if target_id not in PATHOGENS:
-            raise ValueError(f"target id {target_id!r} is not in the pathogen registry {sorted(PATHOGENS)}")
+    def _url_safe(cls, target_id: str) -> str:
+        if not _TARGET_ID.fullmatch(target_id) or target_id.lower() in _APP_ROUTES:
+            raise ValueError(f"target id {target_id!r} must be letters, digits, '-' or '_', and not an app route")
         return target_id
+
+    @model_validator(mode="after")
+    def _is_pathogen(self) -> "Target":
+        if any(page.panels for page in self.pages) and self.id not in PATHOGENS:
+            raise ValueError(f"target id {self.id!r} has panels but is not in the pathogen registry {sorted(PATHOGENS)}")
+        return self
 
     @computed_field
     @property
@@ -184,12 +203,62 @@ class FeedConfig(BaseModel):
     dir: str
     assessments: str | None = None  # Status/Trend tables for this feed's series (spec §6.3)
 
-    @field_validator("profile")
+
+
+_ADDITIVE = ("indicators", "units", "qualities", "count_units", "censored_qualities", "pathogen_specific")
+
+
+class ProfileExtension(BaseModel):
+    """Additive vocabulary on a built-in profile (spec §6.2.1): data valid under the base stays valid."""
+    model_config = ConfigDict(extra="forbid")
+    extends: str
+    indicators: set[str] = set()
+    units: set[str] = set()
+    dimension_vocab: dict[str, set[str]] = {}
+    qualities: set[str] = set()
+    count_units: set[str] = set()
+    censored_qualities: set[str] = set()
+    pathogen_specific: set[str] = set()
+    denominators: list[DenominatorRule] = []
+
+    @field_validator("extends")
     @classmethod
-    def _known_profile(cls, name: str) -> str:
+    def _built_in(cls, name: str) -> str:
         if name not in PROFILES:
-            raise ValueError(f"unknown profile {name!r}; one of {sorted(PROFILES)}")
+            raise ValueError(f"extends {name!r}, which is not a built-in profile; one of {sorted(PROFILES)}")
         return name
+
+    def build(self, name: str) -> Profile:
+        base = PROFILES[self.extends]
+        vocab = dict(base.dimension_vocab)
+        for dim, values in self.dimension_vocab.items():
+            if dim == "pathogen":
+                raise ValueError(f"profile {name!r}: the pathogen vocabulary is the shared registry, not extensible")
+            if dim not in base.dimension_keys:
+                # A new key would change how this profile's series are identified.
+                raise ValueError(f"profile {name!r}: {dim!r} is not a dimension of {base.name}")
+            if dim not in vocab:
+                raise ValueError(f"profile {name!r}: dimension {dim!r} of {base.name} is already unconstrained")
+            vocab[dim] = vocab[dim] | values
+        # Every additive set field the same way, so a new one can't be left out.
+        added = {f: getattr(base, f) | getattr(self, f) for f in _ADDITIVE}
+        taken = {(d.rate, d.unit) for d in base.denominators}
+        for rule in self.denominators:
+            # denominator_for takes the first match, so a second rule for one rate and unit would be ignored, and
+            # reordering the two would change the fit unseen by the run settings.
+            if (rule.rate, rule.unit) in taken:
+                raise ValueError(f"profile {name!r}: a second denominator rule for {rule.rate} "
+                                 f"({rule.unit or 'any unit'})")
+            taken.add((rule.rate, rule.unit))
+            if rule.rate not in added["indicators"]:
+                raise ValueError(f"profile {name!r}: denominator rule for unknown indicator {rule.rate!r}")
+            if rule.denominator not in added["indicators"]:
+                raise ValueError(f"profile {name!r}: denominator {rule.denominator!r} is not an indicator")
+            if rule.unit is not None and rule.unit not in added["units"]:
+                raise ValueError(f"profile {name!r}: unit {rule.unit!r} of the {rule.rate} rule is not a unit")
+        return base.model_copy(update={
+            "name": name, "version": f"{base.version}+{name}", **added, "dimension_vocab": vocab,
+            "denominators": [*base.denominators, *self.denominators]})
 
 
 class PhaseStreamsEntry(BaseModel):
@@ -273,21 +342,40 @@ class Config(BaseModel):
     filters: Filters = Field(default_factory=Filters)
     surveillance: Surveillance = Field(default_factory=Surveillance)
     analytics: AnalyticsConfig = Field(default_factory=AnalyticsConfig)
+    profiles: dict[str, ProfileExtension] = Field(default_factory=dict)   # server-only, like data
     # Server-only: neither projection below references it, so it never reaches the client.
     data: DataConfig | None = None
+    _profiles: dict[str, Profile] = PrivateAttr(default_factory=dict)
+
+    # First of the validators: the ones after it read feeds' profiles through self.profile().
+    @model_validator(mode="after")
+    def _resolve_profiles(self) -> "Config":
+        if shadowing := set(self.profiles) & set(PROFILES):
+            raise ValueError(f"profiles {sorted(shadowing)} would shadow a built-in profile; name the extension apart")
+        self._profiles = {**PROFILES, **{name: ext.build(name) for name, ext in self.profiles.items()}}
+        for feed in self.data.feeds if self.data else []:
+            if feed.profile not in self._profiles:
+                raise ValueError(f"feed {feed.id!r}: unknown profile {feed.profile!r}; one of {sorted(self._profiles)}")
+        return self
+
+    def profile(self, name: str) -> Profile:
+        return self._profiles[name]
+
+    def feed_profiles(self) -> dict[str, Profile]:
+        return {f.id: self.profile(f.profile) for f in self.data.feeds} if self.data else {}
 
     @model_validator(mode="after")
     def _unique_pages(self) -> "Config":
-        # Target ids key tabs and derived paths.
-        target_ids = [t.id for t in self.targets]
+        # Target ids key tabs and derived paths, which lower-case them.
+        target_ids = [t.id.lower() for t in self.targets]
         if len(target_ids) != len(set(target_ids)):
-            raise ValueError("duplicate target ids")
+            raise ValueError("duplicate target ids (compared ignoring case, as their paths are)")
         return self
 
     @model_validator(mode="after")
     def _panels_match_their_feeds(self) -> "Config":
         # Checked here, not on the panel: only the config knows which profile a feed id means.
-        profiles = {f.id: PROFILES[f.profile] for f in self.data.feeds} if self.data else {}
+        profiles = self.feed_profiles()
         for target in self.targets:
             for page in target.pages:
                 for panel in page.panels:
@@ -343,22 +431,39 @@ class Config(BaseModel):
         feed = next((f for f in self.data.feeds if f.id == query.feed), None) if self.data else None
         if feed is None:
             return None
-        dims = PROFILES[feed.profile].canonical(query.indicator, query.dimensions)
+        dims = self.profile(feed.profile).canonical(query.indicator, query.dimensions)
         return query.feed, query.indicator, tuple(sorted(dims.items()))
 
-    def _client_panel(self, panel: Panel, shared: dict[tuple, list[str]]) -> dict:
+    def _client_page(self, target: Target, page: Page, shared: dict[tuple, list[str]]) -> dict:
+        keys = {p.id: key for p in page.panels if p.query and (key := self._canonical_query(p.query))}
+        path = page_path(target.id, page.id)
+        return {**page.model_dump(mode="json"), "path": path, "public": self.site.opens(path),
+                "panels": [self._client_panel(x, shared, keys) for x in page.panels]}
+
+    def _client_panel(self, panel: Panel, shared: dict[tuple, list[str]], page_keys: dict[str, tuple]) -> dict:
         out = panel.model_dump(mode="json")
-        key = self._canonical_query(panel.query) if panel.query else None
+        key = page_keys.get(panel.id)
         if key is None:
             return out
         feed, indicator, dims = key
-        profile = PROFILES[next(f.profile for f in self.data.feeds if f.id == feed)]
+        # A default name the library can label (spec §9): the indicator, plus only the values that tell this panel
+        # from the page's other panels of the same indicator. A deployment's panels.<id> text overrides it.
+        others = [dict(k[2]) for pid, k in page_keys.items() if pid != panel.id and k[:2] == (feed, indicator)]
+        out["name"] = {"indicator": indicator,
+                       "dimensions": {d: v for d, v in dims if any(o.get(d) != v for o in others)}}
+        profile = self.profile(next(f.profile for f in self.data.feeds if f.id == feed))
         # Canonical, as phase streams are, so the summary compares a panel with a stream like for like.
         out["query"]["dimensions"] = dict(dims)
         # The overview groups by feed, then pathogen-specific vs syndromic (an indicator reported per pathogen,
         # or implying one, vs e.g. ILI), naming the tabs a syndromic series is shared across.
-        specific = indicator in profile.pathogen_specific or bool(profile.indicator_implies.get(indicator, {}).get("pathogen"))
+        implied = bool(profile.indicator_implies.get(indicator, {}).get("pathogen"))
+        specific = indicator in profile.pathogen_specific or implied
         out["group"] = {"feed": feed, "kind": "pathogen_specific" if specific else "syndromic", "targets": shared[key]}
+        # Whether a chart title adds the tab's pathogen: not for a syndromic series shared by every tab, nor where the
+        # name already says it (a measure like fluA, or a panel told apart by pathogen type), nor where its lines are
+        # several pathogens.
+        out["name"]["pathogen"] = (specific and not implied and panel.series_by != "pathogen"
+                                   and not any(d.startswith("pathogen") for d in out["name"]["dimensions"]))
         return out
 
     def bootstrap_config(self) -> dict:
@@ -383,8 +488,7 @@ class Config(BaseModel):
             **self.bootstrap_config(),
             "targets": [
                 {**t.model_dump(mode="json"),
-                 "pages": [{**p.model_dump(mode="json"), "path": page_path(t.id, p.id),
-                            "panels": [self._client_panel(x, shared) for x in p.panels]} for p in t.pages]}
+                 "pages": [self._client_page(t, p, shared) for p in t.pages]}
                 for t in self.targets
             ],
             # The client keeps reading the year start beside the range settings it shapes.

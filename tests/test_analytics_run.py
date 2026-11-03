@@ -12,7 +12,8 @@ from analytics_support import (ERVISS_HEADER, FakeBackend, FlakyBackend, NeverFi
                                erviss_rows, write_feed)
 
 
-def _config(tmp_path, streams=True, year_start_week=21, covid_too=False, analytics=None, only_ili=False):
+def _config(tmp_path, streams=True, year_start_week=21, covid_too=False, analytics=None, only_ili=False,
+            extension=None):
     feed = write_feed(tmp_path / "c",
                       erviss_rows("Greece", "ILIconsultationrate", "per_100k", [5, 6, 12, 30, 25, 9])
                       + erviss_rows("Greece", "SARIrate", "per_100k", [4, 5, 11, 20, 22, 21], survtype="SARI syndromic"))
@@ -25,7 +26,8 @@ def _config(tmp_path, streams=True, year_start_week=21, covid_too=False, analyti
     targets = [{"id": "SARS-CoV-2", "pages": pages}] * covid_too + [{"id": "Influenza", "pages": pages}]
     return Config.model_validate({
         "schema_version": "1", "site": {"title": "T"}, "surveillance": {"year_start_week": year_start_week},
-        "data": {"feeds": [{"id": "clinical", "profile": "erviss", "dir": str(feed), "assessments": str(tmp_path / "a")}],
+        "profiles": {"erviss_x": {"extends": "erviss", **(extension or {})}},
+        "data": {"feeds": [{"id": "clinical", "profile": "erviss_x", "dir": str(feed), "assessments": str(tmp_path / "a")}],
                  "phases": str(tmp_path / "phase.csv"), "phase_streams": str(tmp_path / "streams.csv")},
         "targets": targets,
         "analytics": {"phase_streams": [entry] if streams else [], **(analytics or {})}})
@@ -37,6 +39,7 @@ def test_assess_writes_tables_the_app_loads(tmp_path):
     assert len(AssessmentSource(tmp_path / "a", ERVISS).assessments(indicator="SARIrate")) == 6   # every week
     phases = PhaseSource(tmp_path / "phase.csv").phases()
     assert len(phases) == 4 and {p.phase for p in phases} <= {"in_season", "out_of_season"}
+    assert all(p.provisional for p in phases)   # six weeks of history, short of min_seasons
     streams = sorted(PhaseStreamSource(tmp_path / "streams.csv", {"clinical": ERVISS}).streams(), key=lambda s: s.role)
     assert [s.role for s in streams] == ["admissions", "cases"]
     assert streams[0].series == {"indicator": "SARIrate", "survtype": "SARI syndromic", "age": "total"}
@@ -61,8 +64,10 @@ def test_a_rerun_without_new_data_changes_nothing(tmp_path):
     assert [f.read_bytes() for f in files] == before
 
 
-def test_incremental_matches_a_full_rebuild(tmp_path):
-    cfg = _config(tmp_path)
+@pytest.mark.parametrize("analytics", [None, {"wave_pathogens": ["Influenza"]}], ids=["seasons", "waves"])
+def test_incremental_matches_a_full_rebuild(tmp_path, analytics):
+    # Cut inside a season or wave (W03 onsets, W05 is still above the floor): the resumed run must carry it on.
+    cfg = _config(tmp_path, analytics=analytics)
     feed = tmp_path / "c" / "feed.csv"
     full_text = feed.read_text()
     lines = full_text.splitlines(keepends=True)
@@ -323,6 +328,18 @@ def test_a_changed_wave_end_needs_a_full_run(tmp_path):
         assess(cfg, backend=FakeBackend)
 
 
+@pytest.mark.parametrize("extension, setting", [
+    ({"count_units": ["per_100k"]}, "count_unit"),
+    ({"qualities": ["est"], "censored_qualities": ["est"]}, "censored_quality"),
+    ({"denominators": [{"rate": "ILIconsultationrate", "denominator": "SARIrate", "per": 1000}]}, "denominator"),
+])
+def test_a_changed_modelling_rule_in_the_feed_profile_needs_a_full_run(tmp_path, extension, setting):
+    # The extension decides how a series is fitted: new weeks fitted by another rule would join rows of the old.
+    assess(_config(tmp_path, streams=False), backend=FakeBackend)
+    with pytest.raises(SettingsChanged, match=setting):
+        assess(_config(tmp_path, streams=False, extension=extension), backend=FakeBackend)
+
+
 def test_a_second_run_on_the_same_tables_stops_rather_than_share_their_checkpoints(tmp_path):
     cfg = _config(tmp_path, streams=False)
     with lock_assessments([tmp_path / "a"]):   # as a run in progress holds them
@@ -338,3 +355,14 @@ def test_a_series_dropped_from_the_config_keeps_its_phasing_record_with_its_rows
     assess(_config(tmp_path, streams=False, analytics=waves), backend=FakeBackend)
     assess(_config(tmp_path, streams=False, analytics=waves, only_ili=True), backend=FakeBackend)
     assert assess(_config(tmp_path, streams=False, analytics=waves), backend=FakeBackend).weeks == 0
+
+
+def test_tables_phased_before_waves_started_only_on_their_own_alarm_need_a_full_run(tmp_path):
+    # Their wave weeks may start in the past (a replay with a lower threshold); new weeks phased the new way
+    # would sit beside them.
+    cfg = _config(tmp_path, streams=False, analytics={"wave_pathogens": ["Influenza"]})
+    assess(cfg, backend=FakeBackend)
+    settings = tmp_path / "a" / "assessed_with.csv"
+    settings.write_text("".join(line for line in settings.read_text().splitlines(keepends=True) if "wave_start" not in line))
+    with pytest.raises(SettingsChanged, match="wave_start"):
+        assess(cfg, backend=FakeBackend)

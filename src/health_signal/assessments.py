@@ -43,12 +43,16 @@ class PhaseRow(BaseModel):
     period: str
     method: str
     phase: str
+    provisional: bool = False
 
 
 GROWTH = ["growth_rate", "growth_lower", "growth_upper"]
 ASSESSMENT_COLUMNS = ["location", "period", "indicator", "method", "level", "provisional", "trend", *GROWTH, "phase"]
 THRESHOLD_COLUMNS = ["location", "indicator", "method", "from", "to", "level", "lower_bound"]
 PHASE_COLUMNS = ["location", "pathogen", "period", "method", "phase"]
+# Optional: assess marks a phase provisional when its streams have short history; a phase.csv written by hand
+# or by another system has no such history, so it may leave the column out.
+PHASE_OPTIONAL = ["provisional"]
 
 
 def _outside_method(df: pd.DataFrame, column: str, vocabulary: str) -> pd.Series:
@@ -173,6 +177,8 @@ class PhaseSource:
             # One file per dashboard, so a configured path that doesn't exist is a typo, not "no phases".
             raise ValueError(f"phases file {str(path)!r} does not exist")
         df = _load(path.parent, path.name, PHASE_COLUMNS, self._violation)
+        if "provisional" not in df.columns:
+            df["provisional"] = "false"
         key = ["location", "pathogen", "period", "method"]
         self._phases = drop_copies_reject_conflicts(df, key).drop(columns=PROVENANCE)
 
@@ -188,12 +194,16 @@ class PhaseSource:
             (df["phase"].eq("") | _outside_method(df, "phase", "phases"),
              lambda r: f"phase {r['phase']!r} is not a {r['method']} phase"),
         ]
+        if "provisional" in df.columns:
+            rules.append((~df["provisional"].isin({"true", "false", ""}),
+                          lambda r: f"provisional {r['provisional']!r} is not true or false"))
         return first_match(df, rules)
 
     def phases(self, *, location=None, pathogen=None, method=None, week_from=None, week_to=None) -> list[PhaseRow]:
         df = filter_rows(self._phases, location=location, week_from=week_from, week_to=week_to,
                          dimensions={"pathogen": pathogen, "method": method})
-        return [PhaseRow(**{column: r[column] for column in PHASE_COLUMNS}) for r in df.to_dict("records")]
+        return [PhaseRow(**{column: r[column] for column in PHASE_COLUMNS}, provisional=r["provisional"] == "true")
+                for r in df.to_dict("records")]
 
 
 class PhaseStreamRow(BaseModel):

@@ -11,6 +11,7 @@ export async function apiGet(path, params = {}) {
 }
 
 export const fetchConfig = () => apiGet('/api/config')
+export const fetchLocale = (lng) => apiGet(`/api/locales/${lng}`)
 export const fetchData = (query) => apiGet('/api/data', query)
 export const fetchPeriods = () => apiGet('/api/periods')
 export const fetchAssessments = (query) => apiGet('/api/assessments', query)

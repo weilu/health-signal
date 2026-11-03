@@ -7,11 +7,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlencode
 
-from ..assessments import PHASE_COLUMNS, STREAM_COLUMNS, PhaseSource, PhaseStreamSource
+from ..assessments import PHASE_COLUMNS, PHASE_OPTIONAL, STREAM_COLUMNS, PhaseSource, PhaseStreamSource
 from ..config import Config
 from ..datasource import FileDataSource
 from ..methods import AEDSEO
-from ..profile import PROFILES
+from ..profile import Profile
 from .aedseo_r import RAedseo
 from .backend import Backend
 from .engine import SeriesResult, assess_series
@@ -55,10 +55,19 @@ def assess(config: Config, *, full: bool = False, jobs: int = 1,
         return _assess(config, full, jobs, backend)
 
 
+def _modelling_rules(method: str, profile: Profile) -> list[tuple[str, str, str]]:
+    # The profile, extension included, decides how each series is fitted, so a change to it needs --full.
+    rules = [("count_unit", u) for u in profile.count_units]
+    rules += [("censored_quality", q) for q in profile.censored_qualities]
+    rules += [("denominator", f"{d.rate} ({d.unit or 'any unit'}) / {d.denominator} per {d.per:g}")
+              for d in profile.denominators]
+    return sorted((method, setting, value) for setting, value in rules)
+
+
 def _assess(config: Config, full: bool, jobs: int, backend: Callable[[], Backend] | None) -> Summary:
     factory = backend or RAedseo
     main_backend = factory()
-    profiles = {f.id: PROFILES[f.profile] for f in config.data.feeds}
+    profiles = config.feed_profiles()
     sources = {f.id: FileDataSource(f.dir, profiles[f.id]) for f in config.data.feeds}
     series, refs, warnings = assessed_series(config, sources)
     # Per feed: an emptied or mis-mounted feed dir looks like this, and publishing would replace its good tables
@@ -74,7 +83,9 @@ def _assess(config: Config, full: bool, jobs: int, backend: Callable[[], Backend
     settings = [(method, setting, str(value)) for setting, value in {
         "year_start_week": config.surveillance.year_start_week, "min_seasons": analytics.min_seasons,
         "steps_with_decrease": wave_end.steps_with_decrease, "burden_level_decrease": wave_end.burden_level_decrease,
-        "package_version": main_backend.version}.items()]
+        "package_version": main_backend.version,
+        # How a wave may start (rules.wave_phase): tables phased under an earlier rule can't be extended.
+        "wave_start": "own_alarm"}.items()]
     settings += [(method, "wave_pathogen", p) for p in sorted(analytics.wave_pathogens)]
 
     def in_waves(s: Series) -> bool:
@@ -83,7 +94,8 @@ def _assess(config: Config, full: bool, jobs: int, backend: Callable[[], Backend
 
     stores = {f.id: FeedStore(f.assessments, profiles[f.id], full=full) for f in config.data.feeds if f.assessments}
     # Phasing is recorded per series: one switching between waves and seasons needs --full.
-    feed_settings = {feed: settings + sorted((method, "wave_series", _label(s))
+    feed_settings = {feed: settings + _modelling_rules(method, profiles[feed])
+                     + sorted((method, "wave_series", _label(s))
                                              for s in series if s.feed == feed and in_waves(s))
                      + stores[feed].kept_wave_series({_label(s) for s in series if s.feed == feed})
                      for feed in stores}
@@ -173,16 +185,18 @@ def _phase_files(config: Config, refs: dict, stores: dict[str, FeedStore], profi
     """The phase tables as write_validated files, and how to validate their drafts."""
     phases, streams = [], []
     for entry in config.analytics.phase_streams:
-        by_role, resolved = {}, {}
+        by_role, provisional, resolved = {}, {}, {}
         for role, ref in entry.streams.items():
             s = refs.get((entry.pathogen, entry.location, ref))
             if s is None:
                 raise ValueError(f"analytics.phase_streams {entry.pathogen}/{entry.location}: panel {ref!r} has no "
                                  f"assessed series at {entry.location}")
             by_role[role] = stores[s.feed].phases(s, entry.method)
+            provisional[role] = stores[s.feed].provisional(s, entry.method)
             resolved[role] = s
-        phases += pathogen_phases(entry, by_role, waves=entry.pathogen in config.analytics.wave_pathogens)
+        phases += pathogen_phases(entry, by_role, waves=entry.pathogen in config.analytics.wave_pathogens,
+                                  provisional=provisional)
         streams += stream_rows(entry, resolved)
     phase_path, stream_path = Path(config.data.phases), Path(config.data.phase_streams)
-    files = {phase_path: _table(PHASE_COLUMNS, phases), stream_path: _table(STREAM_COLUMNS, streams)}
+    files = {phase_path: _table([*PHASE_COLUMNS, *PHASE_OPTIONAL], phases), stream_path: _table(STREAM_COLUMNS, streams)}
     return files, lambda drafts: (PhaseSource(drafts[phase_path]), PhaseStreamSource(drafts[stream_path], profiles))

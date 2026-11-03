@@ -5,8 +5,11 @@ import { isCurrentYear, rangePresets, updateSearch, yearLabel } from './filters.
 import { weekStamp } from './labels.js'
 import { weekRange } from './weeks.js'
 
-// Full-width rows on a phone; natural width side by side from sm up.
-const field = (minWidth) => ({ size: 'small', select: true, sx: { minWidth, flex: { xs: '1 1 100%', sm: '0 0 auto' } } })
+// Secondary to the title beside them, so a size smaller than body text; full-width rows on a phone, natural width
+// side by side from sm up.
+const compact = { '& .MuiInputBase-root': { fontSize: '0.875rem' } }
+const field = (minWidth) => ({ size: 'small', select: true,
+                               sx: { ...compact, minWidth, flex: { xs: '1 1 100%', sm: '0 0 auto' } } })
 
 // Newest first, one group per ISO year; selects rather than <input type="week">, which Firefox and
 // Safari render as free text.
@@ -41,13 +44,13 @@ export function HeaderFilters({ locationFilter, location, locationLabel, rangeFi
   return (
     <Stack direction="row" useFlexGap sx={{ flexWrap: 'wrap', gap: 1.5 }}>
       {locationFilter && (
-        <TextField {...field(160)} label={t('filters.location')} value={location} onChange={(e) => go({ location: e.target.value })}>
+        <TextField {...field(140)} label={t('filters.location')} value={location} onChange={(e) => go({ location: e.target.value })}>
           {locationFilter.options.map((o) => <MenuItem key={o.value} value={o.value}>{locationLabel(o.value)}</MenuItem>)}
         </TextField>
       )}
       {range && (
         <>
-          <TextField {...field(200)} label={t('filters.dateRange')} value={range.preset}
+          <TextField {...field(180)} label={t('filters.dateRange')} value={range.preset}
             onChange={(e) => go({ range: e.target.value, from: null, to: null })}>
             <ListSubheader>{t('range.quick')}</ListSubheader>
             {presets.filter((p) => !p.startsWith('year:')).map((p) => <MenuItem key={p} value={p}>{presetLabel(p)}</MenuItem>)}
@@ -58,9 +61,9 @@ export function HeaderFilters({ locationFilter, location, locationLabel, rangeFi
           </TextField>
           {/* From/To share a row even on a phone. */}
           <Stack direction="row" useFlexGap sx={{ gap: 1.5, flex: { xs: '1 1 100%', sm: '0 0 auto' } }}>
-            <TextField size="small" select label={t('range.from')} value={range.from} sx={{ minWidth: 132, flex: 1 }}
+            <TextField size="small" select label={t('range.from')} value={range.from} sx={{ ...compact, minWidth: 116, flex: 1 }}
               onChange={(e) => setCustom(e.target.value, range.to)}>{weeks}</TextField>
-            <TextField size="small" select label={t('range.to')} value={range.to} sx={{ minWidth: 132, flex: 1 }}
+            <TextField size="small" select label={t('range.to')} value={range.to} sx={{ ...compact, minWidth: 116, flex: 1 }}
               onChange={(e) => setCustom(range.from, e.target.value)}>{weeks}</TextField>
           </Stack>
         </>

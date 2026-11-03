@@ -1,4 +1,5 @@
 import math
+from dataclasses import replace
 from datetime import date
 
 import pytest
@@ -59,6 +60,30 @@ def test_only_the_requested_weeks_are_computed_resuming_the_state():
 
 def test_wave_pathogens_use_the_wave_pair():
     assert [r["phase"] for r in _run([5, 6, 12, 8], waves=WaveEnd()).rows][2:] == ["in_wave", "between_waves"]
+
+
+class WaveFromThePast(FakeBackend):
+    # aedseo's replay with a lowered threshold: in a wave from the first week, no alarm until the rise at week 5.
+    def fit(self, data):
+        fit = super().fit(data)
+        return replace(fit, in_wave=True, alarm=len(data.values) == 5)
+
+
+def test_a_wave_aedseo_places_in_the_past_shows_only_from_an_alarm_of_its_own():
+    phases = [r["phase"] for r in _run([5, 6, 7, 6, 12, 13], waves=WaveEnd(), backend=WaveFromThePast()).rows][2:]
+    assert phases == ["between_waves", "between_waves", "in_wave", "in_wave"]
+
+
+def test_resuming_a_wave_matches_a_full_rebuild():
+    values, p = [5, 6, 7, 6, 12, 13], weeks(2021, 6)
+    full = _run(values, waves=WaveEnd(), backend=WaveFromThePast())
+    tail = _run(values, waves=WaveEnd(), backend=WaveFromThePast(), weeks_to_do=p[5:], state=full_state_at(full, p[4]))
+    assert tail.rows == full.rows[5:]
+
+
+def full_state_at(result, period):
+    phase = next(r["phase"] for r in result.rows if r["period"] == period)
+    return SeasonState(phase == "in_wave", 0, period)
 
 
 def test_a_missing_threshold_is_the_data_but_an_r_error_is_a_broken_backend():

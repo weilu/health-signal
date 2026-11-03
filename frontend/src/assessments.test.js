@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { activeWeeks, bandAlpha, ofSeries, phaseRuns, bandsFor, levelTone, phaseSince, pickInRange, sameSeries } from './assessments.js'
+import { activeWeeks, bandAlpha, ofSeries, phaseRuns, bandsFor, levelTone, phaseSince, pickInRange, sameSeries, streamScale, trendTone } from './assessments.js'
 
 const a = (period, extra = {}) => ({ period, level: 'low', ...extra })
 const LEVELS = ['very_low', 'low', 'medium', 'high', 'very_high']
@@ -41,6 +41,10 @@ describe('phaseSince', () => {
   const rows = ['2025-W47', '2025-W48', '2025-W49', '2025-W50'].map((p, i) => ({ period: p, phase: i ? 'in_season' : 'out_of_season' }))
   it('is the start of the active run ending at the as-of week', () => expect(phaseSince(rows, '2025-W50', ['in_season'])).toBe('2025-W48'))
   it('is null when not active', () => expect(phaseSince(rows, '2025-W47', ['in_season'])).toBeNull())
+  it('reaches back no further than a week with no phase', () => {
+    const gap = ['2025-W36', '2025-W37', '2025-W44', '2025-W45'].map((period) => ({ period, phase: 'in_season' }))
+    expect(phaseSince(gap, '2025-W45', ['in_season'])).toBe('2025-W44')
+  })
 })
 
 describe('sameSeries', () => {
@@ -104,13 +108,13 @@ describe('series identity', () => {
 
 describe('phaseRuns', () => {
   const ACTIVE = ['in_wave']
-  const rows = ['2023-W48:between_waves', '2023-W49:in_wave', '2023-W50:in_wave', '2024-W01:in_wave', '2024-W02:between_waves',
-                '2024-W20:in_wave', '2024-W21:in_wave']
-    .map((x) => ({ period: x.split(':')[0], phase: x.split(':')[1] }))
+  const phases = (list) => list.map((x) => ({ period: x.split(':')[0], phase: x.split(':')[1] }))
+  const rows = phases(['2023-W50:between_waves', '2023-W51:in_wave', '2023-W52:in_wave', '2024-W01:in_wave',
+                       '2024-W02:between_waves', '2024-W20:in_wave', '2024-W21:in_wave'])
 
   it('lists each run of active weeks overlapping the range, flagging clipped and ongoing runs', () => {
-    expect(phaseRuns(rows, { from: '2023-W50', to: '2024-W20' }, ACTIVE)).toEqual([
-      { from: '2023-W49', to: '2024-W01', weeks: 3, startsBefore: true, endsAfter: false, ongoing: false },
+    expect(phaseRuns(rows, { from: '2023-W52', to: '2024-W20' }, ACTIVE)).toEqual([
+      { from: '2023-W51', to: '2024-W01', weeks: 3, startsBefore: true, endsAfter: false, ongoing: false },
       { from: '2024-W20', to: '2024-W21', weeks: 2, startsBefore: false, endsAfter: true, ongoing: true },
     ])
   })
@@ -118,4 +122,35 @@ describe('phaseRuns', () => {
   it('lists none when no run touches the range', () => {
     expect(phaseRuns(rows, { from: '2024-W05', to: '2024-W10' }, ACTIVE)).toEqual([])
   })
+
+  it('ends a run at weeks with no phase (a reporting gap), as the charts leave them unshaded', () => {
+    const gap = phases(['2025-W36:in_wave', '2025-W37:in_wave', '2025-W44:in_wave', '2025-W45:in_wave', '2025-W46:between_waves'])
+    expect(phaseRuns(gap, { from: '2025-W30', to: '2025-W50' }, ACTIVE).map((r) => [r.from, r.to, r.weeks]))
+      .toEqual([['2025-W36', '2025-W37', 2], ['2025-W44', '2025-W45', 2]])
+  })
+})
+
+
+describe('streamScale', () => {
+  // A phase stream is charted on its panel's axis, so wastewater reads the same on the overview as on its own page.
+  const ww = { id: 'ww', type: 'timeseries', y_scale: 'log', query: { feed: 'wastewater', indicator: 'cov', dimensions: { aggregation: 'floMean' } } }
+  const target = { pages: [{ panels: [{ id: 'summary', type: 'summary' }, ww] }] }
+  it("takes the stream's panel's scale", () =>
+    expect(streamScale(target, { feed: 'wastewater', series: { indicator: 'cov', aggregation: 'floMean' } })).toBe('log'))
+  it('skips a split chart that also covers the stream: only a single-series panel can be one', () => {
+    const split = { id: 'by_fraction', query: { feed: 'wastewater', indicator: 'cov', dimensions: {} }, series_by: 'fraction' }
+    const liquid = { id: 'liq', y_scale: 'log', query: { feed: 'wastewater', indicator: 'cov', dimensions: { fraction: 'liq' } } }
+    expect(streamScale({ pages: [{ panels: [split, liquid] }] }, { feed: 'wastewater', series: { indicator: 'cov', fraction: 'liq' } }))
+      .toBe('log')
+  })
+  it('is linear for a stream without a panel on the tab', () =>
+    expect(streamScale(target, { feed: 'clinical', series: { indicator: 'deaths' } })).toBe('linear'))
+})
+
+
+describe('trendTone', () => {
+  // Rising is the early warning; never red, which stays the burden's. No direction is no reading: grey.
+  it('is amber when rising and green when steady or falling', () =>
+    expect(['increasing', 'stable', 'decreasing'].map(trendTone)).toEqual(['warning', 'success', 'success']))
+  it('is neutral without a direction', () => expect([trendTone('inconclusive'), trendTone(null)]).toEqual(['neutral', 'neutral']))
 })

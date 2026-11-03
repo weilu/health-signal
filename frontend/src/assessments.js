@@ -1,3 +1,5 @@
+import { addWeeks } from './weeks.js'
+
 // The tile describes the range's last week (spec §9): the latest assessment within the range,
 // never one from before it. null = the series is never assessed, so the panel shows no tiles.
 export function pickInRange(rows, range, latest) {
@@ -47,6 +49,12 @@ export function levelTone(levels, level) {
   return position < 0.5 ? 'success' : position === 0.5 ? 'warning' : 'error'
 }
 
+// Rising is the early warning (amber); steady or falling is not (green). Never red, which stays the burden's;
+// without a direction there's no reading, so neutral as an ungraded level is.
+export function trendTone(trend) {
+  return trend === 'increasing' ? 'warning' : trend === 'stable' || trend === 'decreasing' ? 'success' : 'neutral'
+}
+
 export function activeWeeks(rows, activePhases) {
   return new Set(rows.filter((r) => activePhases.includes(r.phase)).map((r) => r.period))
 }
@@ -71,29 +79,38 @@ export function bandsFor(rows, levels) {
   })
 }
 
-// "Since W48": the start of the unbroken active run that reaches the as-of week.
+// "Since W48": the start of the unbroken active run that reaches the as-of week. A week with no phase (a reporting
+// gap) breaks it, as it breaks the charts' shading.
 export function phaseSince(rows, asOf, activePhases) {
   const sorted = rows.filter((r) => r.period <= asOf).sort((x, y) => (x.period < y.period ? -1 : 1))
   if (!sorted.length || !activePhases.includes(sorted.at(-1).phase)) return null
   let i = sorted.length - 1
-  while (i > 0 && activePhases.includes(sorted[i - 1].phase)) i--
+  while (i > 0 && activePhases.includes(sorted[i - 1].phase) && follows(sorted[i - 1], sorted[i])) i--
   return sorted[i].period
 }
 
+const follows = (earlier, later) => addWeeks(earlier.period, 1) === later.period
+
 // The runs of active weeks overlapping the range (the stream charts' shaded bands, as a list): each run keeps
-// its true start and end, flagged where the range clips it, and is ongoing when it reaches the latest row.
-// Rows are consecutive weeks, as phaseSince reads them.
+// its true start and end, flagged where the range clips it, and is ongoing when it reaches the latest row. A week
+// with no phase (a reporting gap) ends a run, as the charts leave it unshaded.
 export function phaseRuns(rows, range, activePhases) {
   const sorted = [...rows].sort((x, y) => (x.period < y.period ? -1 : 1))
   const runs = []
   let run = null
+  let previous = null
   for (const r of sorted) {
+    if (run && !follows(previous, r)) {
+      runs.push(run)
+      run = null
+    }
     if (activePhases.includes(r.phase)) {
       run = run ? { ...run, to: r.period, weeks: run.weeks + 1 } : { from: r.period, to: r.period, weeks: 1 }
     } else if (run) {
       runs.push(run)
       run = null
     }
+    previous = r
   }
   if (run) runs.push({ ...run, ongoing: true })
   return runs
@@ -108,6 +125,17 @@ export function sameSeries(feed, params, stream) {
   return feed === stream.feed && Object.entries(params).every(([k, v]) => stream.series[k] === v)
 }
 
+// A phase stream's own panel on the tab, so the overview charts and names it as the tab does. A split chart may
+// cover the stream too, but a stream is always a single-series panel.
+export function streamPanel(target, stream) {
+  return target.pages.flatMap((p) => p.panels)
+    .find((p) => p.query && !p.series_by && sameSeries(p.query.feed, { indicator: p.query.indicator, ...p.query.dimensions }, stream))
+}
+
+export function streamScale(target, stream) {
+  return streamPanel(target, stream)?.y_scale ?? 'linear'
+}
+
 // Levels sharing a tone step darker in level order, so e.g. very low and low stay distinguishable.
 export function bandAlpha(levels, level) {
   const tone = levelTone(levels, level)
@@ -117,6 +145,17 @@ export function bandAlpha(levels, level) {
 
 export function toneColor(tone) {
   return tone === 'neutral' ? 'grey.500' : `${tone}.main`
+}
+
+// For words in a tone: amber at its usual shade is about 3:1 on the card, short of the 4.5:1 text needs, so words
+// take its darker shade; marks (dots, arrows) keep the usual one.
+export function toneTextColor(tone) {
+  return tone === 'neutral' ? 'text.secondary' : tone === 'warning' ? 'warning.dark' : toneColor(tone)
+}
+
+// The tone as a colour value, for what a palette path can't express (tints, shadows, the chart's canvas).
+export function tonePaint(theme, tone) {
+  return tone === 'neutral' ? theme.palette.grey[500] : theme.palette[tone].main
 }
 
 // The summary's lookups as one state, by ResourceBoundary's rules: a 401 redirects, any lookup still

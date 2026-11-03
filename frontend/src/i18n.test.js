@@ -36,17 +36,32 @@ describe('initI18n', () => {
     localStorage.setItem('hs.locale', 'el')
     expect(initI18n({ defaultLocale: 'en', locales: ['en'] }).language).toBe('en')
   })
-  it('registers only configured locales, warning about one with no catalog', () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const i18n = initI18n({ defaultLocale: 'en', locales: ['en', 'fr'] })
+  it("registers only configured locales, plus English as the library's base", () => {
+    const i18n = initI18n({ defaultLocale: 'fr', locales: ['fr'] })
     expect(i18n.hasResourceBundle('el', 'translation')).toBe(false)
-    expect(i18n.hasResourceBundle('fr', 'translation')).toBe(false)
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('"fr"'))
+    expect(i18n.hasResourceBundle('en', 'translation')).toBe(true)
   })
   it('switching language updates <html lang> and is remembered', () => {
     initI18n({ defaultLocale: 'en', locales: ['en', 'el'] })
     setLocale('el')
     expect(document.documentElement.lang).toBe('el')
     expect(localStorage.getItem('hs.locale')).toBe('el')
+  })
+})
+
+describe("a deployment's text available before sign-in", () => {
+  beforeEach(() => localStorage.clear())
+
+  // First: seeded text stays in i18next's shared store across re-initialisation (the app initialises once).
+  it('falls back to the configured title where the deployment names it in no language', () => {
+    const i18n = initI18n({ defaultLocale: 'en', locales: ['en', 'el'] })
+    expect(i18n.t('site.title', { defaultValue: 'Configured' })).toBe('Configured')
+  })
+  it('names the site in each language, like any other label', () => {
+    const i18n = initI18n({ defaultLocale: 'en', locales: ['en', 'el'],
+                            text: { en: { site: { title: 'Surveillance' } }, el: { site: { title: 'Επιτήρηση' } } } })
+    expect(i18n.t('site.title')).toBe('Surveillance')
+    setLocale('el')
+    expect(i18n.t('site.title')).toBe('Επιτήρηση')
   })
 })

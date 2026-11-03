@@ -141,7 +141,6 @@ def test_panels_need_a_data_block():
 @pytest.mark.parametrize("bad", [
     {"feeds": []},
     {"feeds": [{"id": "c", "profile": "erviss", "dir": "a"}, {"id": "c", "profile": "erviss", "dir": "b"}]},  # duplicate id
-    {"feeds": [{"id": "c", "profile": "nwss", "dir": "a"}]},                                                  # unknown profile
     {"feeds": [{"id": "", "profile": "erviss", "dir": "a"}]},                                                 # the client drops empty params
     {"dir": "a"},                                                                                             # the old single-feed form
     # one assessments dir for two feeds: each feed's tables would overwrite the other's
@@ -191,6 +190,13 @@ def test_duplicate_target_ids_fail_at_load():
     with pytest.raises(ValidationError, match="target ids"):
         Config(schema_version="1", site=SiteConfig(title="T"),
                targets=[Target(id="Influenza", pages=[Page(id="a")]), Target(id="Influenza", pages=[Page(id="b")])])
+
+
+def test_target_ids_differing_only_in_case_fail_at_load():
+    # Their pages would share one lower-cased path, leaving the second target unreachable.
+    with pytest.raises(ValidationError, match="target ids"):
+        Config(schema_version="1", site=SiteConfig(title="T"),
+               targets=[Target(id="AMR", pages=[Page(id="overview")]), Target(id="amr", pages=[Page(id="overview")])])
 
 
 def test_duplicate_panel_ids_on_a_page_fail_at_load():
@@ -326,15 +332,35 @@ def test_label_keys_cannot_be_overridden(build):
         build()
 
 
-def test_target_ids_are_pathogen_keys():
+def test_a_target_with_panels_is_a_pathogen_key():
     with pytest.raises(ValidationError, match="pathogen registry"):
-        Target(id="covid")
+        Target(id="covid", pages=[Page(id="clinical", panels=[Panel(id="deaths", query={"feed": "clinical", "indicator": "deaths"})])])
+
+
+def test_a_target_with_no_panels_yet_takes_any_url_safe_id():
+    # A tab announced before its data arrives (AMR) has no series to key phases or tiles to.
+    target = Target(id="AMR", pages=[Page(id="overview")])
+    assert page_path(target.id, "overview") == "/amr/overview"
+
+
+@pytest.mark.parametrize("target_id", ["Login", "api", "methodology", "a/b", "a b", ""])
+def test_a_target_id_cannot_shadow_an_app_route_or_leave_its_url_segment(target_id):
+    with pytest.raises(ValidationError):
+        Target(id=target_id, pages=[Page(id="overview")])
 
 
 @pytest.mark.parametrize("page_id", ["Clinical", "clin ical", "a/b", ""])
 def test_page_ids_must_be_url_safe(page_id):
     with pytest.raises(ValidationError):
         Page(id=page_id)
+
+
+@pytest.mark.parametrize("public_paths,expected", [([], [False, False]), (["/rsv/overview"], [True, False]), (["/"], [True, True])])
+def test_each_page_says_whether_the_login_gate_opens_it(public_paths, expected):
+    # The tabs lock what the server gates, from the same prefixes.
+    config = Config(schema_version="1", site=SiteConfig(title="T", public_paths=public_paths),
+                    targets=[Target(id="RSV", pages=[Page(id="overview"), Page(id="clinical")])])
+    assert [p["public"] for p in config.client_config()["targets"][0]["pages"]] == expected
 
 
 def test_page_paths_are_derived_from_ids():
@@ -389,6 +415,8 @@ def test_overview_panels_take_no_query():
     {"id": "phase", "type": "phase", "query": {"feed": "clinical", "indicator": "deaths"}},
     {"id": "summary", "type": "summary", "series_by": "age"},
     {"id": "deaths", "type": "timeseries"},  # a time series needs its query
+    {"id": "summary", "type": "summary", "y_scale": "log"},  # only a chart has an axis
+    {"id": "deaths", "query": {"feed": "clinical", "indicator": "deaths"}, "y_scale": "sqrt"},
 ])
 def test_panel_kinds_check_their_fields(bad):
     with pytest.raises(ValidationError):
@@ -419,3 +447,56 @@ def test_client_panels_carry_their_summary_group():
     assert groups == {"ili": {"feed": "clinical", "kind": "syndromic", "targets": ["Influenza", "RSV"]},
                       "adm": {"feed": "clinical", "kind": "pathogen_specific", "targets": ["Influenza"]},
                       "ww": {"feed": "wastewater", "kind": "pathogen_specific", "targets": ["Influenza"]}}
+
+
+def test_a_panel_is_named_by_its_indicator_and_what_sets_it_apart_on_its_page():
+    # The library can label indicators and dimension values but not a deployment's panel ids, so a panel's default
+    # name is built from its query: its indicator, plus only the values that tell it from same-indicator panels.
+    pos = lambda survtype: {"feed": "clinical", "indicator": "positivity",
+                            "dimensions": {"survtype": survtype, "pathogen": "Influenza", "age": "total"}}
+    icu = lambda ptype: {"feed": "clinical", "indicator": "ICUadmissions",
+                         "dimensions": {"survtype": "non-sentinel", "pathogen": "Influenza", "pathogentype": ptype,
+                                        "age": "total"}}
+    adm = {"feed": "clinical", "indicator": "hospitaladmissions",
+           "dimensions": {"survtype": "non-sentinel", "pathogen": "Influenza", "age": "total"}}
+    cfg = Config(schema_version="1", site=SiteConfig(title="T"), data=_FEEDS, targets=[
+        Target(id="Influenza", pages=[Page(id="c", panels=[
+            Panel(id="sari", query=pos("SARI virological")), Panel(id="sentinel", query=pos("primary care sentinel")),
+            Panel(id="icu_a", query=icu("Influenza A")), Panel(id="icu_b", query=icu("Influenza B")),
+            Panel(id="adm", query=adm), Panel(id="overview", type="summary")])])])
+    names = {p["id"]: p.get("name") for p in cfg.client_config()["targets"][0]["pages"][0]["panels"]}
+    assert names == {
+        "sari": {"indicator": "positivity", "dimensions": {"survtype": "SARI virological"}, "pathogen": True},
+        "sentinel": {"indicator": "positivity", "dimensions": {"survtype": "primary care sentinel"}, "pathogen": True},
+        "icu_a": {"indicator": "ICUadmissions", "dimensions": {"pathogentype": "Influenza A"}, "pathogen": False},
+        "icu_b": {"indicator": "ICUadmissions", "dimensions": {"pathogentype": "Influenza B"}, "pathogen": False},
+        "adm": {"indicator": "hospitaladmissions", "dimensions": {}, "pathogen": True},
+        "overview": None}
+
+
+def test_a_chart_title_names_the_tabs_pathogen_only_where_the_panel_does_not():
+    # "Hospital admissions · COVID-19 (Attica)" keeps context after scrolling past the tabs, but a syndromic series
+    # (shared by every tab), a measure that names its pathogen (fluA), a panel told apart by type, or one split into a
+    # line per pathogen mustn't repeat it.
+    q = lambda feed, indicator, **dims: {"feed": feed, "indicator": indicator, "dimensions": dims}
+    icu = lambda ptype: q("clinical", "ICUadmissions", survtype="non-sentinel", pathogen="Influenza", pathogentype=ptype,
+                          age="total")
+    cfg = Config(schema_version="1", site=SiteConfig(title="T"), data=_FEEDS, targets=[
+        Target(id="Influenza", pages=[Page(id="c", panels=[
+            Panel(id="adm", query=q("clinical", "hospitaladmissions", survtype="non-sentinel", pathogen="Influenza",
+                                    age="total")),
+            Panel(id="ili", query=q("clinical", "ILIconsultationrate", survtype="primary care sentinel", age="total")),
+            Panel(id="ww", query=q("wastewater", "fluA", aggregation="floMean")),
+            Panel(id="icu_a", query=icu("Influenza A")), Panel(id="icu_b", query=icu("Influenza B")),
+            Panel(id="by_pathogen", query=q("clinical", "deaths", survtype="non-sentinel", age="total"),
+                  series_by="pathogen")])])])
+    named = {p["id"]: p["name"]["pathogen"] for p in cfg.client_config()["targets"][0]["pages"][0]["panels"]}
+    assert named == {"adm": True, "ili": False, "ww": False, "icu_a": False, "icu_b": False, "by_pathogen": False}
+
+
+def test_a_chart_can_ask_for_a_log_axis_and_is_linear_otherwise():
+    # Wastewater loads span orders of magnitude, so a deployment can put them on a log axis; counts stay linear.
+    q = {"feed": "clinical", "indicator": "deaths"}
+    assert Panel(id="ww", query=q, y_scale="log").y_scale == "log"
+    assert Panel(id="deaths", query=q).y_scale == "linear"
+

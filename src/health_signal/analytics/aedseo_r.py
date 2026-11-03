@@ -27,15 +27,22 @@ def load_r():
         from rpy2.robjects.packages import importr  # noqa: PLC0415
         return ro, importr("aedseo"), importr("base"), importr("utils"), RRuntimeError
     except Exception as e:  # noqa: BLE001 - any R/rpy2 init failure gets the same actionable message
-        raise RuntimeError("assess needs R with the aedseo package via rpy2: install R, run "
-                           "install.packages('aedseo') in R, `pip install health-signal[analytics]`, "
-                           "and set R_HOME") from e
+        raise RuntimeError("assess needs R with the aedseo package via rpy2: install R and aedseo as the README "
+                           "says, `pip install health-signal[analytics]`, and set R_HOME") from e
+
+
+def build_version(version: str, remote_sha: str | None) -> str:
+    # Every development build reports the same version (e.g. 1.2.0.9000); the commit it was installed from
+    # tells two apart, so tables graded by one aren't extended by the other.
+    return f"{version}+{remote_sha[:7]}" if remote_sha else version
 
 
 class RAedseo:
     def __init__(self):
         self._ro, self._aedseo, self._base, utils, self._RError = load_r()
-        self.version = ".".join(str(int(x)) for x in self._base.unlist(utils.packageVersion("aedseo")))
+        fields = utils.packageDescription("aedseo")
+        description = {name: str(value[0]) for name, value in zip(fields.names, fields)}
+        self.version = build_version(description["Version"], description.get("RemoteSha"))
 
     def _numbers(self, frame, column) -> np.ndarray:
         # base.as_numeric first: an R integer NA would otherwise cast to INT_MIN, a finite non-value.

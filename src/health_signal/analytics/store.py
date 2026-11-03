@@ -204,6 +204,8 @@ class FeedStore:
         if not phased:
             return SeasonState()
         last = max(phased)
+        if self._rows[key][last]["phase"] == "in_wave":
+            return SeasonState(True, 0, last)
         if self._rows[key][last]["phase"] != "in_season":
             return SeasonState(last_period=last)
         # A season held over one week below its threshold must end at the next, as in a full rebuild.
@@ -215,6 +217,10 @@ class FeedStore:
     def phases(self, series: Series, method: str) -> dict[str, str | None]:
         rows = self._rows.get(self._series_key(series, method), {})
         return {period: row["phase"] for period, row in rows.items()}
+
+    def provisional(self, series: Series, method: str) -> dict[str, bool]:
+        rows = self._rows.get(self._series_key(series, method), {})
+        return {period: row["provisional"] for period, row in rows.items()}
 
     def add(self, series: Series, method: str, result: SeriesResult) -> None:
         key = self._series_key(series, method)

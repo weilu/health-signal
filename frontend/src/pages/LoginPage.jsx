@@ -32,7 +32,7 @@ export default function LoginPage({ config }) {
 
   return (
     <Paper sx={{ p: 4, width: '100%', maxWidth: 400 }} elevation={2}>
-      <Typography variant="h5" component="h1" gutterBottom>{config.title}</Typography>
+      <Typography variant="h5" component="h1" gutterBottom>{t('site.title', { defaultValue: config.title })}</Typography>
       {error && <Alert severity="error" sx={{ mb: 2 }}>{t(error === 'invalid' ? 'login.error' : 'login.failed')}</Alert>}
       <form onSubmit={handleSubmit}>
         <TextField name="email" type="email" label={t('login.email')} fullWidth required margin="normal" autoComplete="email" autoFocus />
