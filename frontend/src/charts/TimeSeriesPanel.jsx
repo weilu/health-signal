@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { fetchAssessments, fetchData, fetchThresholds } from '../api.js'
 import { activeWeeks, bandsFor, combinedState, ofSeries, pickInRange, plottedSeries, singleSeries } from '../assessments.js'
 import { useMethod } from '../useMethod.js'
-import { StatusTrendTiles, TileGrid } from './StatusTrendTiles.jsx'
+import { StatusTrendTiles, TileGrid, TileMessage } from './StatusTrendTiles.jsx'
 import { ResourceBoundary } from '../ResourceBoundary.jsx'
 import { toChartModel } from '../series.js'
 import { chartSubtitle, chartTitle, panelLabel, seriesLabel, weekStamp } from '../labels.js'
@@ -22,8 +22,10 @@ export function TimeSeriesPanel({ panel, target, location, range, latest }) {
   const [asTable, setAsTable] = useState(false)
   const params = panelParams(panel.query, location?.value, range)
   const query = useQuery({ queryKey: ['data', params], queryFn: () => fetchData(params) })
-  // Tiles describe one series, so panels split into several lines get none.
-  const single = !panel.series_by && !!method
+  // Tiles describe one series, so panels split into several lines get none; nor does a panel the selected method
+  // doesn't grade, which says so rather than show another method's grade.
+  const graded = !panel.methods || panel.methods.includes(method?.name)
+  const single = !panel.series_by && !!method && graded
   // Over the whole history, so the range only re-picks a row; the summary builds the same key and shares the cache.
   const aParams = { ...panelParams(panel.query, location?.value), method: method?.name }
   const assessed = useQuery({ queryKey: ['assessments', aParams], queryFn: () => fetchAssessments(aParams), enabled: single })
@@ -83,7 +85,9 @@ export function TimeSeriesPanel({ panel, target, location, range, latest }) {
   )
   if (lookups === 'unauth') return <Navigate to="/login" replace />
   // A failed lookup must not read as "never assessed"; an ambiguous one leaves the chart's own warning to explain.
-  const tiles = lookups === 'error' ? <Alert severity="warning">{t('assessment.unavailable')}</Alert>
+  const methodName = method && t(`methods.${method.name}.name`, { defaultValue: method.name })
+  const tiles = !panel.series_by && method && !graded ? <TileMessage text={t('assessment.notGradedWith', { method: methodName })} />
+    : lookups === 'error' ? <Alert severity="warning">{t('assessment.unavailable')}</Alert>
     : pick?.ambiguous ? <Alert severity="info">{t('assessment.ambiguous')}</Alert>
     : pick && <StatusTrendTiles pick={pick} method={method} />
   return <TileGrid card={card} tiles={tiles} />

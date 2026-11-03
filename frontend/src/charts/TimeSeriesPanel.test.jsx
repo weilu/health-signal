@@ -19,14 +19,14 @@ const METHOD = { aedseo: { levels: ['very_low', 'low'], phases: ['in_season', 'o
 const GREECE_W10 = { location: 'Greece', period: '2026-W10', indicator: 'fluA', value: 5, unit: 'gcL', dimensions: {} }
 const PANEL = { id: 'load', type: 'timeseries', label_key: 'panels.load', query: { feed: 'wastewater', indicator: 'fluA', dimensions: {} } }
 
-function renderPanel(location = { value: 'Attica' }) {
+function renderPanel(location = { value: 'Attica' }, panel = PANEL, entry = '/influenza/ww') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={['/influenza/ww']}>
+      <MemoryRouter initialEntries={[entry]}>
         <Routes>
           <Route path="/login" element={<p>login page</p>} />
-          <Route path="*" element={<TimeSeriesPanel panel={PANEL} target={{ id: "Influenza", label_key: "targets.Influenza" }} location={location}
+          <Route path="*" element={<TimeSeriesPanel panel={panel} target={{ id: "Influenza", label_key: "targets.Influenza" }} location={location}
             range={{ from: '2026-W01', to: '2026-W20' }} latest="2026-W20" />} />
         </Routes>
       </MemoryRouter>
@@ -101,5 +101,16 @@ describe('TimeSeriesPanel assessments', () => {
     await vi.waitFor(() => expect(fetchAssessments).toHaveBeenCalled())
     await new Promise((resolve) => setTimeout(resolve, 100))
     expect(screen.queryByText('level.low')).toBeNull()
+  })
+})
+
+describe('TimeSeriesPanel under a method that does not grade it', () => {
+  it("says so instead of showing another method's grade, and draws no bands", async () => {
+    fetchConfig.mockResolvedValue({ methods: { ...METHOD, mem: { levels: ['baseline', 'low'], phases: [], active_phases: [] } } })
+    fetchData.mockResolvedValue([GREECE_W10])
+    renderPanel({ value: 'Greece' }, { ...PANEL, methods: ['aedseo'] }, '/influenza/ww?method=mem')
+    expect(await screen.findByText('assessment.notGradedWith')).toBeTruthy()
+    expect(fetchAssessments).not.toHaveBeenCalled()
+    expect(charted.every((c) => !c.bands)).toBe(true)
   })
 })

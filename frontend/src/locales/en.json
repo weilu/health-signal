@@ -90,9 +90,11 @@
     "provisional": "Provisional",
     "ungraded": "Not graded",
     "ambiguous": "Several series match this panel",
-    "unavailable": "Status unavailable"
+    "unavailable": "Status unavailable",
+    "notGradedWith": "Not graded with {{method}}"
   },
   "level": {
+    "baseline": "Baseline",
     "very_low": "Very low",
     "low": "Low",
     "medium": "Medium",
@@ -103,7 +105,8 @@
     "increasing": "Increasing",
     "stable": "Stable",
     "decreasing": "Decreasing",
-    "inconclusive": "Inconclusive"
+    "inconclusive": "Inconclusive",
+    "not_assessed": "Not assessed"
   },
   "phase": {
     "runs": {
@@ -169,7 +172,15 @@
       "name": "aedseo"
     },
     "mem": {
-      "name": "MEM"
+      "name": "MEM",
+      "sources": {
+        "status": "MEM intensity levels",
+        "trend": "MEM's week-on-week change"
+      },
+      "trend": {
+        "not_assessed": "Not assessed: below MEM's epidemic threshold"
+      },
+      "trend_note": "MEM assesses trend only during an epidemic"
     }
   },
   "dimensions": {

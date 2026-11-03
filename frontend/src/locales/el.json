@@ -90,9 +90,11 @@
     "provisional": "Προσωρινό",
     "ungraded": "Χωρίς βαθμολόγηση",
     "ambiguous": "Περισσότερες από μία σειρές αντιστοιχούν σε αυτό το γράφημα",
-    "unavailable": "Η κατάσταση δεν είναι διαθέσιμη"
+    "unavailable": "Η κατάσταση δεν είναι διαθέσιμη",
+    "notGradedWith": "Δεν βαθμολογείται με {{method}}"
   },
   "level": {
+    "baseline": "Βασικό επίπεδο",
     "very_low": "Πολύ χαμηλό",
     "low": "Χαμηλό",
     "medium": "Μέτριο",
@@ -103,7 +105,8 @@
     "increasing": "Αυξανόμενη",
     "stable": "Σταθερή",
     "decreasing": "Μειούμενη",
-    "inconclusive": "Ασαφής"
+    "inconclusive": "Ασαφής",
+    "not_assessed": "Δεν αξιολογείται"
   },
   "phase": {
     "runs": {
@@ -169,7 +172,15 @@
       "name": "aedseo"
     },
     "mem": {
-      "name": "MEM"
+      "name": "MEM",
+      "sources": {
+        "status": "Επίπεδα έντασης MEM",
+        "trend": "Εβδομαδιαία μεταβολή MEM"
+      },
+      "trend": {
+        "not_assessed": "Δεν αξιολογείται: κάτω από το επιδημικό όριο του MEM"
+      },
+      "trend_note": "Το MEM αξιολογεί την τάση μόνο κατά τη διάρκεια επιδημίας"
     }
   },
   "dimensions": {
