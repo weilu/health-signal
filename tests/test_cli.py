@@ -27,7 +27,7 @@ def test_assess_passes_its_flags(monkeypatch):
 @pytest.mark.parametrize("error", [RuntimeError("no R"), SettingsChanged("assessed with other settings"),
                                    ValueError("bad phase stream")])
 def test_assess_failures_exit_non_zero_with_the_reason(monkeypatch, capsys, error):
-    def fail(cfg, full, jobs):
+    def fail(cfg, full, method, jobs):
         raise error
     monkeypatch.setattr(cli, "load_config", lambda path: path)
     monkeypatch.setattr(cli, "assess", fail)
