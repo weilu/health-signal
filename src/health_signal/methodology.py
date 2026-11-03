@@ -7,13 +7,14 @@ from pathlib import Path
 
 from .config import Config
 from .datasource import read_table
-from .methods import AEDSEO, MAX_DIP, MAX_MISSING
+from .methods import MAX_DIP, MAX_MISSING, METHODS
 from .profile import PATHOGENS
 
 TEXT_DIR = Path(__file__).parent / "methodology_text"
 # The library text is in named sections, so a deployment can set its own reasoning between them.
 _SECTION = re.compile(r"<!-- section: ([a-z_]+) -->")
-BLOCKS = ("streams", "indicator_models", "phase_patterns", "levels")
+# Each method's generated tables: the season ones describe aedseo's pathogen-level phases, which MEM doesn't set.
+BLOCKS = {"aedseo": ("streams", "indicator_models", "phase_patterns", "levels"), "mem": ("levels",)}
 _PLACEHOLDER = re.compile(r"\{\{\s*(>\s*)?([a-z_.]+)\s*\}\}")
 # Anything in double braces, so a misspelt placeholder is caught rather than shown; maths spans are set apart,
 # since LaTeX writes double braces of its own.
@@ -21,35 +22,49 @@ _BRACES = re.compile(r"\{\{(.*?)\}\}")
 _MATH = re.compile(r"\$\$.*?\$\$|\$[^$\n]+\$")
 
 
-def load_methodology(config: Config) -> dict[str, dict]:
-    """{language: {"markdown", "blocks"}}: values become inline markers the browser styles as settings, blocks
-    become fenced markers it draws from `blocks` with its own labels, so tables read as the tabs do."""
-    values = placeholder_values(config)
-    blocks = block_data(config)
-    directory = config.site.methodology_dir
+def load_methodology(config: Config, method: str | None = None) -> dict[str, dict]:
+    """{language: {"markdown", "blocks"}} for one graded method (the default one unless named): values become inline
+    markers the browser styles as settings, blocks become fenced markers it draws from `blocks` with its own labels,
+    so tables read as the tabs do."""
+    method = method or config.analytics.methods[0]
+    values = placeholder_values(config, method)
+    blocks = block_data(config, method)
+    directory = _page_dir(config, method)
     pages = {}
     for language in config.site.locales:
-        method_text = lambda name: _library_text(language, values, name)  # noqa: E731 - only when asked for
+        method_text = lambda name: _library_text(method, language, values, name)  # noqa: E731 - only when asked for
         if directory is None:
             markdown = method_text("method")
         else:
-            path = Path(directory) / f"{language}.md"
+            path = directory / f"{language}.md"
             if not path.is_file():
-                raise ValueError(f"site.methodology_dir has no {path.name} for offered language {language!r}")
-            markdown = _fill(path.read_text(encoding="utf-8"), path.name, values, method_text)
+                raise ValueError(f"{directory} has no {path.name} for offered language {language!r}")
+            markdown = _fill(path.read_text(encoding="utf-8"), path.name, values, method_text, method)
         pages[language] = {"markdown": markdown, "blocks": blocks}
     return pages
 
 
-def _library_path(language: str) -> Path:
+def _page_dir(config: Config, method: str) -> Path | None:
+    # A folder per method; a single-method deployment's pages may sit at the top, read as aedseo's.
+    root = config.site.methodology_dir
+    if root is None:
+        return None
+    if (Path(root) / method).is_dir():
+        return Path(root) / method
+    if method == "aedseo" and any(Path(root).glob("*.md")):
+        return Path(root)
+    return None
+
+
+def _library_path(method: str, language: str) -> Path:
     # A language the library has no text for reads it in English, as the rest of the interface does.
-    path = TEXT_DIR / f"{AEDSEO.name}.{language}.md"
-    return path if path.is_file() else TEXT_DIR / f"{AEDSEO.name}.en.md"
+    path = TEXT_DIR / f"{method}.{language}.md"
+    return path if path.is_file() else TEXT_DIR / f"{method}.en.md"
 
 
-def _sections(language: str) -> dict[str, str]:
+def _sections(method: str, language: str) -> dict[str, str]:
     sections, name = {}, None
-    for line in _library_path(language).read_text(encoding="utf-8").splitlines():
+    for line in _library_path(method, language).read_text(encoding="utf-8").splitlines():
         marker = _SECTION.fullmatch(line.strip())
         if marker:
             name = marker.group(1)
@@ -59,17 +74,17 @@ def _sections(language: str) -> dict[str, str]:
     return {name: "\n".join(lines).strip() + "\n" for name, lines in sections.items()}
 
 
-def library_sections(language: str) -> list[str]:
-    return list(_sections(language))
+def library_sections(language: str, method: str = "aedseo") -> list[str]:
+    return list(_sections(method, language))
 
 
-def _library_text(language: str, values: dict[str, str], name: str) -> str:
-    sections = _sections(language)
+def _library_text(method: str, language: str, values: dict[str, str], name: str) -> str:
+    sections = _sections(method, language)
     text = "\n".join(sections.values()) if name == "method" else sections[name.split(".", 1)[1]]
-    return _fill(text, _library_path(language).name, values, None)
+    return _fill(text, _library_path(method, language).name, values, None, method)
 
 
-def _fill(text: str, file: str, values: dict[str, str], method_text: Callable[[], str] | None) -> str:
+def _fill(text: str, file: str, values: dict[str, str], method_text: Callable[[], str] | None, method: str) -> str:
     lines, fenced, display_math = [], False, False
     for number, line in enumerate(text.splitlines(), start=1):
         if line.lstrip().startswith("```"):
@@ -86,10 +101,10 @@ def _fill(text: str, file: str, values: dict[str, str], method_text: Callable[[]
         block = _PLACEHOLDER.fullmatch(line.strip())
         if block and block.group(1):
             name = block.group(2)
-            method = name == "method" or (name.startswith("method.") and name[7:] in library_sections("en"))
-            if not (method or name in BLOCKS) or (method and method_text is None):
-                raise ValueError(f"{file} line {number}: unknown placeholder {block.group(0)}")
-            lines.append(method_text(name) if method else f"```hs-block\n{name}\n```")
+            library = name == "method" or (name.startswith("method.") and name[7:] in library_sections("en", method))
+            if not (library or name in BLOCKS[method]) or (library and method_text is None):
+                raise ValueError(f"{file} line {number}: unknown placeholder {block.group(0)} for {method}")
+            lines.append(method_text(name) if library else f"```hs-block\n{name}\n```")
             continue
         lines.append(_fill_line(line, f"{file} line {number}", values))
     return "\n".join(lines) + "\n"
@@ -136,20 +151,28 @@ def _label(key: str) -> str:
     return f"`hs:t:{key}`"
 
 
-def placeholder_values(config: Config) -> dict[str, str]:
+def placeholder_values(config: Config, method: str = "aedseo") -> dict[str, str]:
     start = config.surveillance.year_start_week
-    wave_end = config.analytics.aedseo.wave_end
     values = {
         "surveillance.year_start_week": _value(start),
-        "surveillance.year_end_week": _value(start - 1 if start > 1 else 52),
+        "surveillance.year_end_week": _value(_end_week(start)),
         "analytics.min_seasons": _value(config.analytics.min_seasons),
-        "analytics.aedseo.wave_end.steps_with_decrease": _value(wave_end.steps_with_decrease),
-        "analytics.aedseo.wave_end.burden_level_decrease": _label(f"level.{wave_end.burden_level_decrease.replace(' ', '_')}"),
-        "phase.max_dip": _value(MAX_DIP),
-        "phase.max_missing": _value(MAX_MISSING),
-        "method.build": _value(", ".join(_builds(config)) or "—"),
+        "method.build": _value(", ".join(_builds(config, method)) or "—"),
     }
-    values |= {f"method.{key}": _value(value) for key, value in AEDSEO.parameters.items()}
+    if method == "aedseo":
+        wave_end = config.analytics.aedseo.wave_end
+        values |= {
+            "analytics.aedseo.wave_end.steps_with_decrease": _value(wave_end.steps_with_decrease),
+            "analytics.aedseo.wave_end.burden_level_decrease":
+                _label(f"level.{wave_end.burden_level_decrease.replace(' ', '_')}"),
+            "phase.max_dip": _value(MAX_DIP),
+            "phase.max_missing": _value(MAX_MISSING),
+        }
+    else:
+        mem = config.analytics.mem
+        values |= {"method.seasons": _value(mem.seasons), "method.season_start_week": _value(mem.season_start_week),
+                   "method.season_end_week": _value(_end_week(mem.season_start_week))}
+    values |= {f"method.{key}": _value(_parameter(value)) for key, value in METHODS[method].parameters.items()}
     # Named in the prose, translated, rather than a table: a deployment flags few such qualities, if any.
     censored = {feed: sorted(p.censored_qualities) for feed, p in config.feed_profiles().items() if p.censored_qualities}
     qualities = sorted({q for qs in censored.values() for q in qs})
@@ -158,7 +181,16 @@ def placeholder_values(config: Config) -> dict[str, str]:
     return values
 
 
-def _builds(config: Config) -> list[str]:
+def _end_week(start: int) -> int:
+    return start - 1 if start > 1 else 52
+
+
+def _parameter(value) -> str:
+    # A list of levels reads as percentages ("40%, 90%, 97.5%"), the way MEM's papers state them.
+    return ", ".join(f"{v * 100:g}%" for v in value) if isinstance(value, list) else str(value)
+
+
+def _builds(config: Config, method: str) -> list[str]:
     # Each feed's tables record the build that graded them; feeds assessed by different builds show them all.
     builds = []
     for feed in config.data.feeds if config.data else []:
@@ -166,11 +198,14 @@ def _builds(config: Config) -> list[str]:
         if path is None or not path.is_file():
             continue
         rows = read_table(path, ["method", "setting", "value"])
-        builds += [v for v in rows.loc[rows["setting"] == "package_version", "value"] if v not in builds]
+        mine = rows.loc[(rows["setting"] == "package_version") & (rows["method"] == method), "value"]
+        builds += [v for v in mine if v not in builds]
     return builds
 
 
-def block_data(config: Config) -> dict:
+def block_data(config: Config, method: str = "aedseo") -> dict:
+    if method != "aedseo":
+        return {"levels": {"method": method}}
     options = config.filters.location.options if config.filters.location else []
     locations = [o.value for o in options] or sorted({e.location for e in config.analytics.phase_streams})
     entries = {(e.pathogen, e.location): e for e in config.analytics.phase_streams}
@@ -197,5 +232,5 @@ def block_data(config: Config) -> dict:
         "phase_patterns": [{"target": t.id, "pattern": "waves" if t.id in config.analytics.wave_pathogens else "season"}
                            for t in pathogens],
         "indicator_models": unique,
-        "levels": {"method": AEDSEO.name},
+        "levels": {"method": method},
     }

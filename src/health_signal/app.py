@@ -69,7 +69,7 @@ def create_app(
 ) -> FastAPI:
     app = FastAPI(title=config.site.title)
     overlays = load_overlays(config.site.locales_dir, config.site.locales)
-    methodology = load_methodology(config)
+    methodology = {method: load_methodology(config, method) for method in config.analytics.methods}
     # Only the slice safe pre-login (the view-model is gated behind /api/config), with the deployment's public text:
     # sign-in renders before its gated text can load.
     bootstrap = {**config.bootstrap_config(), "text": public_text(overlays)}
@@ -118,11 +118,14 @@ def create_app(
         return overlays.get(language, {})
 
     @app.get("/api/methodology/{language}")
-    def get_methodology(language: str, user: User = Depends(require_auth)) -> dict:
+    def get_methodology(language: str, method: str | None = None, user: User = Depends(require_auth)) -> dict:
         # Gated like the locale text: it names the panels and settings only signed-in users are sent.
         if language not in config.site.locales:
             raise HTTPException(status_code=404, detail=f"{language!r} is not one of this dashboard's languages")
-        return methodology[language]
+        pages = methodology.get(method or config.analytics.methods[0])
+        if pages is None:
+            raise HTTPException(status_code=404, detail=f"{method!r} isn't a method this dashboard grades with")
+        return pages[language]
 
     def _feed_dimensions(feed: str, request: Request, fixed: set[str] = _FIXED_PARAMS) -> dict[str, str]:
         # Dimension filters come from the feed's profile, so a new profile needs no route change.

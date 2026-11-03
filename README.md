@@ -148,6 +148,14 @@ page can't drift from them:
   `{{> method.status}}`, `{{> method.trend}}`, `{{> method.seasons}}` (ending with the streams table),
   `{{> method.waves}}`, `{{> method.indicators}}`, `{{> method.references}}`.
 
+**One page per method.** The page shows the method selected in the header. A deployment grading with several methods
+writes `methodology_dir/<method>/<language>.md` for each (e.g. `aedseo/el.md`, `mem/el.md`); one without a folder
+shows the library's text for it, and a single-method deployment's `methodology_dir/<language>.md` is read as aedseo's.
+Placeholders mean the page's method: on a MEM page `{{> method}}` is MEM's text, and `{{method.seasons}}`,
+`{{method.season_start_week}}`, `{{method.season_end_week}}`, `{{method.epidemic_param}}` and
+`{{method.intensity_levels}}` its settings; `{{> streams}}`, `{{> indicator_models}}` and `{{> phase_patterns}}`
+are aedseo's alone.
+
 The page is CommonMark with tables and `$…$` / `$$…$$` maths; raw HTML isn't rendered. Inside maths a value
 placeholder becomes the bare value and LaTeX's own double braces are left alone; inside a fenced code block
 placeholders are shown as written. Its `##` and `###` headings

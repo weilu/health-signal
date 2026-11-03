@@ -1,21 +1,22 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, useLocation } from 'react-router-dom'
-import { fetchMethodology } from '../api.js'
+import { fetchConfig, fetchMethodology } from '../api.js'
 import { initI18n } from '../i18n.js'
 import { AppRoutes } from '../App.jsx'
 import MethodologyPage from './MethodologyPage.jsx'
 
-vi.mock('../api.js', async (original) => ({ ...(await original()), fetchMethodology: vi.fn() }))
+vi.mock('../api.js', async (original) => ({ ...(await original()), fetchConfig: vi.fn(), fetchMethodology: vi.fn() }))
 afterEach(() => { cleanup(); vi.resetAllMocks() })
 
-function renderPage(markdown) {
+function renderPage(markdown, entry = '/methodology') {
   initI18n({ defaultLocale: 'en', locales: ['en', 'el'] })
+  fetchConfig.mockResolvedValue({ methods: { aedseo: {}, mem: {} } })
   fetchMethodology.mockResolvedValue({ markdown, blocks: {} })
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  return render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/methodology']}>
+  return render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[entry]}>
     <MethodologyPage /><Where testId="where" />
   </MemoryRouter></QueryClientProvider>)
 }
@@ -72,4 +73,10 @@ it('sends the old configuration address to the methodology page', async () => {
     <AppRoutes view={{ targets: [] }} /><Where />
   </MemoryRouter></QueryClientProvider>)
   expect(await screen.findByText('/methodology')).toBeTruthy()
+})
+
+it('shows the method selected in the header', async () => {
+  renderPage('## MEM\n', '/methodology?method=mem')
+  await screen.findByRole('heading', { name: 'MEM' })
+  await waitFor(() => expect(fetchMethodology).toHaveBeenLastCalledWith('en', 'mem'))
 })
