@@ -1,3 +1,4 @@
+import os
 import re
 from pathlib import Path
 from typing import Literal
@@ -27,6 +28,17 @@ class SiteConfig(BaseModel):
     locales_dir: Path | None = None
     # Server-only: the deployment's methodology page, <language>.md per offered language (spec §9).
     methodology_dir: Path | None = None
+    # Server-only: pages the deployment writes itself (Page.embed), served under /embeds behind the sign-in.
+    embeds_dir: Path | None = None
+
+    def embed_file(self, embed: str) -> Path | None:
+        """The file an embed names, or None when it isn't a file inside embeds_dir."""
+        if self.embeds_dir is None:
+            return None
+        # Normalised, not resolved: ".." can't climb out, but a link the deployment put inside is followed.
+        root = Path(os.path.abspath(self.embeds_dir))
+        path = Path(os.path.abspath(root / embed))
+        return path if path.is_relative_to(root) and path.is_file() else None
 
     @field_validator("public_paths")
     @classmethod
@@ -90,7 +102,7 @@ class Panel(BaseModel):
 
 _PAGE_ID = re.compile(r"[a-z0-9_-]+")  # a URL segment as-is: no encoding, no case folding
 _TARGET_ID = re.compile(r"[A-Za-z0-9_-]+")  # lower-cased into its URL segment
-_APP_ROUTES = {"login", "logout", "api", "config", "docs", "redoc", "healthz", "assets", "methodology"}
+_APP_ROUTES = {"login", "logout", "api", "config", "docs", "redoc", "healthz", "assets", "methodology", "embeds"}
 
 
 def page_path(target_id: str, page_id: str) -> str:
@@ -102,6 +114,8 @@ class Page(BaseModel):
     model_config = ConfigDict(extra="forbid")
     id: str
     panels: list[Panel] = Field(default_factory=list)
+    # A page the deployment writes itself, shown in a frame: a path under site.embeds_dir.
+    embed: str | None = None
 
     @computed_field
     @property
@@ -114,6 +128,12 @@ class Page(BaseModel):
         if not _PAGE_ID.fullmatch(page_id):
             raise ValueError(f"page id {page_id!r} must be lower-case letters, digits, '-' or '_'")
         return page_id
+
+    @model_validator(mode="after")
+    def _embed_or_panels(self) -> "Page":
+        if self.embed is not None and self.panels:
+            raise ValueError(f"page {self.id!r} has an embed and panels; it shows one or the other")
+        return self
 
     @model_validator(mode="after")
     def _unique_panel_ids(self) -> "Page":
@@ -365,6 +385,18 @@ class Config(BaseModel):
 
     def feed_profiles(self) -> dict[str, Profile]:
         return {f.id: self.profile(f.profile) for f in self.data.feeds} if self.data else {}
+
+    @model_validator(mode="after")
+    def _embeds_exist(self) -> "Config":
+        for target in self.targets:
+            for page in target.pages:
+                if page.embed is None:
+                    continue
+                if self.site.embeds_dir is None:
+                    raise ValueError(f"page {page.id!r} embeds {page.embed!r}, but site.embeds_dir isn't set")
+                if self.site.embed_file(page.embed) is None:
+                    raise ValueError(f"page {page.id!r} embeds {page.embed!r}, which isn't a file in site.embeds_dir")
+        return self
 
     @model_validator(mode="after")
     def _unique_pages(self) -> "Config":

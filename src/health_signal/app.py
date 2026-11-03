@@ -4,7 +4,7 @@ import re
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from . import auth as _auth
@@ -212,6 +212,14 @@ def create_app(
             raise HTTPException(status_code=422, detail=f"unknown filter(s) {', '.join(sorted(unknown))}")
         return phase_source.phases(location=location, pathogen=pathogen, method=method,
                                    week_from=week_from, week_to=week_to) if phase_source else []
+
+    @app.get("/embeds/{path:path}")
+    def get_embed(path: str, user: User = Depends(require_auth)) -> FileResponse:
+        # Any file under embeds_dir, so an embedded page can bring its own scripts and data beside it.
+        file = config.site.embed_file(path)
+        if file is None:
+            raise HTTPException(status_code=404, detail="Not found")
+        return FileResponse(file)
 
     @app.get("/api/periods")
     def get_periods(user: User = Depends(require_auth)) -> dict | None:

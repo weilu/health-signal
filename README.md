@@ -154,6 +154,26 @@ placeholders are shown as written. Its `##` and `###` headings
 build its contents list. An unknown placeholder, a table placeholder sharing its line, or a missing file for an
 offered language stops the app at startup. The Greece example's pages are in `examples/methodology/`.
 
+### Pages of the deployment's own
+
+A page the library's panels can't express (a forecast, a bespoke analysis) can be written by the deployment as a web
+page of its own and shown in its tab, under the dashboard's header and tabs:
+
+```yaml
+site:
+  embeds_dir: embeds          # served under /embeds, behind the sign-in like everything else
+targets:
+  - id: SARS-CoV-2
+    pages:
+      - { id: predictive, embed: forecast/index.html }   # a page embeds or has panels, not both
+```
+
+Every file under `embeds_dir` is served, so the page can load its own scripts and data from beside it. Its address
+carries the reader's language and the header's filters, `?lang=el&location=Attica&from=2025-W45&to=2026-W44` (a
+filter the dashboard doesn't have is left out), and it reloads when they change. So the frame takes the page's height
+rather than scrolling inside the tab, the page posts it: `parent.postMessage({ type: "health-signal:height", height:
+document.documentElement.scrollHeight }, "*")`. A missing embed file stops the app at startup.
+
 ### Status, Trend and phase (`health-signal assess`)
 
 The dashboard shows Status and Trend tiles, threshold bands and season or wave phases from tables it
