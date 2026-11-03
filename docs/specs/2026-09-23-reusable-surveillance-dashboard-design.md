@@ -325,7 +325,8 @@ queries, assessments and phase streams.
 The methods are standard, so they are computed once, generically, rather than in each country's
 ETL: `health_signal.analytics` reads the feeds and writes the tables above. aedseo first (Status,
 Trend, onset, waves and phase), generalised from greece-public-health's aedseo bridge, reusing its
-reviewed code and tests where they fit; MEM and others as further registry entries. aedseo and MEM
+reviewed code and tests where they fit; MEM as a second registry entry (design:
+`docs/specs/2026-11-03-mem-method-design.md`), others likewise. aedseo and MEM
 are R packages (via rpy2, in-process), so the component installs as an optional extra
 (`health-signal[analytics]`) and the app itself stays free of R and never imports it. Countries may
 still supply their own tables in the same format.
@@ -362,6 +363,12 @@ choices and the data-dependent wave segmentation, each in one place:
   waves), so it's config, recorded in `assessed_with.csv` like the rest. It sits under the method's
   name, in aedseo's argument names and level vocabulary; another method's data-dependent settings
   would sit under its own (e.g. `analytics.mem`).
+- `analytics.methods` (default `[aedseo]`) — the methods graded, in the Method filter's order; each method's
+  `panels` (e.g. `analytics.mem.panels`) optionally limits it to those `"<target>/<page>/<panel>"`, otherwise it
+  grades every single-series panel. `assess --full --method NAME` recomputes one method's tables.
+- `analytics.mem` (`season_start_week` default 40, `seasons` default 5) — MEM's own season window and how many
+  past seasons set each season's thresholds, fixed for that season; MEM sets no phases and leaves out series
+  graded in waves.
 - `analytics.phase_streams` — the inputs of a method's pathogen-level phase (below).
 
 **Input to aedseo, by the row's `unit`.** Counts → aedseo's cases path (rounded). A rate with its
@@ -655,6 +662,10 @@ precedence over client-side routes.
 - **Pages of the deployment's own.** A page may `embed` a file under `site.embeds_dir` instead of having panels,
   shown in a frame under the header and tabs. Its address carries the language and the header's filters
   (`?lang=&location=&from=&to=`), and the page posts its height so the tab scrolls as one page.
+- **Method filter.** With `analytics.methods` naming more than one method, a Method select sits after the date range
+  (`?method=`, kept by tab links; an unknown value reads as the first method). Tiles, level bands and the Overview
+  follow it; a panel the selected method doesn't grade says so, and a method without phases (MEM) shows no Key
+  signals. The Methodology page shows the selected method's page.
 - **Under a mount path.** Behind a proxy that serves the app below a path (Posit Connect's `/content/<guid>/`), the
   server's redirects keep that path, and the SPA resolves its requests and routes against the `<base href>` the
   server injects, so nothing escapes to the host's own routes.

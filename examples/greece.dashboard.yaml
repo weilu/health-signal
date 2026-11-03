@@ -72,8 +72,14 @@ data:
 analytics:
   min_seasons: 3
   wave_pathogens: [SARS-CoV-2]
+  # Readers switch between methods in the header; aedseo, listed first, is the default.
+  methods: [aedseo, mem]
   aedseo:
     wave_end: { steps_with_decrease: 3, burden_level_decrease: medium }
+  # MEM on ILI, as ERVISS grades Greece's: its seasons laid out W25-W24, thresholds from the five before each.
+  mem:
+    season_start_week: 25
+    panels: [Influenza/clinical/ili_rate]
   phase_streams:
     - pathogen: SARS-CoV-2
       location: Greece
