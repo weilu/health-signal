@@ -166,8 +166,10 @@ def _check_spans(thresholds: pd.DataFrame, series: list[str]) -> None:
             ranked = span.assign(_rank=span["level"].map(order.index)).sort_values("_rank")
             bounds = ranked["lower_bound"].tolist()
             for (_, row), lower, upper in zip(ranked.iloc[1:].iterrows(), bounds, bounds[1:]):
-                if upper <= lower:
-                    raise ValueError(f"{row['_file']} row {row['_row']}: lower bounds must rise in level order")
+                # Equal is a level no value can reach that span (MEM's low, when its medium threshold sits at the
+                # epidemic one); falling would grade inconsistently.
+                if upper < lower:
+                    raise ValueError(f"{row['_file']} row {row['_row']}: lower bounds can't fall in level order")
 
 
 class PhaseSource:

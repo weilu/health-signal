@@ -87,6 +87,11 @@ def test_zero_growth_stays_zero(tmp_path):
     assert (r.growth_rate, r.growth_lower) == (0.0, -0.1)
 
 
+def test_two_levels_may_start_at_the_same_bound(tmp_path):
+    # MEM after low-peaked seasons: its medium threshold at its epidemic one, so no week is low.
+    assert [t.lower_bound for t in _src(tmp_path, thresholds=_T1.replace("medium,20", "medium,10")).thresholds()] == [10, 10]
+
+
 def test_thresholds_load(tmp_path):
     rows = _src(tmp_path, thresholds=_T1).thresholds()
     assert [(r.from_, r.to, r.level, r.lower_bound) for r in rows] == [
@@ -95,7 +100,7 @@ def test_thresholds_load(tmp_path):
 
 
 @pytest.mark.parametrize("bad, message", [
-    (_T1.replace("medium,20", "medium,5"), "rise"),                                    # bounds must rise in level order
+    (_T1.replace("medium,20", "medium,5"), "fall"),                                    # bounds can't fall in level order
     (_T1.replace("2024-W21,2025-W20,low", "2025-W20,2024-W21,low"), "from"),          # from after to
     (_T1 + "Testville,Influenza,floMean,fluA,aedseo,2025-W10,2026-W09,low,12\n", "overlaps"),  # spans overlap
     (_T1.replace(",low,10", ",alert,10"), "level"),
