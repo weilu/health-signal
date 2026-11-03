@@ -17,7 +17,7 @@ class FeedRow(BaseModel):
 def implies_message(indicator: str, dim: str, value: str) -> str:
     return f"indicator {indicator!r} carries no {dim}" if value == "" else f"indicator {indicator!r} implies {dim} {value!r}"
 
-class Denominator(BaseModel):
+class DenominatorRule(BaseModel):
     model_config = ConfigDict(extra="forbid")   # an extension spells these in config
     rate: str                # the rate indicator modelled against it
     denominator: str         # the indicator whose value is the rate's exposure, same series key otherwise
@@ -43,11 +43,11 @@ class Profile(BaseModel):
     indicator_implies: dict[str, dict[str, str]] = {}
     count_units: set[str] = set()  # graded on aedseo's cases path; every other unit is a rate or load
     # aedseo's exposure offset: positivity grows against tests, not population.
-    denominators: list[Denominator] = []
+    denominators: list[DenominatorRule] = []
     # Indicators reported per pathogen: a series of one without a pathogen mixes every pathogen's figures.
     pathogen_specific: set[str] = set()
 
-    def denominator_for(self, indicator: str, unit: str) -> Denominator | None:
+    def denominator_for(self, indicator: str, unit: str) -> DenominatorRule | None:
         # A unit-scoped rule wins: e.g. a SARI rate per admissions uses admissions, one per population doesn't.
         matches = [d for d in self.denominators if d.rate == indicator and d.unit in (unit, None)]
         return min(matches, key=lambda d: d.unit is None, default=None)
@@ -142,7 +142,7 @@ ERVISS = Profile(
     period_pattern=r"\d{4}-W\d{2}",
     required_dimensions={"survtype", "age"},  # spec §6.2: only the pathogen fields are nullable
     count_units={"count"},
-    denominators=[Denominator(rate="positivity", denominator="tests", per=100)],
+    denominators=[DenominatorRule(rate="positivity", denominator="tests", per=100)],
     # ILI, ARI and SARI rates are syndromic (no pathogen); everything else is reported per pathogen.
     pathogen_specific={"tests", "detections", "positivity", "hospitaladmissions", "ICUadmissions",
                        "ICUinpatients", "deaths"},

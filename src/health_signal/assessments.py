@@ -50,7 +50,8 @@ GROWTH = ["growth_rate", "growth_lower", "growth_upper"]
 ASSESSMENT_COLUMNS = ["location", "period", "indicator", "method", "level", "provisional", "trend", *GROWTH, "phase"]
 THRESHOLD_COLUMNS = ["location", "indicator", "method", "from", "to", "level", "lower_bound"]
 PHASE_COLUMNS = ["location", "pathogen", "period", "method", "phase"]
-# Optional: a phase declared by hand has no graded history to qualify it.
+# Optional: assess marks a phase provisional when its streams have short history; a phase.csv written by hand
+# or by another system has no such history, so it may leave the column out.
 PHASE_OPTIONAL = ["provisional"]
 
 

@@ -8,7 +8,7 @@ from pydantic import (BaseModel, ConfigDict, Field, PositiveInt, PrivateAttr, co
                       field_validator, model_validator)
 
 from .methods import METHODS
-from .profile import PATHOGENS, PROFILES, Denominator, Profile, implies_message
+from .profile import PATHOGENS, PROFILES, DenominatorRule, Profile, implies_message
 
 
 class Branding(BaseModel):
@@ -241,7 +241,7 @@ class ProfileExtension(BaseModel):
     count_units: set[str] = set()
     censored_qualities: set[str] = set()
     pathogen_specific: set[str] = set()
-    denominators: list[Denominator] = []
+    denominators: list[DenominatorRule] = []
 
     @field_validator("extends")
     @classmethod
