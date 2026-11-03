@@ -425,3 +425,14 @@ def test_listing_a_series_graded_in_waves_stops_a_method_without_phases(tmp_path
                   analytics={"methods": ["aedseo", "mem"], "mem": {"panels": ["SARS-CoV-2/clinical/ili"]}})
     with pytest.raises(ValueError, match="waves"):
         graded_series(cfg, "mem", [_wave_only_series()])
+
+
+def test_a_serial_run_builds_one_backend_per_method(tmp_path):
+    built = []
+
+    class Counted(FakeBackend):
+        def __init__(self):
+            built.append("aedseo")
+
+    assess(_config(tmp_path), backend=Counted)
+    assert built == ["aedseo"]   # it reads the version and fits every series: R's packages load once

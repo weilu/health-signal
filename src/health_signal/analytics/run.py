@@ -170,11 +170,13 @@ def _assess(config: Config, full: bool | str, jobs: int, backends: dict[str, Cal
     stores = {f.id: FeedStore(f.assessments, profiles[f.id], full=full) for f in config.data.feeds if f.assessments}
     feed_settings = {feed: [] for feed in stores}
     jobs_to_run: list[tuple[Callable, _Job]] = []
+    made: dict[str, object] = {}   # this process's backend per method, made once: each loads its R packages
     for method in config.analytics.methods:
         if method not in backends:
             raise RuntimeError(f"no backend for method {method!r}")
         factory = backends[method]
-        part_settings, part_jobs = _PARTS[method](config, factory().version, graded_series(config, method, series),
+        made[method] = factory()
+        part_settings, part_jobs = _PARTS[method](config, made[method].version, graded_series(config, method, series),
                                                   stores, profiles)
         for feed, store in stores.items():
             store.check_settings(part_settings[feed], method)   # before any fitting, so a mismatch costs nothing
@@ -196,9 +198,7 @@ def _assess(config: Config, full: bool | str, jobs: int, backends: dict[str, Cal
             futures = {pool.submit(_fit_in_worker, job): job[1] for job in jobs_to_run}
             results = ((futures[f], f.result()) for f in as_completed(futures))
         else:
-            local: dict[str, object] = {}
-            results = ((j, j.grade(j.series, j.weeks, local.setdefault(j.method, factory()), **j.options))
-                       for factory, j in jobs_to_run)
+            results = ((j, j.grade(j.series, j.weeks, made[j.method], **j.options)) for _, j in jobs_to_run)
         try:
             for j, result in results:
                 s = j.series
