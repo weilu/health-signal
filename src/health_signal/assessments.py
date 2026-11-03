@@ -6,7 +6,7 @@ import pandas as pd
 from pydantic import BaseModel, ConfigDict, Field
 
 from .datasource import PROVENANCE, drop_copies_reject_conflicts, filter_rows, raise_row, read_table, with_provenance
-from .methods import METHODS, TRENDS
+from .methods import METHODS
 from .profile import PATHOGENS, Profile, first_match, implies_message
 
 
@@ -106,7 +106,7 @@ class AssessmentSource:
             (_outside_method(df, "phase", "phases"), lambda r: f"phase {r['phase']!r} is not a {r['method']} phase"),
             (~df["provisional"].isin({"true", "false"}),
              lambda r: f"provisional {r['provisional']!r} is not true or false"),
-            (df["trend"].ne("") & ~df["trend"].isin(TRENDS), lambda r: f"unknown trend {r['trend']!r}"),
+            (_outside_method(df, "trend", "trends"), lambda r: f"unknown trend {r['trend']!r}"),
             (df["trend"].ne("") & no_trend, lambda r: f"method {r['method']} has no trend"),
             (blank.any(axis=1) & ~blank.all(axis=1),
              lambda r: "growth_rate, growth_lower and growth_upper must be all set or all blank"),

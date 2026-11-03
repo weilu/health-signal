@@ -38,7 +38,7 @@ def test_missing_files_are_empty_tables(tmp_path):
 
 @pytest.mark.parametrize("bad, message", [
     (_A1.replace(",low,", ",alert,"), "level"),                    # another method's vocabulary
-    (_A1.replace(",aedseo,", ",mem,"), "method"),                  # not in the registry
+    (_A1.replace(",aedseo,", ",nope,"), "method"),                 # not in the registry
     (_A1.replace(",increasing,", ",up,"), "trend"),
     (_A1.replace(",false,", ",maybe,"), "provisional"),
     (_A1.replace(",0.2,0.1,0.3,", ",0.5,0.1,0.3,"), "growth"),     # rate outside its interval
@@ -49,6 +49,24 @@ def test_missing_files_are_empty_tables(tmp_path):
 def test_bad_assessment_rows_fail_with_file_and_row(tmp_path, bad, message):
     with pytest.raises(ValueError, match=rf"assessment\.csv row 1: .*{message}"):
         _src(tmp_path, bad)
+
+
+_M1 = "Testville,2025-W02,Influenza,floMean,fluA,mem,baseline,false,not_assessed,,,,\n"
+
+
+def test_a_trend_is_checked_against_its_own_methods_vocabulary(tmp_path):
+    # MEM's not_assessed is valid on its rows and nowhere else; aedseo's inconclusive the reverse.
+    assert [r.trend for r in _src(tmp_path, _M1).assessments()] == ["not_assessed"]
+    for i, bad in enumerate([_A1.replace(",increasing,", ",not_assessed,"),
+                             _M1.replace(",not_assessed,", ",inconclusive,")]):
+        (tmp_path / str(i)).mkdir()
+        with pytest.raises(ValueError, match="unknown trend"):
+            _src(tmp_path / str(i), bad)
+
+
+def test_a_method_without_phases_rejects_a_phase(tmp_path):
+    with pytest.raises(ValueError, match="phase"):
+        _src(tmp_path, _M1.replace(",,,,\n", ",,,,in_season\n"))
 
 
 def test_conflicting_assessments_fail(tmp_path):
