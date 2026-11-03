@@ -500,3 +500,30 @@ def test_a_chart_can_ask_for_a_log_axis_and_is_linear_otherwise():
     assert Panel(id="ww", query=q, y_scale="log").y_scale == "log"
     assert Panel(id="deaths", query=q).y_scale == "linear"
 
+
+
+def _two_panel_config(analytics=None):
+    ili = {"feed": "clinical", "indicator": "ILIconsultationrate",
+           "dimensions": {"survtype": "primary care syndromic", "age": "total"}}
+    pos = {"feed": "clinical", "indicator": "positivity", "dimensions": {"pathogen": "Influenza"}}
+    return Config(schema_version="1", site=SiteConfig(title="T"), data=_FEEDS, analytics=analytics or {}, targets=[
+        Target(id="Influenza", pages=[Page(id="c", panels=[Panel(id="ili", query=ili),
+                                                           Panel(id="split", query=pos, series_by="survtype")])])])
+
+
+def test_a_method_grades_every_single_series_panel_unless_it_lists_some():
+    cfg = _two_panel_config({"methods": ["aedseo", "mem"], "mem": {"panels": ["Influenza/c/ili"]}})
+    assert cfg.method_panels("aedseo") is None
+    assert cfg.method_panels("mem") == {"Influenza/c/ili"}
+
+
+@pytest.mark.parametrize("ref", ["Influenza/c/nope", "Influenza/x/ili", "RSV/c/ili", "Influenza/c/split", "c/ili"])
+def test_an_allowlist_names_existing_single_series_panels(ref):
+    with pytest.raises(ValidationError, match="panels"):
+        _two_panel_config({"methods": ["aedseo", "mem"], "mem": {"panels": [ref]}})
+
+
+@pytest.mark.parametrize("methods", [[], ["aedseo", "aedseo"], ["mem", "nope"]])
+def test_graded_methods_are_registered_and_distinct(methods):
+    with pytest.raises(ValidationError, match="methods"):
+        _two_panel_config({"methods": methods})

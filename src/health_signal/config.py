@@ -303,6 +303,15 @@ class AedseoConfig(BaseModel):
     # aedseo's own settings that depend on the data, in its names and level vocabulary.
     model_config = ConfigDict(extra="forbid")
     wave_end: WaveEnd = Field(default_factory=WaveEnd)
+    panels: list[str] | None = None   # "<target>/<page>/<panel>" it grades; None = every single-series panel
+
+
+class MemConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    # MEM's own season window, so its thresholds can match those of an outside source laid out on another one.
+    season_start_week: int = Field(40, ge=1, le=52)
+    seasons: PositiveInt = 5   # past seasons each season's thresholds come from
+    panels: list[str] | None = None
 
 
 class AnalyticsConfig(BaseModel):
@@ -311,7 +320,9 @@ class AnalyticsConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
     min_seasons: PositiveInt = 3
     wave_pathogens: list[str] = Field(default_factory=lambda: ["SARS-CoV-2"])
+    methods: list[str] = Field(default_factory=lambda: ["aedseo"], min_length=1)   # graded; the first is the default
     aedseo: AedseoConfig = Field(default_factory=AedseoConfig)
+    mem: MemConfig = Field(default_factory=MemConfig)
     phase_streams: list[PhaseStreamsEntry] = Field(default_factory=list)
 
 
@@ -453,6 +464,26 @@ class Config(BaseModel):
                                      f"which has no assessments dir")
         if self.analytics.phase_streams and not (self.data and self.data.phases and self.data.phase_streams):
             raise ValueError("analytics.phase_streams writes data.phases and data.phase_streams; set both")
+        return self
+
+    def method_panels(self, method: str) -> set[str] | None:
+        panels = getattr(self.analytics, method).panels
+        return None if panels is None else set(panels)
+
+    @model_validator(mode="after")
+    def _graded_methods(self) -> "Config":
+        methods = self.analytics.methods
+        if unknown := [m for m in methods if m not in METHODS]:
+            raise ValueError(f"analytics.methods: {unknown} aren't registered methods {sorted(METHODS)}")
+        if len(set(methods)) != len(methods):
+            raise ValueError("analytics.methods repeats a method")
+        for method in METHODS:
+            for ref in getattr(self.analytics, method).panels or ():
+                target, _, page_panel = ref.partition("/")
+                panel = self.panel(target, page_panel) if page_panel.count("/") == 1 else None
+                if panel is None or panel.query is None or panel.series_by is not None:
+                    raise ValueError(f"analytics.{method}.panels: {ref!r} isn't a single-series panel "
+                                     f"(<target>/<page>/<panel>)")
         return self
 
     def panel(self, target_id: str, ref: str) -> Panel | None:
