@@ -24,3 +24,11 @@ it('adds no heading when a page has one group', () => {
   render(<TargetPage target={{ id: 'Influenza' }} page={{ id: 'clinical', panels: [panel('adm', 'pathogen_specific')] }} />)
   expect(screen.queryByRole('heading')).toBeNull()
 })
+
+it("shows an embedding page's own page in a frame, with the selected location", () => {
+  const { container } = render(<TargetPage target={{ id: 'SARS-CoV-2' }} page={{ id: 'predictive', panels: [], embed: 'forecast/index.html' }}
+    location={{ value: 'Attica', label: 'Attica' }} range={null} />)
+  const src = new URL(container.querySelector('iframe').getAttribute('src'), 'http://x')
+  expect(src.pathname).toBe('/embeds/forecast/index.html')
+  expect(src.searchParams.get('location')).toBe('Attica')
+})

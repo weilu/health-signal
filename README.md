@@ -15,7 +15,7 @@ and languages.
 first (ECDC/WHO **ERVISS** clinical indicators + **PHES-ODM** wastewater); further domains
 (e.g. AMR, vaccine-preventable diseases) are added as configuration plus a schema profile, not a
 fork. It is packaged as a Python library that a country's own repository configures and deploys
-(for example, to Posit Connect).
+(for example, to Posit Connect, where it runs below the content's own path, `/content/<guid>/`).
 
 **Audience:** public-health agencies, epidemiologists, and the teams building surveillance
 dashboards for them.
@@ -126,6 +126,53 @@ After sign-in, the app fetches the file for the current language and merges it o
 deployment's text wins, so it can also reword a library string. A missing or malformed file for an offered
 language stops the app at startup; a label with no text shows its id. The Greece example's files are in
 `examples/locales/`.
+
+### Methodology page
+
+The **Methodology** page explains to readers how the dashboard reaches what it shows. A deployment writes it in
+Markdown, one `<language>.md` per offered language in a directory named by `site.methodology_dir`; without one, the
+page is the library's general text for its method. Placeholders are filled from the deployment's own settings, so the
+page can't drift from them:
+
+- values, inline: `{{surveillance.year_start_week}}`, `{{surveillance.year_end_week}}`, `{{analytics.min_seasons}}`,
+  `{{analytics.aedseo.wave_end.steps_with_decrease}}`, `{{analytics.aedseo.wave_end.burden_level_decrease}}`,
+  `{{phase.max_dip}}`, `{{phase.max_missing}}`, `{{method.build}}` (the aedseo build behind the current tables),
+  `{{censored.qualities}}` and `{{censored.feeds}}` (the stand-in values fitted as gaps, and where), and
+  the method's parameters `{{method.n_peak}}`, `{{method.conf_levels}}`, `{{method.decay_factor}}`,
+  `{{method.burden_family}}`, `{{method.onset_family}}`, `{{method.window_weeks}}`, `{{method.interval_percent}}`;
+- tables, each on a line of its own: `{{> streams}}` (each pathogen and location's two streams, named as their panels
+  are), `{{> indicator_models}}` (how each kind of indicator enters the method), `{{> phase_patterns}}` (season or
+  waves), `{{> levels}}` (the levels and their colours);
+- `{{> method}}`: the library's general method text, in the reader's language (English where the library has none);
+  or one section of it at a time, so a deployment can put its own reasoning where it belongs: `{{> method.overview}}`,
+  `{{> method.status}}`, `{{> method.trend}}`, `{{> method.seasons}}` (ending with the streams table),
+  `{{> method.waves}}`, `{{> method.indicators}}`, `{{> method.references}}`.
+
+The page is CommonMark with tables and `$…$` / `$$…$$` maths; raw HTML isn't rendered. Inside maths a value
+placeholder becomes the bare value and LaTeX's own double braces are left alone; inside a fenced code block
+placeholders are shown as written. Its `##` and `###` headings
+build its contents list. An unknown placeholder, a table placeholder sharing its line, or a missing file for an
+offered language stops the app at startup. The Greece example's pages are in `examples/methodology/`.
+
+### Pages of the deployment's own
+
+A page the library's panels can't express (a forecast, a bespoke analysis) can be written by the deployment as a web
+page of its own and shown in its tab, under the dashboard's header and tabs:
+
+```yaml
+site:
+  embeds_dir: embeds          # served under /embeds, behind the sign-in like everything else
+targets:
+  - id: SARS-CoV-2
+    pages:
+      - { id: predictive, embed: forecast/index.html }   # a page embeds or has panels, not both
+```
+
+Every file under `embeds_dir` is served, so the page can load its own scripts and data from beside it. Its address
+carries the reader's language and the header's filters, `?lang=el&location=Attica&from=2025-W45&to=2026-W44` (a
+filter the dashboard doesn't have is left out), and it reloads when they change. So the frame takes the page's height
+rather than scrolling inside the tab, the page posts it: `parent.postMessage({ type: "health-signal:height", height:
+document.documentElement.scrollHeight }, "*")`. A missing embed file stops the app at startup.
 
 ### Status, Trend and phase (`health-signal assess`)
 

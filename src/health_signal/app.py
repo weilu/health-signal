@@ -4,16 +4,17 @@ import re
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from . import auth as _auth
 from .assessments import (AssessmentRow, AssessmentSource, PhaseRow, PhaseSource, PhaseStreamRow,
                           PhaseStreamSource, ThresholdRow)
-from .auth import AuthProvider, User
+from .auth import AuthProvider, User, mounted
 from .config import Config
 from .datasource import DataSource, FileDataSource
 from .locales import load_overlays, public_text
+from .methodology import load_methodology
 from .profile import FeedRow
 
 _WEEK = r"^\d{4}-W\d{2}$"  # ISO year-week; a malformed value 422s instead of reaching the source
@@ -44,7 +45,7 @@ def _serve_spa(request: Request, bootstrap: dict) -> Response:
     index = _UI_DIR / "index.html"
     if not index.is_file():
         return HTMLResponse(_PLACEHOLDER)
-    base_href = request.scope.get("root_path", "").rstrip("/") + "/"
+    base_href = mounted(request, "/")
     return HTMLResponse(render_index(index.read_text(encoding="utf-8"), bootstrap, base_href))
 
 
@@ -68,6 +69,7 @@ def create_app(
 ) -> FastAPI:
     app = FastAPI(title=config.site.title)
     overlays = load_overlays(config.site.locales_dir, config.site.locales)
+    methodology = load_methodology(config)
     # Only the slice safe pre-login (the view-model is gated behind /api/config), with the deployment's public text:
     # sign-in renders before its gated text can load.
     bootstrap = {**config.bootstrap_config(), "text": public_text(overlays)}
@@ -114,6 +116,13 @@ def create_app(
         if language not in config.site.locales:
             raise HTTPException(status_code=404, detail=f"{language!r} is not one of this dashboard's languages")
         return overlays.get(language, {})
+
+    @app.get("/api/methodology/{language}")
+    def get_methodology(language: str, user: User = Depends(require_auth)) -> dict:
+        # Gated like the locale text: it names the panels and settings only signed-in users are sent.
+        if language not in config.site.locales:
+            raise HTTPException(status_code=404, detail=f"{language!r} is not one of this dashboard's languages")
+        return methodology[language]
 
     def _feed_dimensions(feed: str, request: Request, fixed: set[str] = _FIXED_PARAMS) -> dict[str, str]:
         # Dimension filters come from the feed's profile, so a new profile needs no route change.
@@ -204,6 +213,14 @@ def create_app(
         return phase_source.phases(location=location, pathogen=pathogen, method=method,
                                    week_from=week_from, week_to=week_to) if phase_source else []
 
+    @app.get("/embeds/{path:path}")
+    def get_embed(path: str, user: User = Depends(require_auth)) -> FileResponse:
+        # Any file under embeds_dir, so an embedded page can bring its own scripts and data beside it.
+        file = config.site.embed_file(path)
+        if file is None:
+            raise HTTPException(status_code=404, detail="Not found")
+        return FileResponse(file)
+
     @app.get("/api/periods")
     def get_periods(user: User = Depends(require_auth)) -> dict | None:
         # The date-range control's bounds across every feed; null when there's no data to range over.
@@ -228,6 +245,6 @@ def create_app(
             return _serve_spa(request, bootstrap)
         if await provider.current_user(request) is not None:
             return _serve_spa(request, bootstrap)
-        return RedirectResponse(url="/login", status_code=303)
+        return RedirectResponse(url=mounted(request, "/login"), status_code=303)
 
     return app
