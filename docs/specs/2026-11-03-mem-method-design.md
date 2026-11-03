@@ -34,7 +34,7 @@ This is also the last piece before health-signal's first release, which greece-p
   method grades every single-series panel (aedseo today); with one, only those listed.
 - A **Method** selector in the dashboard's header, next to Location and Date range, when the deployment grades with
   more than one method. The tiles, the chart's level shading and the Overview's summary follow the selection.
-- The Methodology page describes **every method the deployment grades with**, whichever is selected.
+- The Methodology page describes **the selected method**, from a page per method.
 - For Greece, MEM's weekly levels for national ILI match ERVISS's heatmap.
 
 ## Non-goals
@@ -67,7 +67,8 @@ This is also the last piece before health-signal's first release, which greece-p
 6. **MEM keeps its own season window**, so it can match ERVISS: `analytics.mem.season_start_week`, which Greece sets
    to 25 (ERVISS lays out Greece's seasons as W25→W24). aedseo keeps the dashboard's surveillance year (W21 for
    Greece).
-7. **The Methodology page describes every graded method**, not just the selected one.
+7. **The Methodology page follows the selected method**: one page per method, the one shown being the one
+   selected.
 
 ## Design
 
@@ -156,16 +157,20 @@ grade it.
 
 ### Methodology page
 
-- The page describes every graded method. The library ships MEM's general text in English and Greek
-  (`methodology_text/mem.{en,el}.md`): overview, status, trend, references, saying that MEM was built for ILI/ARI
-  and grades each indicator on its own.
-- **Placeholders get the method's name**, since `method.*` meant aedseo: `{{> aedseo}}`, `{{> aedseo.status}}`,
-  `{{aedseo.n_peak}}`, `{{> mem}}`, `{{> mem.trend}}`, `{{mem.seasons}}`, `{{mem.season_start_week}}`,
-  `{{mem.build}}`. A bare `{{> method}}` lays out every graded method's text in turn. *(My call: rename now, before
-  the first release, while greece-public-health's pages are the only users; they're updated in the same change.)*
-- The `levels` table takes the method it describes: `{{> aedseo.levels}}`, `{{> mem.levels}}`.
-- The `streams` and `phase_patterns` tables describe aedseo's pathogen-level phases, so they become
-  `{{> aedseo.streams}}` and `{{> aedseo.phase_patterns}}`; MEM has none.
+- **The page follows the selected method**: it shows that method's text, and the selector's choice carries to it
+  like the other filters (the top bar's Methodology link keeps `?method=`). A dashboard grading with one method is
+  unchanged.
+- **A page per method.** A deployment writes `methodology_dir/<method>/<language>.md`, e.g. `aedseo/el.md` and
+  `mem/el.md`. A method without a deployment page shows the library's general text for it. *(My call: the old
+  `methodology_dir/<language>.md` layout is read as aedseo's page, so a single-method deployment needs no change.)*
+- **Placeholders keep their names and mean the page's method**: `{{> method}}` and `{{> method.<section>}}` inline
+  that method's library text, `{{method.build}}` its package build, `{{> levels}}` its levels. Each method declares
+  its own values (aedseo's `n_peak`, `conf_levels`, …; MEM's `seasons`, `season_start_week`, …) and sections. A
+  placeholder the page's method doesn't have stops startup, as an unknown one does today: `{{> streams}}` and
+  `{{> phase_patterns}}` belong to aedseo's pathogen-level phases, so a MEM page can't use them.
+- **The API:** `GET /api/methodology/{language}?method=mem`; without `method`, the deployment's default.
+- The library ships MEM's general text in English and Greek (`methodology_text/mem.{en,el}.md`): overview,
+  status, trend, references, saying that MEM was built for ILI/ARI and grades each indicator on its own.
 
 ### Checking it against ERVISS
 
@@ -183,5 +188,5 @@ grade it.
   or the same protocol with a season-level call.
 - How the run loop records and resumes per method (`FeedStore` already keys rows by method).
 - Where the Method selector sits on phones, with the other filters.
-- greece-public-health's follow-up: add `mem` to its settings (window 25, its allowlist), rename its methodology
-  placeholders, and move its TODO pin to the release once this ships.
+- greece-public-health's follow-up: add `mem` to its settings (window 25, its allowlist), write its MEM methodology
+  pages (or use the library's), and move its TODO pin to the release once this ships.
