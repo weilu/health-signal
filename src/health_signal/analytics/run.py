@@ -75,11 +75,11 @@ def assess(config: Config, *, full: bool = False, method: str | None = None, job
 
 
 def graded_series(config: Config, method: str, series: list[Series]) -> list[Series]:
-    """The series `method` grades: those its allowlist names, or all. A method without phases assumes one epidemic a
-    season, so it leaves out a series graded in waves, and refuses one named for it."""
+    """The series `method` grades: those its allowlist names, or all. A method that doesn't model waves assumes one
+    epidemic a season, so it leaves out a series graded in waves, and refuses one named for it."""
     allow = config.method_panels(method)
     chosen = series if allow is None else [s for s in series if s.panels & allow]
-    if METHODS[method].phases:
+    if METHODS[method].waves:
         return chosen
     waves = set(config.analytics.wave_pathogens)
     in_waves = [s for s in chosen if s.pathogens <= waves]

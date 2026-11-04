@@ -291,11 +291,21 @@ def test_phase_streams_resolve_to_single_series_panels():
     ({**_STREAMS, "streams": {**_STREAMS["streams"], "cases": "clinical/nope"}}, "no panel"),
     ({**_STREAMS, "streams": {**_STREAMS["streams"], "cases": "clinical/split"}}, "single series"),  # series_by
     ({**_STREAMS, "pathogen": "RSV"}, "target"),
-    ({**_STREAMS, "method": "mem"}, "method"),
+    ({**_STREAMS, "method": "mem"}, "isn't graded"),                                                # not in analytics.methods
 ])
 def test_bad_phase_streams_fail_at_load(entry, message):
     with pytest.raises(ValidationError, match=message):
         _analytics_cfg({"phase_streams": [entry]})
+
+
+def test_a_mem_season_pairs_streams_mem_grades():
+    _analytics_cfg({"methods": ["aedseo", "mem"], "phase_streams": [{**_STREAMS, "method": "mem"}]})
+    with pytest.raises(ValidationError, match="mem doesn't grade"):
+        _analytics_cfg({"methods": ["aedseo", "mem"], "mem": {"panels": ["Influenza/clinical/ili"]},
+                        "phase_streams": [{**_STREAMS, "method": "mem"}]})
+    with pytest.raises(ValidationError, match="waves"):
+        _analytics_cfg({"methods": ["aedseo", "mem"], "wave_pathogens": ["Influenza"],
+                        "phase_streams": [{**_STREAMS, "method": "mem"}]})
 
 
 def test_phase_streams_need_assessed_feeds_and_output_paths():

@@ -64,9 +64,11 @@ def test_a_trend_is_checked_against_its_own_methods_vocabulary(tmp_path):
             _src(tmp_path / str(i), bad)
 
 
-def test_a_method_without_phases_rejects_a_phase(tmp_path):
+def test_mem_has_seasons_but_no_waves(tmp_path):
+    assert [r.phase for r in _src(tmp_path, _M1.replace(",,,,\n", ",,,,in_season\n")).assessments()] == ["in_season"]
+    (tmp_path / "w").mkdir()
     with pytest.raises(ValueError, match="phase"):
-        _src(tmp_path, _M1.replace(",,,,\n", ",,,,in_season\n"))
+        _src(tmp_path / "w", _M1.replace(",,,,\n", ",,,,in_wave\n"))
 
 
 def test_conflicting_assessments_fail(tmp_path):

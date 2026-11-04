@@ -451,6 +451,10 @@ class Config(BaseModel):
             method = METHODS.get(entry.method)
             if method is None or not method.stream_roles:
                 raise ValueError(f"{where}: method {entry.method!r} derives no phase from streams")
+            if entry.method not in self.analytics.methods:
+                raise ValueError(f"{where}: {entry.method} isn't graded (analytics.methods)")
+            if not method.waves and entry.pathogen in self.analytics.wave_pathogens:
+                raise ValueError(f"{where}: {entry.method} can't phase {entry.pathogen}, which is graded in waves")
             if set(entry.streams) != set(method.stream_roles):
                 raise ValueError(f"{where}: roles {sorted(entry.streams)} must be {entry.method}'s {method.stream_roles}")
             for role, ref in entry.streams.items():
@@ -459,6 +463,10 @@ class Config(BaseModel):
                     raise ValueError(f"{where}: {role} names no panel {ref!r} under target {entry.pathogen!r}")
                 if panel.query is None or panel.series_by is not None:
                     raise ValueError(f"{where}: {role} panel {ref!r} must show a single series")
+                allow = self.method_panels(entry.method)
+                if allow is not None and f"{entry.pathogen}/{ref}" not in allow:
+                    raise ValueError(f"{where}: {entry.method} doesn't grade its {role} panel {ref!r} "
+                                     f"(analytics.{entry.method}.panels)")
                 if panel.query.feed not in assessed:
                     raise ValueError(f"{where}: {role} panel {ref!r} reads feed {panel.query.feed!r}, "
                                      f"which has no assessments dir")
@@ -515,7 +523,7 @@ class Config(BaseModel):
             return []
         waves = all(t in self.analytics.wave_pathogens for t in shared[key])
         return [m for m in self.analytics.methods
-                if (self.method_panels(m) is None or self.method_panels(m) & refs[key]) and (METHODS[m].phases or not waves)]
+                if (self.method_panels(m) is None or self.method_panels(m) & refs[key]) and (METHODS[m].waves or not waves)]
 
     def _client_panel(self, panel: Panel, shared: dict[tuple, list[str]], page_keys: dict[str, tuple]) -> dict:
         out = panel.model_dump(mode="json")
