@@ -6,9 +6,8 @@ set countries' epidemic and intensity thresholds for influenza-like illness (ILI
 (ARI) rates [4]. MEM was built for ILI and ARI consultation rates; a deployment may apply it to other indicators,
 which it then grades the same way.
 
-MEM grades each indicator on its own. It doesn't say when a pathogen is in season or in a wave, so with MEM selected
-the dashboard shows no key signals and no season shading. It assumes one epidemic a season, so it doesn't grade a
-pathogen that circulates in waves.
+MEM assumes one epidemic a season, so it doesn't grade pathogens that circulate year-round in waves:
+{{method.not_graded}}. For those, the dashboard's grades are aedseo's alone.
 
 Each season's thresholds come from up to {{method.seasons}} complete seasons before it, in MEM's own season window,
 ISO week {{method.season_start_week}} → {{method.season_end_week}}, and stay fixed for the whole season: every week
@@ -32,6 +31,17 @@ above the epidemic threshold is then at least at that intensity level, as MEM gr
 With fewer than {{analytics.min_seasons}} complete seasons behind its thresholds, a grade is marked
 **provisional**. Without enough history for MEM to fit at all, the week isn't graded.
 
+<!-- section: seasons -->
+## Season
+
+A pathogen is **in season** under MEM while both its streams, community spread and health-system load, are in an
+epidemic, as with aedseo's seasons [5]. A stream enters one in the week it reaches its epidemic threshold, and stays
+while above it, across a lull of up to {{phase.max_dip}} week below it or a reporting gap of up to
+{{phase.max_missing}} weeks. Until both streams have enough history for MEM, the pathogen's season isn't
+determined. The two streams for each pathogen are:
+
+{{> streams}}
+
 <!-- section: trend -->
 ## Trend: change since last week
 
@@ -53,3 +63,4 @@ data, the trend is **not assessed**. Unlike a growth rate, MEM's trend has no co
    <https://doi.org/10.1111/irv.12330>
 3. Lozano JE. *mem: The Moving Epidemic Method* (R package). <https://cran.r-project.org/package=mem>
 4. European Respiratory Virus Surveillance Summary (ECDC / WHO-Europe), Methods: MEM thresholds. <https://erviss.org/>
+5. Statens Serum Institut, *Begrebsafklaring for integreret overvågning af luftvejsinfektioner* (December 2024).

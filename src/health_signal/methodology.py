@@ -13,8 +13,8 @@ from .profile import PATHOGENS
 TEXT_DIR = Path(__file__).parent / "methodology_text"
 # The library text is in named sections, so a deployment can set its own reasoning between them.
 _SECTION = re.compile(r"<!-- section: ([a-z_]+) -->")
-# Each method's generated tables: the season ones describe aedseo's pathogen-level phases, which MEM doesn't set.
-BLOCKS = {"aedseo": ("streams", "indicator_models", "phase_patterns", "levels"), "mem": ("levels",)}
+# Each method's generated tables: MEM sets no waves, and models no denominators, so it has neither of those tables.
+BLOCKS = {"aedseo": ("streams", "indicator_models", "phase_patterns", "levels"), "mem": ("streams", "levels")}
 _PLACEHOLDER = re.compile(r"\{\{\s*(>\s*)?([a-z_.]+)\s*\}\}")
 # Anything in double braces, so a misspelt placeholder is caught rather than shown; maths spans are set apart,
 # since LaTeX writes double braces of its own.
@@ -158,6 +158,8 @@ def placeholder_values(config: Config, method: str = "aedseo") -> dict[str, str]
         "surveillance.year_end_week": _value(_end_week(start)),
         "analytics.min_seasons": _value(config.analytics.min_seasons),
         "method.build": _value(", ".join(_builds(config, method)) or "—"),
+        "phase.max_dip": _value(MAX_DIP),
+        "phase.max_missing": _value(MAX_MISSING),
     }
     if method == "aedseo":
         wave_end = config.analytics.aedseo.wave_end
@@ -165,13 +167,15 @@ def placeholder_values(config: Config, method: str = "aedseo") -> dict[str, str]
             "analytics.aedseo.wave_end.steps_with_decrease": _value(wave_end.steps_with_decrease),
             "analytics.aedseo.wave_end.burden_level_decrease":
                 _label(f"level.{wave_end.burden_level_decrease.replace(' ', '_')}"),
-            "phase.max_dip": _value(MAX_DIP),
-            "phase.max_missing": _value(MAX_MISSING),
         }
     else:
         mem = config.analytics.mem
         values |= {"method.seasons": _value(mem.seasons), "method.season_start_week": _value(mem.season_start_week),
-                   "method.season_end_week": _value(_end_week(mem.season_start_week))}
+                   "method.season_end_week": _value(_end_week(mem.season_start_week)),
+                   # The pathogens it leaves out, as the tabs name them: it assumes one epidemic a season.
+                   "method.not_graded": ", ".join(_label(f"targets.{t.id}") for t in config.targets
+                                                  if t.id in config.analytics.wave_pathogens)
+                                        or _label("methodology.none")}
     values |= {f"method.{key}": _value(_parameter(value)) for key, value in METHODS[method].parameters.items()}
     # Named in the prose, translated, rather than a table: a deployment flags few such qualities, if any.
     censored = {feed: sorted(p.censored_qualities) for feed, p in config.feed_profiles().items() if p.censored_qualities}
@@ -204,11 +208,9 @@ def _builds(config: Config, method: str) -> list[str]:
 
 
 def block_data(config: Config, method: str = "aedseo") -> dict:
-    if method != "aedseo":
-        return {"levels": {"method": method}}
     options = config.filters.location.options if config.filters.location else []
     locations = [o.value for o in options] or sorted({e.location for e in config.analytics.phase_streams})
-    entries = {(e.pathogen, e.location): e for e in config.analytics.phase_streams}
+    entries = {(e.pathogen, e.location): e for e in config.analytics.phase_streams if e.method == method}
 
     def streams(target: str, location: str) -> dict | None:
         entry = entries.get((target, location))
@@ -225,10 +227,14 @@ def block_data(config: Config, method: str = "aedseo") -> dict:
                   for d in profile.denominators]
     rules.append({"kind": "constant"})
     unique = list({json.dumps(r, sort_keys=True): r for r in rules}.values())
-    pathogens = [t for t in config.targets if t.id in PATHOGENS]
+    pathogens = [t for t in config.targets if t.id in PATHOGENS
+                 and (METHODS[method].waves or t.id not in config.analytics.wave_pathogens)]
+    streams_rows = [{"target": t.id, "location": location, "streams": streams(t.id, location)}
+                    for t in pathogens for location in locations]
+    if method != "aedseo":
+        return {"streams": streams_rows, "levels": {"method": method}}
     return {
-        "streams": [{"target": t.id, "location": location, "streams": streams(t.id, location)}
-                    for t in pathogens for location in locations],
+        "streams": streams_rows,
         "phase_patterns": [{"target": t.id, "pattern": "waves" if t.id in config.analytics.wave_pathogens else "season"}
                            for t in pathogens],
         "indicator_models": unique,
