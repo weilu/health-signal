@@ -291,11 +291,21 @@ def test_phase_streams_resolve_to_single_series_panels():
     ({**_STREAMS, "streams": {**_STREAMS["streams"], "cases": "clinical/nope"}}, "no panel"),
     ({**_STREAMS, "streams": {**_STREAMS["streams"], "cases": "clinical/split"}}, "single series"),  # series_by
     ({**_STREAMS, "pathogen": "RSV"}, "target"),
-    ({**_STREAMS, "method": "mem"}, "method"),
+    ({**_STREAMS, "method": "mem"}, "isn't graded"),                                                # not in analytics.methods
 ])
 def test_bad_phase_streams_fail_at_load(entry, message):
     with pytest.raises(ValidationError, match=message):
         _analytics_cfg({"phase_streams": [entry]})
+
+
+def test_a_mem_season_pairs_streams_mem_grades():
+    _analytics_cfg({"methods": ["aedseo", "mem"], "phase_streams": [{**_STREAMS, "method": "mem"}]})
+    with pytest.raises(ValidationError, match="mem doesn't grade"):
+        _analytics_cfg({"methods": ["aedseo", "mem"], "mem": {"panels": ["Influenza/clinical/ili"]},
+                        "phase_streams": [{**_STREAMS, "method": "mem"}]})
+    with pytest.raises(ValidationError, match="waves"):
+        _analytics_cfg({"methods": ["aedseo", "mem"], "wave_pathogens": ["Influenza"],
+                        "phase_streams": [{**_STREAMS, "method": "mem"}]})
 
 
 def test_phase_streams_need_assessed_feeds_and_output_paths():
@@ -380,8 +390,8 @@ def test_a_panel_must_query_its_targets_pathogen():
 
 def test_methods_reach_the_client():
     methods = Config(schema_version="1", site=SiteConfig(title="T")).client_config()["methods"]
-    # Every registered method, minus its name (the key already says it).
-    assert methods == {name: m.model_dump(mode="json", exclude={"name"}) for name, m in METHODS.items()}
+    # The graded methods, minus their name (the key already says it).
+    assert methods == {"aedseo": METHODS["aedseo"].model_dump(mode="json", exclude={"name"})}   # graded by default
 
 
 def test_feeds_and_phases_take_optional_assessment_dirs():
@@ -500,3 +510,82 @@ def test_a_chart_can_ask_for_a_log_axis_and_is_linear_otherwise():
     assert Panel(id="ww", query=q, y_scale="log").y_scale == "log"
     assert Panel(id="deaths", query=q).y_scale == "linear"
 
+
+
+def _two_panel_config(analytics=None):
+    ili = {"feed": "clinical", "indicator": "ILIconsultationrate",
+           "dimensions": {"survtype": "primary care syndromic", "age": "total"}}
+    pos = {"feed": "clinical", "indicator": "positivity", "dimensions": {"pathogen": "Influenza"}}
+    return Config(schema_version="1", site=SiteConfig(title="T"), data=_FEEDS, analytics=analytics or {}, targets=[
+        Target(id="Influenza", pages=[Page(id="c", panels=[Panel(id="ili", query=ili),
+                                                           Panel(id="split", query=pos, series_by="survtype")])])])
+
+
+def test_a_method_grades_every_single_series_panel_unless_it_lists_some():
+    cfg = _two_panel_config({"methods": ["aedseo", "mem"], "mem": {"panels": ["Influenza/c/ili"]}})
+    assert cfg.method_panels("aedseo") is None
+    assert cfg.method_panels("mem") == {"Influenza/c/ili"}
+
+
+@pytest.mark.parametrize("ref", ["Influenza/c/nope", "Influenza/x/ili", "RSV/c/ili", "Influenza/c/split", "c/ili"])
+def test_an_allowlist_names_existing_single_series_panels(ref):
+    with pytest.raises(ValidationError, match="panels"):
+        _two_panel_config({"methods": ["aedseo", "mem"], "mem": {"panels": [ref]}})
+
+
+@pytest.mark.parametrize("methods", [[], ["aedseo", "aedseo"], ["mem", "nope"]])
+def test_graded_methods_are_registered_and_distinct(methods):
+    with pytest.raises(ValidationError, match="methods"):
+        _two_panel_config({"methods": methods})
+
+
+def test_the_browser_gets_the_graded_methods_and_which_grade_each_panel():
+    c = _two_panel_config({"methods": ["mem", "aedseo"], "aedseo": {"panels": ["Influenza/c/ili"]}}).client_config()
+    assert list(c["methods"]) == ["mem", "aedseo"]   # the deployment's order: the first is the default
+    panels = {p["id"]: p["methods"] for p in c["targets"][0]["pages"][0]["panels"]}
+    assert panels == {"ili": ["mem", "aedseo"], "split": []}
+
+
+def test_mem_doesnt_grade_a_series_only_a_wave_pathogens_tab_shows():
+    ili = {"feed": "clinical", "indicator": "ILIconsultationrate",
+           "dimensions": {"survtype": "primary care syndromic", "age": "total"}}
+    c = Config(schema_version="1", site=SiteConfig(title="T"), data=_FEEDS, analytics={"methods": ["aedseo", "mem"]},
+               targets=[Target(id="SARS-CoV-2", pages=[Page(id="c", panels=[Panel(id="ili", query=ili)])])]).client_config()
+    assert c["targets"][0]["pages"][0]["panels"][0]["methods"] == ["aedseo"]
+
+
+def test_every_tab_showing_a_graded_series_shows_its_grade():
+    # Grading is per series: ILI listed on the influenza tab is the same series on the COVID tab, and it isn't graded in
+    # waves while a seasonal tab shows it.
+    ili = {"feed": "clinical", "indicator": "ILIconsultationrate",
+           "dimensions": {"survtype": "primary care syndromic", "age": "total"}}
+    adm = {"feed": "clinical", "indicator": "hospitaladmissions", "dimensions": {"pathogen": "SARS-CoV-2"}}
+    targets = [Target(id="SARS-CoV-2", pages=[Page(id="c", panels=[Panel(id="ili", query=ili), Panel(id="adm", query=adm)])]),
+               Target(id="Influenza", pages=[Page(id="c", panels=[Panel(id="ili", query=ili)])])]
+    for analytics in ({"methods": ["aedseo", "mem"], "mem": {"panels": ["Influenza/c/ili"]}}, {"methods": ["aedseo", "mem"]}):
+        c = Config(schema_version="1", site=SiteConfig(title="T"), data=_FEEDS, analytics=analytics, targets=targets).client_config()
+        covid = {p["id"]: p["methods"] for p in c["targets"][0]["pages"][0]["panels"]}
+        assert covid == {"ili": ["aedseo", "mem"], "adm": ["aedseo"]}
+
+
+def test_a_phase_panel_is_graded_by_the_methods_that_phase_its_pathogen():
+    def with_overview(streams):
+        cfg = _analytics_cfg({"methods": ["aedseo", "mem"], "phase_streams": streams})
+        return cfg.model_copy(update={"targets": [Target(id="Influenza", pages=[
+            *cfg.targets[0].pages, Page(id="overview", panels=[Panel(id="phase", type="phase")])])]})
+    both = with_overview([_STREAMS, {**_STREAMS, "method": "mem"}]).client_config()
+    assert _panel(both, "phase")["methods"] == ["aedseo", "mem"]
+    assert _panel(with_overview([_STREAMS]).client_config(), "phase")["methods"] == ["aedseo"]
+    # Whether the pathogen has seasons or waves, for the tile to name before there's any phase to read it from.
+    assert _panel(both, "phase")["pattern"] == "season"
+
+
+def _panel(client, panel_id):
+    return next(p for t in client["targets"] for page in t["pages"] for p in page["panels"] if p["id"] == panel_id)
+
+
+def test_a_split_chart_can_start_with_some_lines_shown():
+    q = {"feed": "clinical", "indicator": "positivity", "dimensions": {"pathogen": "Influenza"}}
+    assert Panel(id="p", query=q, series_by="age", series_shown=["65+"]).series_shown == ["65+"]
+    with pytest.raises(ValidationError, match="series_shown"):
+        Panel(id="p", query=q, series_shown=["65+"])   # nothing to choose between without series_by

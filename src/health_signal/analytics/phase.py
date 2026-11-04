@@ -2,12 +2,13 @@ from collections.abc import Callable
 from urllib.parse import urlencode
 
 from ..config import PhaseStreamsEntry
-from ..methods import AEDSEO
+from ..methods import AEDSEO, MEM
 from .series import Series
 
-# Each phase-producing method's own combining rule (spec §6.3.1): aedseo's is SSI's, every stream active.
+# Each phase-producing method's own combining rule (spec §6.3.1): aedseo's is SSI's, every stream active; MEM pairs
+# the same streams the same way, so the two methods' seasons differ only in how each stream's is set.
 RULES: dict[str, Callable[[list[str]], bool]] = {
-    AEDSEO.name: lambda phases: all(p in AEDSEO.active_phases for p in phases)}
+    m.name: lambda phases, m=m: all(p in m.active_phases for p in phases) for m in (AEDSEO, MEM)}
 
 
 def pathogen_phases(entry: PhaseStreamsEntry, by_role: dict[str, dict[str, str | None]], waves: bool,

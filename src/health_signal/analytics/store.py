@@ -115,13 +115,14 @@ class FeedStore:
     """One feed's assessment tables as incremental state (spec §6.3.1). A run checkpoints into a side directory
     and publishes over the served tables only once it completes, so a dashboard never serves a half-recomputed set."""
 
-    def __init__(self, directory: str | Path, profile: Profile, *, full: bool):
+    def __init__(self, directory: str | Path, profile: Profile, *, full: bool | str):
+        """`full`: True recomputes every method; a method's name recomputes that method's tables only."""
         self.directory, self.profile, self.full = Path(directory), profile, full
         self.checkpoint_dir = self.directory / CHECKPOINT_DIR
         self._rows: dict[tuple, dict[str, dict]] = {}
         self._spans: dict[tuple, list[list]] = {}   # key -> [[from, to, bounds], ...] in order
         self._settings: set[tuple[str, str, str]] | None = None
-        if full:
+        if full is True:
             # A fresh full run starts over; an interrupted run's partial work isn't part of it.
             self.discard_checkpoint()
             return
@@ -145,27 +146,42 @@ class FeedStore:
         if (origin / SETTINGS_FILE).is_file():
             with (origin / SETTINGS_FILE).open(encoding="utf-8") as f:
                 self._settings = {(r["method"], r["setting"], r["value"]) for r in csv.DictReader(f)}
+        if full:
+            # One method recomputed: the others' rows stand as they are.
+            self._rows = {k: v for k, v in self._rows.items() if k[2] != full}
+            self._spans = {k: v for k, v in self._spans.items() if k[2] != full}
+            if self._settings is not None:
+                self._settings = {row for row in self._settings if row[0] != full}
 
-    def check_settings(self, settings: list[tuple[str, str, str]]) -> None:
-        if self.full:
+    def _recomputes(self, method: str | None) -> bool:
+        return self.full is True or (method is not None and self.full == method)
+
+    def check_settings(self, settings: list[tuple[str, str, str]], method: str | None = None) -> None:
+        """Against what the tables were assessed with: every method's, or `method`'s alone."""
+        if self._recomputes(method):
             return
         if self._settings is None:
             if self._rows:
                 raise SettingsChanged(f"{self.directory} has rows but no {SETTINGS_FILE} (another producer's?); "
                                       f"run assess --full to recompute them")
             return
+        ours = (lambda row: row[0] == method) if method else (lambda row: True)
+        # A method graded for the first time has no history to contradict.
+        if method and not any(ours(row) for row in self._settings) and not any(k[2] == method for k in self._rows):
+            return
         # Which series are phased in waves is checked per series with rows (check_wave_series): a new one
         # has no history to contradict.
-        stored = {row for row in self._settings if row[1] != "wave_series"}
-        changed = sorted({f"{m}.{s}" for m, s, _ in stored ^ {row for row in settings if row[1] != "wave_series"}})
+        stored = {row for row in self._settings if row[1] != "wave_series" and ours(row)}
+        given = {row for row in settings if row[1] != "wave_series" and ours(row)}
+        changed = sorted({f"{m}.{s}" for m, s, _ in stored ^ given})
         if changed:
             raise SettingsChanged(f"{self.directory} was assessed with other settings ({', '.join(changed)}); "
-                                  f"run assess --full to recompute it")
+                                  f"run assess --full{f' --method {method}' if method else ''} to recompute it")
 
     def check_wave_series(self, modes: list[tuple[str, bool]]) -> None:
         """`modes`: (label, phased in waves) for each series that already has rows. Their rows were phased one
         way; phasing the new weeks the other would mix the two, so a change needs a full run."""
-        if self.full or self._settings is None:
+        if self._recomputes("aedseo") or self._settings is None:
             return
         stored = {value for _, setting, value in self._settings if setting == "wave_series"}
         moved = sorted(label for label, waves in modes if (label in stored) != waves)

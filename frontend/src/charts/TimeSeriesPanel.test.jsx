@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { fetchAssessments, fetchConfig, fetchData, fetchThresholds } from '../api.js'
@@ -9,7 +9,7 @@ import { TimeSeriesPanel } from './TimeSeriesPanel.jsx'
 // The chart draws on a canvas; its props are what the panel decides.
 const charted = []
 vi.mock('./TimeSeriesChart.jsx', () => ({ TimeSeriesChart: (props) => { charted.push(props); return null },
-                                          useChartPalette: () => ['#000'] }))
+                                          useChartPalette: () => ['#000', '#111', '#222'] }))
 
 vi.mock('../api.js', () => ({ fetchAssessments: vi.fn(), fetchConfig: vi.fn(), fetchData: vi.fn(), fetchThresholds: vi.fn() }))
 afterEach(() => { cleanup(); vi.resetAllMocks(); charted.length = 0 })
@@ -19,14 +19,14 @@ const METHOD = { aedseo: { levels: ['very_low', 'low'], phases: ['in_season', 'o
 const GREECE_W10 = { location: 'Greece', period: '2026-W10', indicator: 'fluA', value: 5, unit: 'gcL', dimensions: {} }
 const PANEL = { id: 'load', type: 'timeseries', label_key: 'panels.load', query: { feed: 'wastewater', indicator: 'fluA', dimensions: {} } }
 
-function renderPanel(location = { value: 'Attica' }) {
+function renderPanel(location = { value: 'Attica' }, panel = PANEL, entry = '/influenza/ww') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={['/influenza/ww']}>
+      <MemoryRouter initialEntries={[entry]}>
         <Routes>
           <Route path="/login" element={<p>login page</p>} />
-          <Route path="*" element={<TimeSeriesPanel panel={PANEL} target={{ id: "Influenza", label_key: "targets.Influenza" }} location={location}
+          <Route path="*" element={<TimeSeriesPanel panel={panel} target={{ id: "Influenza", label_key: "targets.Influenza" }} location={location}
             range={{ from: '2026-W01', to: '2026-W20' }} latest="2026-W20" />} />
         </Routes>
       </MemoryRouter>
@@ -101,5 +101,35 @@ describe('TimeSeriesPanel assessments', () => {
     await vi.waitFor(() => expect(fetchAssessments).toHaveBeenCalled())
     await new Promise((resolve) => setTimeout(resolve, 100))
     expect(screen.queryByText('level.low')).toBeNull()
+  })
+})
+
+describe('TimeSeriesPanel under a method that does not grade it', () => {
+  it("says so instead of showing another method's grade, and draws no bands", async () => {
+    fetchConfig.mockResolvedValue({ methods: { ...METHOD, mem: { levels: ['baseline', 'low'], phases: [], active_phases: [] } } })
+    fetchData.mockResolvedValue([GREECE_W10])
+    renderPanel({ value: 'Greece' }, { ...PANEL, methods: ['aedseo'] }, '/influenza/ww?method=mem')
+    expect(await screen.findByText('assessment.notGradedWith')).toBeTruthy()
+    expect(fetchAssessments).not.toHaveBeenCalled()
+    expect(charted.every((c) => !c.bands)).toBe(true)
+  })
+})
+
+describe('TimeSeriesPanel lines a reader can turn on and off', () => {
+  const SPLIT = { id: 'by_age', type: 'timeseries', label_key: 'panels.by_age', series_by: 'age', series_shown: ['80+'],
+                  query: { feed: 'clinical', indicator: 'vaccinedoses', dimensions: {} } }
+  const row = (age, value) => ({ location: 'Greece', period: '2026-W10', indicator: 'vaccinedoses', value, unit: 'count',
+                                 dimensions: { age } })
+
+  it('starts with the configured lines, and toggles the others', async () => {
+    fetchConfig.mockResolvedValue({ methods: METHOD })
+    fetchData.mockResolvedValue([row('18-24', 5), row('80+', 9)])
+    renderPanel({ value: 'Greece' }, SPLIT)
+    const chips = await screen.findAllByRole('button', { pressed: false })
+    expect(chips).toHaveLength(1)
+    expect(screen.getAllByRole('button', { pressed: true })).toHaveLength(1)
+    expect([...charted.at(-1).hidden]).toEqual(['18-24'])
+    fireEvent.click(chips[0])
+    await vi.waitFor(() => expect([...charted.at(-1).hidden]).toEqual([]))
   })
 })

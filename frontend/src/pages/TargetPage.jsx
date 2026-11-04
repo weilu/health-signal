@@ -4,6 +4,7 @@ import { PhasePanel } from '../charts/PhasePanel.jsx'
 import { SummaryPanel } from '../charts/SummaryPanel.jsx'
 import { TimeSeriesPanel } from '../charts/TimeSeriesPanel.jsx'
 import { groupPanels } from '../groups.js'
+import { useMethod } from '../useMethod.js'
 import { EmbedFrame, embedSrc } from '../embed/EmbedFrame.jsx'
 import { configLabel } from '../labels.js'
 
@@ -13,6 +14,7 @@ const PANELS = { timeseries: TimeSeriesPanel, phase: PhasePanel, summary: Summar
 // overview's summary uses where the page has more than one.
 export default function TargetPage({ target, page, location, range, latest }) {
   const { t, i18n } = useTranslation()
+  const method = useMethod()
   if (page.embed) {
     const src = embedSrc(page.embed, { lang: i18n.language, location: location?.value, range })
     return <EmbedFrame src={src} title={configLabel(t, page.label_key, page.id)} />
@@ -20,7 +22,8 @@ export default function TargetPage({ target, page, location, range, latest }) {
   if (!page.panels.length) return <Typography color="text.secondary">{t('page.noPanels')}</Typography>
   return (
     <Stack spacing={5}>
-      {groupPanels(t, page.panels).map(({ key, heading, items }) => (
+      {/* Key signals only where the selected method phases this pathogen (MEM doesn't phase one in waves). */}
+      {groupPanels(t, page.panels.filter((p) => p.type !== 'phase' || !p.methods || p.methods.includes(method?.name))).map(({ key, heading, items }) => (
         <Stack key={key} component="section" spacing={3} aria-label={heading && [heading.source, heading.kind].filter(Boolean).join(' · ')}>
           {heading && (
             <Stack direction={{ xs: 'column', md: 'row' }} sx={{ columnGap: 1.5, alignItems: { md: 'baseline' } }}>

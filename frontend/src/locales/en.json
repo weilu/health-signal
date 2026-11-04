@@ -23,7 +23,8 @@
   "filters": {
     "location": "Region",
     "dateRange": "Date range",
-    "reportingWeek": "Reporting week {{stamp}}"
+    "reportingWeek": "Reporting week {{stamp}}",
+    "method": "Method"
   },
   "range": {
     "last_one": "Last week",
@@ -89,9 +90,11 @@
     "provisional": "Provisional",
     "ungraded": "Not graded",
     "ambiguous": "Several series match this panel",
-    "unavailable": "Status unavailable"
+    "unavailable": "Status unavailable",
+    "notGradedWith": "Not graded with {{method}}"
   },
   "level": {
+    "baseline": "Baseline",
     "very_low": "Very low",
     "low": "Low",
     "medium": "Medium",
@@ -102,7 +105,8 @@
     "increasing": "Increasing",
     "stable": "Stable",
     "decreasing": "Decreasing",
-    "inconclusive": "Inconclusive"
+    "inconclusive": "Inconclusive",
+    "not_assessed": "Not assessed"
   },
   "phase": {
     "runs": {
@@ -129,7 +133,12 @@
       "season": "Season status",
       "waves": "Wave status"
     },
-    "streamTitle": "{{role}} · measured by {{indicator}}"
+    "streamTitle": "{{role}} · measured by {{indicator}}",
+    "undetermined": {
+      "season": "No season",
+      "waves": "No wave"
+    },
+    "undeterminedNote": "Not determined until both its streams have grades"
   },
   "role": {
     "cases": "Community spread",
@@ -164,6 +173,24 @@
       "phase_rule": {
         "season": "In season while both its streams, community spread and health-system load, are active. A stream turns active when it rises above its disease threshold, and stays active until it falls back below it.",
         "waves": "In a wave while both its streams, community spread and health-system load, are active. A stream turns active when it rises above its disease threshold, and stays active until it falls back below it."
+      },
+      "name": "aedseo"
+    },
+    "mem": {
+      "name": "MEM",
+      "sources": {
+        "status": "MEM intensity levels",
+        "trend": "MEM's week-on-week change",
+        "phase": {
+          "season": "MEM epidemic threshold"
+        }
+      },
+      "trend": {
+        "not_assessed": "Not assessed: below MEM's epidemic threshold"
+      },
+      "trend_note": "MEM assesses trend only during an epidemic",
+      "phase_rule": {
+        "season": "In season while both its streams, community spread and health-system load, are in an epidemic by MEM. A stream enters one in the week it reaches its epidemic threshold, and stays until it falls back below it."
       }
     }
   },

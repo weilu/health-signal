@@ -10,6 +10,7 @@ import rehypeKatex from 'rehype-katex'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
 import { fetchMethodology } from '../api.js'
+import { useMethod } from '../useMethod.js'
 import { inSentence } from '../labels.js'
 import { Block } from '../methodology/blocks.jsx'
 import { ResourceBoundary } from '../ResourceBoundary.jsx'
@@ -107,7 +108,10 @@ function Contents({ items }) {
 
 export default function MethodologyPage() {
   const { t, i18n } = useTranslation()
-  const query = useQuery({ queryKey: ['methodology', i18n.language], queryFn: () => fetchMethodology(i18n.language) })
+  const method = useMethod()?.name
+  // The selected method's page, once the config says which that is.
+  const query = useQuery({ queryKey: ['methodology', i18n.language, method], queryFn: () => fetchMethodology(i18n.language, method),
+                           enabled: !!method })
   return (
     <ResourceBoundary query={query}>
       {(page) => (

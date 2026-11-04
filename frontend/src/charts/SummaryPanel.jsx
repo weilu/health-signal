@@ -2,7 +2,7 @@ import { useQueries, useQuery } from '@tanstack/react-query'
 import { Navigate, Link as RouterLink, useLocation } from 'react-router-dom'
 import { Alert, Box, Chip, CircularProgress, Link, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
-import { fetchAssessments, fetchPhaseStreams } from '../api.js'
+import { fetchAssessments, fetchData, fetchPhaseStreams } from '../api.js'
 import { combinedState, levelTone, pickInRange, sameSeries } from '../assessments.js'
 import { ToneDot, TrendMark } from './TrendMark.jsx'
 import { panelParams, withFilters } from '../filters.js'
@@ -23,10 +23,17 @@ export function SummaryPanel({ panel, target, location, range, latest }) {
   const streams = useQuery({ queryKey: ['phase-streams', base], queryFn: () => fetchPhaseStreams(base), enabled: !!method })
   const entries = target.pages.flatMap((page) => page.panels
     .filter((p) => p.type === 'timeseries' && !p.series_by)
-    .map((p) => ({ page, panel: p, params: { ...panelParams(p.query, location?.value), method: method?.name } })))
+    .map((p) => {
+      // A chart the selected method doesn't grade is still listed, from its data: it shows the reader it's there.
+      const graded = !p.methods || p.methods.includes(method?.name)
+      const params = panelParams(p.query, location?.value)
+      return { page, panel: p, graded, params: graded ? { ...params, method: method?.name } : params }
+    }))
   // Same query keys as the panels' own tile lookups, so these share their cache.
   const results = useQueries({
-    queries: entries.map((e) => ({ queryKey: ['assessments', e.params], queryFn: () => fetchAssessments(e.params), enabled: !!method })),
+    queries: entries.map((e) => e.graded
+      ? { queryKey: ['assessments', e.params], queryFn: () => fetchAssessments(e.params), enabled: !!method }
+      : { queryKey: ['data', e.params], queryFn: () => fetchData(e.params), enabled: !!method }),
   })
   const state = method ? combinedState([...results, streams]) : 'loading'
   const rows = entries
@@ -69,18 +76,23 @@ export function SummaryPanel({ panel, target, location, range, latest }) {
                   </Stack>
                 </TableCell>
               </TableRow>
-              {members.map(({ page, panel: p, data }) => {
-                const pick = range ? pickInRange(data, range, latest) : null
+              {members.map(({ page, panel: p, data, graded }) => {
+                // Ungraded: as of its last week of data up to the range's end, however long before it that was.
+                const last = !graded && data.map((r) => r.period).filter((w) => !range || w <= range.to).sort().at(-1)
+                const pick = !graded ? (last ? { row: { period: last }, asOf: last, current: last === latest } : null)
+                  : range ? pickInRange(data, range, latest) : null
                 const row = pick?.row
                 // The stream's own location too: without a location filter, another region's row has the same selector.
                 const stream = !pick?.ambiguous && (streams.data ?? []).find((s) => s.location === data[0].location
                   && sameSeries(p.query.feed, { indicator: p.query.indicator, ...p.query.dimensions }, s))
-                const status = pick?.ambiguous ? t('assessment.ambiguous')
+                const methodName = method && t(`methods.${method.name}.name`, { defaultValue: method.name })
+                const status = !graded ? (p.methods?.length ? t('assessment.notGradedWith', { method: methodName }) : t('assessment.ungraded'))
+                  : pick?.ambiguous ? t('assessment.ambiguous')
                   : row ? (row.level ? t(`level.${row.level}`) : t('assessment.ungraded')) : '—'
                 const trend = row?.trend ? t(`trend.${row.trend}`) : '—'
                 const asOf = pick?.ambiguous ? '—' : row ? weekStamp(t, pick.asOf) : t('assessment.noneInRange')
-                const mark = row?.trend && !pick?.ambiguous && <TrendMark trend={row.trend} />
-                const dot = row && !pick?.ambiguous && <ToneDot tone={levelTone(method.levels, row.level)} />
+                const mark = graded && row?.trend && !pick?.ambiguous && <TrendMark trend={row.trend} />
+                const dot = graded && row && !pick?.ambiguous && <ToneDot tone={levelTone(method.levels, row.level)} />
                 return (
                   // A real row with a real link, stretched over the row so the whole row is clickable. A stream is
                   // marked by its role chip alone: the amber there is the table's one accent.

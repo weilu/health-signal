@@ -205,3 +205,61 @@ def test_censored_values_are_named_inline_from_the_profiles(tmp_path):
 def test_without_censored_values_the_sentence_says_none(tmp_path):
     md = _page(tmp_path, "Values {{censored.qualities}} in {{censored.feeds}}")["markdown"]
     assert md.count("`hs:t:methodology.none`") == 2
+
+
+_BOTH = {"methods": ["aedseo", "mem"]}
+
+
+def test_each_graded_method_has_its_page(tmp_path):
+    cfg = _config(tmp_path, analytics=_BOTH)
+    aedseo, mem = load_methodology(cfg, "aedseo")["en"], load_methodology(cfg, "mem")["en"]
+    assert "Moving Epidemic Method" in mem["markdown"] and "Moving Epidemic Method" not in aedseo["markdown"]
+    assert set(mem["blocks"]) == {"streams", "levels"} and mem["blocks"]["levels"] == {"method": "mem"}
+
+
+def test_a_method_folder_holds_that_methods_page_beside_the_old_layout(tmp_path):
+    cfg = _config(tmp_path, {"en": "Ours, aedseo"}, analytics=_BOTH)
+    (tmp_path / "methodology" / "mem").mkdir()
+    (tmp_path / "methodology" / "mem" / "en.md").write_text("Ours, MEM: {{method.seasons}} seasons from W{{method.season_start_week}}",
+                                                            encoding="utf-8")
+    assert "Ours, aedseo" in load_methodology(cfg, "aedseo")["en"]["markdown"]
+    assert load_methodology(cfg, "mem")["en"]["markdown"] == "Ours, MEM: `hs:5` seasons from W`hs:40`\n"
+
+
+def test_a_mem_page_cant_use_aedseos_wave_and_denominator_tables(tmp_path):
+    cfg = _config(tmp_path, {"en": "ok"}, analytics=_BOTH)
+    (tmp_path / "methodology" / "mem").mkdir()
+    (tmp_path / "methodology" / "mem" / "en.md").write_text("{{> phase_patterns}}\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="phase_patterns"):
+        load_methodology(cfg, "mem")
+
+
+def test_the_api_serves_the_selected_methods_page(tmp_path):
+    client = _client(_config(tmp_path, analytics=_BOTH))
+    assert "Moving Epidemic Method" in client.get("/api/methodology/en?method=mem").json()["markdown"]
+    assert "Moving Epidemic Method" not in client.get("/api/methodology/en").json()["markdown"]   # the default, aedseo
+    assert client.get("/api/methodology/en?method=nope").status_code == 404
+
+
+def test_mems_library_text_loads_in_each_language_it_ships(tmp_path):
+    pages = load_methodology(_config(tmp_path, locales=("en", "el"), analytics=_BOTH), "mem")
+    assert library_sections("en", "mem") == library_sections("el", "mem")
+    assert "```hs-block\nlevels\n```" in pages["el"]["markdown"] and pages["el"]["markdown"] != pages["en"]["markdown"]
+
+
+def test_mems_streams_are_its_own_entries_and_leave_out_pathogens_in_waves(tmp_path):
+    analytics = {**_BOTH, "phase_streams": [
+        {"pathogen": "Influenza", "location": "Greece", "streams": {"cases": "clinical/sari", "admissions": "clinical/ili"}},
+        {"pathogen": "Influenza", "location": "Greece", "method": "mem",
+         "streams": {"cases": "clinical/ili", "admissions": "clinical/sari"}}]}
+    cfg = _config(tmp_path, analytics=analytics)
+    mem, aedseo = block_data(cfg, "mem")["streams"], block_data(cfg, "aedseo")["streams"]
+    greece = lambda rows: next(r for r in rows if r["location"] == "Greece")["streams"]   # noqa: E731
+    assert greece(mem)["cases"] == {"page": "clinical", "panel": "ili"}
+    assert greece(aedseo)["cases"] == {"page": "clinical", "panel": "sari"}
+
+
+def test_the_mem_page_names_the_pathogens_it_doesnt_grade(tmp_path):
+    cfg = _config(tmp_path, analytics={**_BOTH, "wave_pathogens": ["SARS-CoV-2"]})
+    cfg = cfg.model_copy(update={"targets": [*cfg.targets, Target(id="SARS-CoV-2", pages=[Page(id="o")])]})
+    assert "`hs:t:targets.SARS-CoV-2`" in load_methodology(cfg, "mem")["en"]["markdown"]

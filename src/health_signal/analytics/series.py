@@ -22,6 +22,7 @@ class Series:
     per: float = 1.0
     scaled: bool = False   # fit on values × rules.value_scale(history up to the week), thresholds divided back
     censored: list[bool] = field(default_factory=list)   # value is a stand-in (e.g. below LOD): fitted as a gap
+    panels: set[str] = field(default_factory=set)   # "<target>/<page>/<panel>" showing it, for a method's allowlist
 
     @property
     def key(self) -> tuple[str, str, tuple[tuple[str, str], ...]]:
@@ -90,6 +91,7 @@ def assessed_series(config: Config, sources: dict[str, FileDataSource]):
                     if found is not None:
                         shared = series.setdefault((found.feed, found.key), found)
                         shared.pathogens.add(target.id)
+                        shared.panels.add(f"{target.id}/{ref}")
                         refs[(target.id, location, ref)] = shared
     return list(series.values()), refs, warnings
 

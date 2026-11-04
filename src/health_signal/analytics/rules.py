@@ -44,6 +44,18 @@ def trend_for(rate: float, lower: float, upper: float) -> tuple[str, tuple[float
     return ("increasing" if lower > 0 else "decreasing" if upper < 0 else "stable"), growth
 
 
+def mem_trend(value: float, previous: float | None, epidemic: float, delta: float, eta: float) -> str:
+    """memtrend's rule on the change since last week (eta is a fall, so negative), except that below the epidemic
+    threshold MEM doesn't assess the trend: it says so rather than "stable"."""
+    if previous is None or math.isnan(previous) or math.isnan(value):
+        return "not_assessed"   # across a gap the change isn't one week's
+    if value < epidemic:
+        return "decreasing" if previous >= epidemic else "not_assessed"
+    if previous < epidemic or value - previous > delta:
+        return "increasing"
+    return "decreasing" if value - previous < eta else "stable"
+
+
 def value_scale(values: list[float]) -> float:
     # aedseo can't grade values below 1 (its disease threshold bottoms out at 1) and rounds the counts it
     # derives from them, so small rates are scaled up for the fit; its thresholds scale with the values
