@@ -4,7 +4,7 @@ import math
 from ..methods import MEM
 from .backend import NO_BANDS, FitError, MemBackend, MemFit
 from .engine import SeriesResult
-from .rules import MIN_SEASON_WEEKS, SeasonState, level_for, mem_trend, season_of, weeks_between
+from .rules import MIN_SEASON_WEEKS, SeasonState, level_for, mem_trend, season_of, season_phase, weeks_between
 from .series import Series
 
 SLOTS = 53
@@ -29,7 +29,7 @@ def _graded_bounds(thresholds: tuple[float, ...]) -> tuple[float, ...]:
 
 
 def assess_mem_series(series: Series, weeks: list[str], backend: MemBackend, *, start_week: int, seasons: int,
-                      min_seasons: int) -> SeriesResult:
+                      min_seasons: int, state: SeasonState) -> SeriesResult:
     """Grade `weeks` of one series, each by the thresholds MEM sets for its season from the seasons before it."""
     unmodelled = [math.isnan(e) for e in series.exposure] or [False] * len(series.values)
     censored = series.censored or [False] * len(series.values)
@@ -58,10 +58,15 @@ def assess_mem_series(series: Series, weeks: list[str], backend: MemBackend, *, 
         level = None if unmodelled[i] or thresholds is NO_BANDS else level_for(value, thresholds, MEM.levels)
         previous = fitted[i - 1] if i and weeks_between(series.periods[i - 1], week) == 1 else None
         trend = mem_trend(fitted[i], previous, thresholds[0], fit.delta, fit.eta) if level else "not_assessed"
+        # MEM's epidemic starts on the week over its threshold, so crossing it is the onset; the season then runs as
+        # aedseo's do, across a one-week dip or a reporting gap. A week MEM can't place says nothing about seasons.
+        phase = None
+        if level is not None:
+            phase, state = season_phase(state, week, value, thresholds[0], value >= thresholds[0])
         rows.append({"period": week, "level": level, "provisional": behind < min_seasons, "trend": trend,
-                     "growth_rate": None, "growth_lower": None, "growth_upper": None, "phase": None})
+                     "growth_rate": None, "growth_lower": None, "growth_upper": None, "phase": phase})
         if thresholds is not NO_BANDS:
             bounds.append((week, thresholds))
             fitted_weeks += 1
         graded += level is not None
-    return SeriesResult(rows, bounds, SeasonState(), graded, fitted_weeks)
+    return SeriesResult(rows, bounds, state, graded, fitted_weeks)

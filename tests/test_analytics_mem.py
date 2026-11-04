@@ -2,6 +2,7 @@ import math
 
 from health_signal.analytics.backend import FitError, MemFit
 from health_signal.analytics.mem_engine import assess_mem_series
+from health_signal.analytics.rules import SeasonState
 from health_signal.analytics.series import Series
 from analytics_support import weeks
 
@@ -32,7 +33,8 @@ def _seasons(n, start=2015, value=1.0):
 
 
 def _grade(series, weeks_, mem, **kw):
-    return assess_mem_series(series, weeks_, mem, **{"start_week": 40, "seasons": 5, "min_seasons": 3, **kw})
+    return assess_mem_series(series, weeks_, mem, **{"start_week": 40, "seasons": 5, "min_seasons": 3,
+                                                     "state": SeasonState(), **kw})
 
 
 def test_a_seasons_thresholds_come_from_the_seasons_before_it_and_hold_all_season():
@@ -59,7 +61,7 @@ def test_levels_and_trends_follow_the_fit():
     assert [(r["level"], r["trend"]) for r in rows] == [
         ("baseline", "not_assessed"), ("low", "increasing"), ("medium", "increasing"), ("low", "decreasing"),
         ("baseline", "decreasing")]
-    assert all(r["phase"] is None and r["growth_rate"] is None for r in rows)
+    assert all(r["growth_rate"] is None for r in rows)
 
 
 def test_a_gap_before_the_week_leaves_its_trend_unassessed():
@@ -123,3 +125,20 @@ def test_thresholds_that_dont_rise_still_grade_as_mem_does():
     result = _grade(_series(periods + tail, values + [35, 50]), tail, CrossedMem())
     assert [r["level"] for r in result.rows] == ["baseline", "medium"]
     assert result.bounds[0][1] == (44.8, 44.8, 253.0, 683.0)   # drawn as MEM grades: no low band left
+
+
+def test_a_series_is_in_season_while_at_or_above_the_epidemic_threshold():
+    # Bridging a one-week dip, as aedseo's seasons do; the state carries across runs.
+    periods, values = _seasons(4)
+    tail = ["2019-W40", "2019-W41", "2019-W42", "2019-W43", "2019-W44", "2019-W45"]
+    result = _grade(_series(periods + tail, values + [5, 12, 30, 8, 15, 4]), tail, FakeMem())
+    assert [r["phase"] for r in result.rows] == ["out_of_season", "in_season", "in_season", "in_season", "in_season",
+                                                 "in_season"]
+    assert result.state.in_season
+
+
+def test_an_unfitted_week_has_no_phase_and_keeps_the_state():
+    periods, values = _seasons(1)
+    state = SeasonState(True, 0, "2016-W39")
+    result = _grade(_series(periods + ["2016-W40"], values + [30]), ["2016-W40"], FakeMem(fails=True), state=state)
+    assert result.rows[0]["phase"] is None and result.state == state

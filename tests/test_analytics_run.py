@@ -6,7 +6,7 @@ from health_signal.analytics import assess
 from health_signal.analytics.backend import BackendError
 from health_signal.analytics.store import SettingsChanged, lock_assessments
 from health_signal.assessments import AssessmentSource, PhaseSource, PhaseStreamSource
-from health_signal.config import Config
+from health_signal.config import Config, PhaseStreamsEntry
 from health_signal.profile import ERVISS
 from health_signal.analytics.run import graded_series
 from health_signal.analytics.series import Series
@@ -436,3 +436,16 @@ def test_a_serial_run_builds_one_backend_per_method(tmp_path):
 
     assess(_config(tmp_path), backend=Counted)
     assert built == ["aedseo"]   # it reads the version and fits every series: R's packages load once
+
+
+def test_mem_phases_a_pathogen_from_its_two_streams(tmp_path):
+    entry = {"pathogen": "Influenza", "location": "Greece", "method": "mem",
+             "streams": {"cases": "clinical/ili", "admissions": "clinical/sari"}}
+    cfg = _config(tmp_path, analytics={"methods": ["aedseo", "mem"]})
+    cfg = cfg.model_copy(update={"analytics": cfg.analytics.model_copy(
+        update={"phase_streams": [*cfg.analytics.phase_streams, PhaseStreamsEntry(**entry)]})})
+    _long_feed(tmp_path)
+    assess(cfg, backend=_BOTH)
+    phases = PhaseSource(tmp_path / "phase.csv").phases()
+    assert {p.method for p in phases} == {"aedseo", "mem"}
+    assert {p.phase for p in phases if p.method == "mem"} <= {"in_season", "out_of_season"}

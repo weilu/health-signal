@@ -146,10 +146,11 @@ def _mem_part(config, version, chosen, stores, profiles):
     options = dict(start_week=mem.season_start_week, seasons=mem.seasons, min_seasons=config.analytics.min_seasons)
     jobs = []
     for s in chosen:
-        last = stores[s.feed].resume_week(s, method)
+        store = stores[s.feed]
+        last = store.resume_week(s, method)
         weeks = [p for p in s.periods if last is None or p > last]
         if weeks:
-            jobs.append(_Job(method, assess_mem_series, s, weeks, options))
+            jobs.append(_Job(method, assess_mem_series, s, weeks, {**options, "state": store.resume(s, method)}))
     return feed_settings, jobs
 
 
@@ -227,7 +228,7 @@ def _assess(config: Config, full: bool | str, jobs: int, backends: dict[str, Cal
     files = {}
     for feed, store in stores.items():
         files |= store.files(feed_settings[feed])
-    with_phases = AEDSEO.name in config.analytics.methods and config.analytics.phase_streams
+    with_phases = bool(config.analytics.phase_streams)
     phase_files, check_phases = _phase_files(config, refs, stores, profiles) if with_phases else ({}, None)
     files |= phase_files
 
