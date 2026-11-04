@@ -133,7 +133,12 @@
       "season": "Season status",
       "waves": "Wave status"
     },
-    "streamTitle": "{{role}} · measured by {{indicator}}"
+    "streamTitle": "{{role}} · measured by {{indicator}}",
+    "undetermined": {
+      "season": "No season",
+      "waves": "No wave"
+    },
+    "undeterminedNote": "Not determined until both its streams have grades"
   },
   "role": {
     "cases": "Community spread",

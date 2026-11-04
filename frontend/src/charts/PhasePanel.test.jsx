@@ -30,12 +30,12 @@ const PHASES = [{ location: 'Greece', pathogen: 'Influenza', period: '2026-W10',
 const STREAM = { location: 'Greece', pathogen: 'Influenza', method: 'aedseo', role: 'cases', feed: 'clinical',
   series: { indicator: 'ILIconsultationrate' } }
 
-function renderPanel(location = { value: 'Greece' }, range = { from: '2026-W09', to: '2026-W10' }) {
+function renderPanel(location = { value: 'Greece' }, range = { from: '2026-W09', to: '2026-W10' }, panel = { id: 'phase', label_key: 'panels.phase' }) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={client}>
       <MemoryRouter>
-        <PhasePanel panel={{ id: 'phase', label_key: 'panels.phase' }} target={{ id: 'Influenza', pages: [] }}
+        <PhasePanel panel={panel} target={{ id: 'Influenza', pages: [] }}
           location={location} range={range} latest={range ? '2026-W10' : null} />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -43,6 +43,22 @@ function renderPanel(location = { value: 'Greece' }, range = { from: '2026-W09',
 }
 
 describe('PhasePanel', () => {
+  it("still charts its streams when the pathogen's phase isn't determined yet, and says so", async () => {
+    // One stream graded, the other not yet: no pathogen phase, but its evidence is still worth showing.
+    fetchConfig.mockResolvedValue({ methods: METHOD })
+    fetchPhases.mockResolvedValue([])
+    fetchPhaseStreams.mockResolvedValue([STREAM, { ...STREAM, role: 'admissions', series: { indicator: 'hospitaladmissions' } }])
+    fetchData.mockImplementation(({ indicator }) => Promise.resolve([
+      { location: 'Greece', period: '2026-W10', indicator, value: 5, unit: 'per_100k', dimensions: {} }]))
+    renderPanel(undefined, undefined, { id: 'phase', label_key: 'panels.phase', pattern: 'waves' })
+    expect(await screen.findByText('phase.undetermined.waves')).toBeTruthy()
+    expect(screen.queryByText('phase.none')).toBeNull()
+    // Both streams drawn (a chart may render more than once).
+    await vi.waitFor(() => expect(fetchData.mock.calls.map(([q]) => q.indicator).sort()).toEqual(['ILIconsultationrate', 'hospitaladmissions']))
+    await vi.waitFor(() => expect(charted.length).toBeGreaterThanOrEqual(2))
+  })
+
+
   it('waits for the stream lookup instead of showing a stream-less phase', async () => {
     fetchConfig.mockResolvedValue({ methods: METHOD })
     fetchPhases.mockResolvedValue(PHASES)

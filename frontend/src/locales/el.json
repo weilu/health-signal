@@ -133,7 +133,12 @@
       "season": "Κατάσταση περιόδου",
       "waves": "Κατάσταση κύματος"
     },
-    "streamTitle": "{{role}} · δείκτης: {{indicator}}"
+    "streamTitle": "{{role}} · δείκτης: {{indicator}}",
+    "undetermined": {
+      "season": "Χωρίς περίοδο",
+      "waves": "Χωρίς κύμα"
+    },
+    "undeterminedNote": "Δεν προσδιορίζεται μέχρι να βαθμολογηθούν και οι δύο ροές του"
   },
   "role": {
     "cases": "Διασπορά στην κοινότητα",

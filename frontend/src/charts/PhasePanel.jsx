@@ -73,12 +73,20 @@ export function PhasePanel({ panel, target, location, range, latest }) {
   const span = range ?? (rows.length ? { from: rows.reduce((m, r) => (r.period < m ? r.period : m), rows[0].period),
                                           to: rows.reduce((m, r) => (r.period > m ? r.period : m), rows[0].period) } : null)
   const pick = rows.length && span ? pickInRange(rows, span, latest ?? span.to) : null
-  // The rule in the terms of the pathogen's own pattern: seasons or year-round waves, read off its phase codes.
-  const pattern = rows.some((r) => r.phase === 'in_wave' || r.phase === 'between_waves') ? 'waves' : 'season'
+  // The rule in the terms of the pathogen's own pattern: seasons or year-round waves, read off its phase codes, or
+  // the config's before there are any.
+  const pattern = rows.length ? (rows.some((r) => r.phase === 'in_wave' || r.phase === 'between_waves') ? 'waves' : 'season')
+    : panel.pattern ?? 'season'
   const title = chartTitle(t, panel, target, location)
   const rule = method && t(`methods.${method.name}.phase_rule.${pattern}`, { defaultValue: '' })
+  // Streams with no phase yet (one not graded): their charts still say something, the tile says why there's no phase.
+  const undetermined = phases.data && !rows.length && streams.data?.length
   // Without a location filter, several locations' phases can share a week; none of them is "the" phase.
-  const tile = pick && (pick.ambiguous ? (
+  const tile = undetermined ? (
+    <Tile title={t(`phase.title.${pattern}`)} current note={t('phase.undeterminedNote')}>
+      <Typography variant="h5" component="p">{t(`phase.undetermined.${pattern}`)}</Typography>
+    </Tile>
+  ) : pick && (pick.ambiguous ? (
     <Tile title={t(`phase.title.${pattern}`)} current>
       <Typography variant="body1" component="p">{t('phase.ambiguous')}</Typography>
     </Tile>
@@ -95,11 +103,10 @@ export function PhasePanel({ panel, target, location, range, latest }) {
       <Typography variant="h6" component="h2" sx={{ mb: 1 }}>{title}</Typography>
       <ResourceBoundary query={phases}>
         {(loaded) => {
-          if (!loaded.length) return <Typography color="text.secondary">{t('phase.none')}</Typography>
           // A declared or stream-less phase has no evidence to chart; the card keeps just the rule text.
           return (
             <ResourceBoundary query={streams}>
-              {(list) => (
+              {(list) => !loaded.length && !list.length ? <Typography color="text.secondary">{t('phase.none')}</Typography> : (
                 <AlignedCharts>
                   <Stack spacing={2}>
                     {list.map((s) => (

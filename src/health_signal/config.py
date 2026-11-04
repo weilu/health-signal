@@ -511,7 +511,10 @@ class Config(BaseModel):
         keys = {p.id: key for p in page.panels if p.query and (key := self._canonical_query(p.query))}
         path = page_path(target.id, page.id)
         return {**page.model_dump(mode="json"), "path": path, "public": self.site.opens(path),
-                "panels": [{**self._client_panel(x, shared, keys), "methods": self._grading(target, x, keys.get(x.id), shared, refs)}
+                "panels": [{**self._client_panel(x, shared, keys), "methods": self._grading(target, x, keys.get(x.id), shared, refs),
+                            # Before there's a phase to read it from, the tile still names seasons or waves.
+                            **({"pattern": "waves" if target.id in self.analytics.wave_pathogens else "season"}
+                               if x.type == "phase" else {})}
                            for x in page.panels]}
 
     def _grading(self, target: Target, panel: Panel, key: tuple | None, shared: dict[tuple, list[str]],

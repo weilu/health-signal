@@ -576,6 +576,8 @@ def test_a_phase_panel_is_graded_by_the_methods_that_phase_its_pathogen():
     both = with_overview([_STREAMS, {**_STREAMS, "method": "mem"}]).client_config()
     assert _panel(both, "phase")["methods"] == ["aedseo", "mem"]
     assert _panel(with_overview([_STREAMS]).client_config(), "phase")["methods"] == ["aedseo"]
+    # Whether the pathogen has seasons or waves, for the tile to name before there's any phase to read it from.
+    assert _panel(both, "phase")["pattern"] == "season"
 
 
 def _panel(client, panel_id):
