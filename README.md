@@ -220,7 +220,9 @@ Vega et al.), as ERVISS uses it for ILI/ARI: each season's epidemic and intensit
 `analytics.mem.seasons` (default 5) complete seasons before it, in MEM's own window starting at
 `analytics.mem.season_start_week` (default 40), and stay fixed for the season. Its levels are baseline, low, medium,
 high and very high; its trend compares each week with the last, and isn't assessed below the epidemic threshold.
-MEM assumes one epidemic a season and sets no phases, so it leaves out series graded in waves. Each method grades
+MEM assumes one epidemic a season, so it leaves out series graded in waves; a pathogen's MEM season pairs two streams
+as aedseo's does (`analytics.phase_streams` entries with `method: mem`), each in an epidemic from the week it
+reaches its epidemic threshold. Each method grades
 every single-series panel unless it lists some, as `"<target>/<page>/<panel>"`:
 
 ```yaml

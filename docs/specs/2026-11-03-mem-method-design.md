@@ -39,9 +39,6 @@ This is also the last piece before health-signal's first release, which greece-p
 
 ## Non-goals
 
-- A MEM season flag. MEM grades each indicator on its own; with MEM selected, the Overview shows only the summary
-  table, with no Key signals (season/wave) section and no in-season shading on charts. Pathogen-level phases stay
-  aedseo's, under SSI's two-stream rule (which is health-signal's, not aedseo's).
 - MEM for pathogens graded as waves (COVID-19): MEM assumes one epidemic per season.
 - memapp, `memsurveillance` graphs, or any of `mem`'s plots.
 - Fetching ERVISS's or EODY's own thresholds: MEM is computed here, and checked against theirs.
@@ -63,7 +60,10 @@ This is also the last piece before health-signal's first release, which greece-p
 4. **Below the epidemic threshold, MEM's trend reads "Not assessed"** (Greek «Δεν αξιολογείται»), with the tile's
    footer saying MEM assesses trend only during an epidemic. The first week above the threshold (ascending) and the
    first week back below it (descending) still show.
-5. **No Key signals for MEM**: the Overview shows the summary table only.
+5. **MEM seasons for influenza and RSV** *(revised 2026-11-04; first decided: no Key signals for MEM)*: a pathogen's
+   MEM season pairs the same two streams as aedseo's, community spread and hospital admissions. COVID-19 stays
+   aedseo-only, and the MEM methodology page names the pathogens MEM doesn't grade. Admissions start at 2025-W44, so
+   MEM can't grade them, nor set these seasons, before 2027/28; accepted.
 6. **MEM keeps its own season window**, so it can match ERVISS: `analytics.mem.season_start_week`, which Greece sets
    to 25 (ERVISS lays out Greece's seasons as W25→W24). aedseo keeps the dashboard's surveillance year (W21 for
    Greece).
@@ -151,7 +151,7 @@ grade it.
 - **Indicators the selected method doesn't grade:** the tiles read "Not graded with MEM" (or the selected method's
   name), and the chart has no level shading.
 - **Chart shading:** the selected method's thresholds. With MEM selected, no in-season or wave bands.
-- **Overview:** with MEM selected, the summary table only; the Key signals section is hidden.
+- **Overview:** with MEM selected, Key signals show for the pathogens MEM phases (influenza, RSV), not for COVID-19.
 - **Text:** new labels in English and Greek: the selector, MEM's level "baseline" («Βασικό επίπεδο»), "Not assessed",
   "Not graded with {{method}}", the MEM trend footer.
 

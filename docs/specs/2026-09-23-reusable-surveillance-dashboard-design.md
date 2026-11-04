@@ -367,7 +367,8 @@ choices and the data-dependent wave segmentation, each in one place:
   `panels` (e.g. `analytics.mem.panels`) optionally limits it to those `"<target>/<page>/<panel>"`, otherwise it
   grades every single-series panel. `assess --full --method NAME` recomputes one method's tables.
 - `analytics.mem` (`season_start_week` default 40, `seasons` default 5) — MEM's own season window and how many
-  past seasons set each season's thresholds, fixed for that season; MEM sets no phases and leaves out series
+  past seasons set each season's thresholds, fixed for that season; a stream is in MEM's season from the week it
+  reaches its epidemic threshold, paired by `phase_streams` entries with `method: mem`; MEM leaves out series
   graded in waves.
 - `analytics.phase_streams` — the inputs of a method's pathogen-level phase (below).
 
@@ -664,8 +665,8 @@ precedence over client-side routes.
   (`?lang=&location=&from=&to=`), and the page posts its height so the tab scrolls as one page.
 - **Method filter.** With `analytics.methods` naming more than one method, a Method select sits after the date range
   (`?method=`, kept by tab links; an unknown value reads as the first method). Tiles, level bands and the Overview
-  follow it; a panel the selected method doesn't grade says so, and a method without phases (MEM) shows no Key
-  signals. The Methodology page shows the selected method's page.
+  follow it; a panel the selected method doesn't grade says so, and Key signals show only where the selected method
+  phases the pathogen (MEM not for COVID-19, graded in waves). The Methodology page shows the selected method's page.
 - **Under a mount path.** Behind a proxy that serves the app below a path (Posit Connect's `/content/<guid>/`), the
   server's redirects keep that path, and the SPA resolves its requests and routes against the `<base href>` the
   server injects, so nothing escapes to the host's own routes.

@@ -76,10 +76,13 @@ analytics:
   methods: [aedseo, mem]
   aedseo:
     wave_end: { steps_with_decrease: 3, burden_level_decrease: medium }
-  # MEM on ILI, as ERVISS grades Greece's: its seasons laid out W25-W24, thresholds from the five before each.
+  # MEM on ILI, as ERVISS grades Greece's (seasons laid out W25-W24, thresholds from the five before each), and on
+  # influenza's and RSV's season streams. COVID circulates in waves, which MEM doesn't model. MEM needs two complete
+  # seasons, so admissions (from 2025-W44) give influenza and RSV no MEM season until 2027/28.
   mem:
     season_start_week: 25
-    panels: [Influenza/clinical/ili_rate]
+    panels: [Influenza/clinical/ili_rate, Influenza/clinical/sentinel_positivity, Influenza/clinical/hospital_admissions,
+             RSV/clinical/sari_positivity, RSV/clinical/hospital_admissions]
   phase_streams:
     - pathogen: SARS-CoV-2
       location: Greece
@@ -96,6 +99,13 @@ analytics:
     - pathogen: RSV
       location: Attica
       streams: { cases: clinical/sari_positivity, admissions: clinical/hospital_admissions }
+    # MEM's seasons pair the same streams.
+    - { pathogen: Influenza, location: Greece, method: mem,
+        streams: { cases: clinical/sentinel_positivity, admissions: clinical/hospital_admissions } }
+    - { pathogen: RSV, location: Greece, method: mem,
+        streams: { cases: clinical/sari_positivity, admissions: clinical/hospital_admissions } }
+    - { pathogen: RSV, location: Attica, method: mem,
+        streams: { cases: clinical/sari_positivity, admissions: clinical/hospital_admissions } }
 
 # Wastewater pages show the flow- and population-normalised load (floMean, gene copies/day per 100k)
 # per PHES-ODM measure (generic codes until assay targets are pinned), on a log axis: loads span orders of
