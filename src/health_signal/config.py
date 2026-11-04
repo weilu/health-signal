@@ -499,21 +499,23 @@ class Config(BaseModel):
         dims = self.profile(feed.profile).canonical(query.indicator, query.dimensions)
         return query.feed, query.indicator, tuple(sorted(dims.items()))
 
-    def _client_page(self, target: Target, page: Page, shared: dict[tuple, list[str]]) -> dict:
+    def _client_page(self, target: Target, page: Page, shared: dict[tuple, list[str]], refs: dict[tuple, set[str]]) -> dict:
         keys = {p.id: key for p in page.panels if p.query and (key := self._canonical_query(p.query))}
         path = page_path(target.id, page.id)
         return {**page.model_dump(mode="json"), "path": path, "public": self.site.opens(path),
-                "panels": [{**self._client_panel(x, shared, keys), "methods": self._grading(target, page, x)}
+                "panels": [{**self._client_panel(x, shared, keys), "methods": self._grading(x, keys.get(x.id), shared, refs)}
                            for x in page.panels]}
 
-    def _grading(self, target: Target, page: Page, panel: Panel) -> list[str]:
-        # The methods that grade this panel, so the browser can say "not graded with" rather than show another's grade.
-        if panel.query is None or panel.series_by is not None:
+    def _grading(self, panel: Panel, key: tuple | None, shared: dict[tuple, list[str]],
+                 refs: dict[tuple, set[str]]) -> list[str]:
+        # The methods that grade this panel's series, so the browser can say "not graded with" rather than show another's
+        # grade. Per series, as assess grades: listed on one tab, a series is graded on every tab showing it, and it's
+        # graded in waves only if every tab showing it is a wave pathogen's.
+        if key is None or panel.series_by is not None:
             return []
-        ref = f"{target.id}/{page.id}/{panel.id}"
-        waves = target.id in self.analytics.wave_pathogens
+        waves = all(t in self.analytics.wave_pathogens for t in shared[key])
         return [m for m in self.analytics.methods
-                if (self.method_panels(m) is None or ref in self.method_panels(m)) and (METHODS[m].phases or not waves)]
+                if (self.method_panels(m) is None or self.method_panels(m) & refs[key]) and (METHODS[m].phases or not waves)]
 
     def _client_panel(self, panel: Panel, shared: dict[tuple, list[str]], page_keys: dict[str, tuple]) -> dict:
         out = panel.model_dump(mode="json")
@@ -553,17 +555,20 @@ class Config(BaseModel):
     def client_config(self) -> dict:
         # Full view-model (authenticated); still excludes server-only fields.
         shared: dict[tuple, list[str]] = {}
+        refs: dict[tuple, set[str]] = {}   # every panel showing a series, for the methods' allowlists
         for t in self.targets:
             for page in t.pages:
                 for panel in page.panels:
                     key = self._canonical_query(panel.query) if panel.query else None
                     if key is not None and t.id not in shared.setdefault(key, []):
                         shared[key].append(t.id)
+                    if key is not None and panel.series_by is None:
+                        refs.setdefault(key, set()).add(f"{t.id}/{page.id}/{panel.id}")
         return {
             **self.bootstrap_config(),
             "targets": [
                 {**t.model_dump(mode="json"),
-                 "pages": [self._client_page(t, p, shared) for p in t.pages]}
+                 "pages": [self._client_page(t, p, shared, refs) for p in t.pages]}
                 for t in self.targets
             ],
             # The client keeps reading the year start beside the range settings it shapes.

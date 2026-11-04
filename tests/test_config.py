@@ -536,9 +536,23 @@ def test_the_browser_gets_the_graded_methods_and_which_grade_each_panel():
     assert panels == {"ili": ["mem", "aedseo"], "split": []}
 
 
-def test_mem_doesnt_grade_a_panel_on_a_wave_pathogens_tab():
+def test_mem_doesnt_grade_a_series_only_a_wave_pathogens_tab_shows():
     ili = {"feed": "clinical", "indicator": "ILIconsultationrate",
            "dimensions": {"survtype": "primary care syndromic", "age": "total"}}
     c = Config(schema_version="1", site=SiteConfig(title="T"), data=_FEEDS, analytics={"methods": ["aedseo", "mem"]},
                targets=[Target(id="SARS-CoV-2", pages=[Page(id="c", panels=[Panel(id="ili", query=ili)])])]).client_config()
     assert c["targets"][0]["pages"][0]["panels"][0]["methods"] == ["aedseo"]
+
+
+def test_every_tab_showing_a_graded_series_shows_its_grade():
+    # Grading is per series: ILI listed on the influenza tab is the same series on the COVID tab, and it isn't graded in
+    # waves while a seasonal tab shows it.
+    ili = {"feed": "clinical", "indicator": "ILIconsultationrate",
+           "dimensions": {"survtype": "primary care syndromic", "age": "total"}}
+    adm = {"feed": "clinical", "indicator": "hospitaladmissions", "dimensions": {"pathogen": "SARS-CoV-2"}}
+    targets = [Target(id="SARS-CoV-2", pages=[Page(id="c", panels=[Panel(id="ili", query=ili), Panel(id="adm", query=adm)])]),
+               Target(id="Influenza", pages=[Page(id="c", panels=[Panel(id="ili", query=ili)])])]
+    for analytics in ({"methods": ["aedseo", "mem"], "mem": {"panels": ["Influenza/c/ili"]}}, {"methods": ["aedseo", "mem"]}):
+        c = Config(schema_version="1", site=SiteConfig(title="T"), data=_FEEDS, analytics=analytics, targets=targets).client_config()
+        covid = {p["id"]: p["methods"] for p in c["targets"][0]["pages"][0]["panels"]}
+        assert covid == {"ili": ["aedseo", "mem"], "adm": ["aedseo"]}
