@@ -566,3 +566,17 @@ def test_every_tab_showing_a_graded_series_shows_its_grade():
         c = Config(schema_version="1", site=SiteConfig(title="T"), data=_FEEDS, analytics=analytics, targets=targets).client_config()
         covid = {p["id"]: p["methods"] for p in c["targets"][0]["pages"][0]["panels"]}
         assert covid == {"ili": ["aedseo", "mem"], "adm": ["aedseo"]}
+
+
+def test_a_phase_panel_is_graded_by_the_methods_that_phase_its_pathogen():
+    def with_overview(streams):
+        cfg = _analytics_cfg({"methods": ["aedseo", "mem"], "phase_streams": streams})
+        return cfg.model_copy(update={"targets": [Target(id="Influenza", pages=[
+            *cfg.targets[0].pages, Page(id="overview", panels=[Panel(id="phase", type="phase")])])]})
+    both = with_overview([_STREAMS, {**_STREAMS, "method": "mem"}]).client_config()
+    assert _panel(both, "phase")["methods"] == ["aedseo", "mem"]
+    assert _panel(with_overview([_STREAMS]).client_config(), "phase")["methods"] == ["aedseo"]
+
+
+def _panel(client, panel_id):
+    return next(p for t in client["targets"] for page in t["pages"] for p in page["panels"] if p["id"] == panel_id)

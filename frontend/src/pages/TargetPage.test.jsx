@@ -35,12 +35,12 @@ it("shows an embedding page's own page in a frame, with the selected location", 
   expect(src.searchParams.get('location')).toBe('Attica')
 })
 
-it("hides the Key signals section under a method without phases", () => {
-  const overview = { id: 'overview', panels: [{ id: 'phase', type: 'phase' }, { id: 'summary', type: 'summary' }] }
-  render(<TargetPage target={{ id: 'Influenza' }} page={overview} />)
+it("shows Key signals only under a method that phases the pathogen", () => {
+  const overview = (methods) => ({ id: 'overview', panels: [{ id: 'phase', type: 'phase', methods }, { id: 'summary', type: 'summary' }] })
+  selected.method = { name: 'mem', phases: ['in_season'] }
+  render(<TargetPage target={{ id: 'Influenza' }} page={overview(['aedseo', 'mem'])} />)
   expect(screen.queryByText('key signals')).toBeTruthy()
   cleanup()
-  selected.method = { name: 'mem', phases: [] }
-  render(<TargetPage target={{ id: 'Influenza' }} page={overview} />)
+  render(<TargetPage target={{ id: 'SARS-CoV-2' }} page={overview(['aedseo'])} />)
   expect(screen.queryByText('key signals')).toBeNull()
 })

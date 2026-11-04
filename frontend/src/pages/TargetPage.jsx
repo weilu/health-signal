@@ -22,8 +22,8 @@ export default function TargetPage({ target, page, location, range, latest }) {
   if (!page.panels.length) return <Typography color="text.secondary">{t('page.noPanels')}</Typography>
   return (
     <Stack spacing={5}>
-      {/* A method without phases has no Key signals to show. */}
-      {groupPanels(t, page.panels.filter((p) => p.type !== 'phase' || method?.phases?.length !== 0)).map(({ key, heading, items }) => (
+      {/* Key signals only where the selected method phases this pathogen (MEM doesn't phase one in waves). */}
+      {groupPanels(t, page.panels.filter((p) => p.type !== 'phase' || !p.methods || p.methods.includes(method?.name))).map(({ key, heading, items }) => (
         <Stack key={key} component="section" spacing={3} aria-label={heading && [heading.source, heading.kind].filter(Boolean).join(' · ')}>
           {heading && (
             <Stack direction={{ xs: 'column', md: 'row' }} sx={{ columnGap: 1.5, alignItems: { md: 'baseline' } }}>

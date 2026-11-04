@@ -175,12 +175,18 @@
       "name": "MEM",
       "sources": {
         "status": "MEM intensity levels",
-        "trend": "MEM's week-on-week change"
+        "trend": "MEM's week-on-week change",
+        "phase": {
+          "season": "MEM epidemic threshold"
+        }
       },
       "trend": {
         "not_assessed": "Not assessed: below MEM's epidemic threshold"
       },
-      "trend_note": "MEM assesses trend only during an epidemic"
+      "trend_note": "MEM assesses trend only during an epidemic",
+      "phase_rule": {
+        "season": "In season while both its streams, community spread and health-system load, are in an epidemic by MEM. A stream enters one in the week it reaches its epidemic threshold, and stays until it falls back below it."
+      }
     }
   },
   "dimensions": {

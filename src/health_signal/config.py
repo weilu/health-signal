@@ -511,14 +511,17 @@ class Config(BaseModel):
         keys = {p.id: key for p in page.panels if p.query and (key := self._canonical_query(p.query))}
         path = page_path(target.id, page.id)
         return {**page.model_dump(mode="json"), "path": path, "public": self.site.opens(path),
-                "panels": [{**self._client_panel(x, shared, keys), "methods": self._grading(x, keys.get(x.id), shared, refs)}
+                "panels": [{**self._client_panel(x, shared, keys), "methods": self._grading(target, x, keys.get(x.id), shared, refs)}
                            for x in page.panels]}
 
-    def _grading(self, panel: Panel, key: tuple | None, shared: dict[tuple, list[str]],
+    def _grading(self, target: Target, panel: Panel, key: tuple | None, shared: dict[tuple, list[str]],
                  refs: dict[tuple, set[str]]) -> list[str]:
         # The methods that grade this panel's series, so the browser can say "not graded with" rather than show another's
         # grade. Per series, as assess grades: listed on one tab, a series is graded on every tab showing it, and it's
         # graded in waves only if every tab showing it is a wave pathogen's.
+        if panel.type == "phase":   # the methods with a season or wave for this pathogen
+            phased = {e.method for e in self.analytics.phase_streams if e.pathogen == target.id}
+            return [m for m in self.analytics.methods if m in phased]
         if key is None or panel.series_by is not None:
             return []
         waves = all(t in self.analytics.wave_pathogens for t in shared[key])
