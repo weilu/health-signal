@@ -582,3 +582,10 @@ def test_a_phase_panel_is_graded_by_the_methods_that_phase_its_pathogen():
 
 def _panel(client, panel_id):
     return next(p for t in client["targets"] for page in t["pages"] for p in page["panels"] if p["id"] == panel_id)
+
+
+def test_a_split_chart_can_start_with_some_lines_shown():
+    q = {"feed": "clinical", "indicator": "positivity", "dimensions": {"pathogen": "Influenza"}}
+    assert Panel(id="p", query=q, series_by="age", series_shown=["65+"]).series_shown == ["65+"]
+    with pytest.raises(ValidationError, match="series_shown"):
+        Panel(id="p", query=q, series_shown=["65+"])   # nothing to choose between without series_by

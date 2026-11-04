@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { fetchAssessments, fetchConfig, fetchData, fetchThresholds } from '../api.js'
@@ -9,7 +9,7 @@ import { TimeSeriesPanel } from './TimeSeriesPanel.jsx'
 // The chart draws on a canvas; its props are what the panel decides.
 const charted = []
 vi.mock('./TimeSeriesChart.jsx', () => ({ TimeSeriesChart: (props) => { charted.push(props); return null },
-                                          useChartPalette: () => ['#000'] }))
+                                          useChartPalette: () => ['#000', '#111', '#222'] }))
 
 vi.mock('../api.js', () => ({ fetchAssessments: vi.fn(), fetchConfig: vi.fn(), fetchData: vi.fn(), fetchThresholds: vi.fn() }))
 afterEach(() => { cleanup(); vi.resetAllMocks(); charted.length = 0 })
@@ -112,5 +112,24 @@ describe('TimeSeriesPanel under a method that does not grade it', () => {
     expect(await screen.findByText('assessment.notGradedWith')).toBeTruthy()
     expect(fetchAssessments).not.toHaveBeenCalled()
     expect(charted.every((c) => !c.bands)).toBe(true)
+  })
+})
+
+describe('TimeSeriesPanel lines a reader can turn on and off', () => {
+  const SPLIT = { id: 'by_age', type: 'timeseries', label_key: 'panels.by_age', series_by: 'age', series_shown: ['80+'],
+                  query: { feed: 'clinical', indicator: 'vaccinedoses', dimensions: {} } }
+  const row = (age, value) => ({ location: 'Greece', period: '2026-W10', indicator: 'vaccinedoses', value, unit: 'count',
+                                 dimensions: { age } })
+
+  it('starts with the configured lines, and toggles the others', async () => {
+    fetchConfig.mockResolvedValue({ methods: METHOD })
+    fetchData.mockResolvedValue([row('18-24', 5), row('80+', 9)])
+    renderPanel({ value: 'Greece' }, SPLIT)
+    const chips = await screen.findAllByRole('button', { pressed: false })
+    expect(chips).toHaveLength(1)
+    expect(screen.getAllByRole('button', { pressed: true })).toHaveLength(1)
+    expect([...charted.at(-1).hidden]).toEqual(['18-24'])
+    fireEvent.click(chips[0])
+    await vi.waitFor(() => expect([...charted.at(-1).hidden]).toEqual([]))
   })
 })

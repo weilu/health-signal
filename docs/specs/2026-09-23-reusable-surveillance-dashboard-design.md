@@ -146,7 +146,8 @@ every panel names the one it reads.
 Pages declare **panels** in config — a `type` (default `timeseries`; later kinds such as status tiles or
 stacked bars are stated explicitly), a `query` (a required `feed`, an `indicator`
 plus a `dimensions: {name: value}` map of profile-dimension filters, which should match one row per
-series per week) and an optional `series_by` dimension that splits it into lines. The map keeps the
+series per week) and an optional `series_by` dimension that splits it into lines (readers toggle each; an optional
+`series_shown` names those shown at first). The map keeps the
 config shape profile-agnostic: a wastewater profile's dimensions need no new fields. Each panel is
 validated at load against its feed's profile, so a typo fails before the app serves.
 **Location and the date range are dashboard-wide filters, not panel settings:**

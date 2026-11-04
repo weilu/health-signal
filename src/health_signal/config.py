@@ -81,6 +81,8 @@ class Panel(BaseModel):
     type: Literal["timeseries", "phase", "summary"] = "timeseries"  # phase and summary build the Overview
     query: PanelQuery | None = None
     series_by: str | None = None  # one line per value of this dimension
+    # The lines shown at first, by series_by value; readers turn the others on. None = every line.
+    series_shown: list[str] | None = None
     # Log for values spanning orders of magnitude (wastewater loads), where linear flattens all but the peaks.
     y_scale: Literal["linear", "log"] = "linear"
 
@@ -92,6 +94,8 @@ class Panel(BaseModel):
         if self.type != "timeseries" and (self.query is not None or self.series_by is not None
                                           or self.y_scale != "linear"):
             raise ValueError(f"panel {self.id!r}: a {self.type} panel takes no query, series_by or y_scale")
+        if self.series_shown is not None and self.series_by is None:
+            raise ValueError(f"panel {self.id!r}: series_shown picks among series_by's lines, and it has no series_by")
         return self
 
     @computed_field

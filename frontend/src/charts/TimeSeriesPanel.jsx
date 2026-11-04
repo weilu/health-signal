@@ -14,12 +14,15 @@ import { chartSubtitle, chartTitle, panelLabel, seriesLabel, weekStamp } from '.
 import { panelParams } from '../filters.js'
 import { SeriesTable } from './SeriesTable.jsx'
 import { TimeSeriesChart, useChartPalette } from './TimeSeriesChart.jsx'
+import { SeriesToggles } from './SeriesToggles.jsx'
 
 export function TimeSeriesPanel({ panel, target, location, range, latest }) {
   const { t } = useTranslation()
   const palette = useChartPalette()
   const method = useMethod()
   const [asTable, setAsTable] = useState(false)
+  // Lines the reader turned on or off; until then, the config's first choice (all, or series_shown).
+  const [toggled, setToggled] = useState(null)
   const params = panelParams(panel.query, location?.value, range)
   const query = useQuery({ queryKey: ['data', params], queryFn: () => fetchData(params) })
   // Tiles describe one series, so panels split into several lines get none; nor does a panel the selected method
@@ -76,9 +79,16 @@ export function TimeSeriesPanel({ panel, target, location, range, latest }) {
           }
           const series = model.series.map((s) => ({ ...s, label: panel.series_by ? seriesLabel(t, panel.series_by, s.key) : title }))
           const unit = t(`unit.${model.unit}`, { defaultValue: model.unit })
-          return asTable
-            ? <SeriesTable periods={model.periods} series={series} unit={unit} />
-            : <TimeSeriesChart periods={model.periods} series={series} unit={unit} scale={panel.y_scale} {...chartExtras} />
+          if (asTable) return <SeriesTable periods={model.periods} series={series} unit={unit} />
+          if (series.length < 2) return <TimeSeriesChart periods={model.periods} series={series} unit={unit} scale={panel.y_scale} {...chartExtras} />
+          const hidden = toggled ?? new Set(panel.series_shown ? series.map((s) => s.key).filter((k) => !panel.series_shown.includes(k)) : [])
+          const toggle = (key) => setToggled(new Set(hidden.has(key) ? [...hidden].filter((k) => k !== key) : [...hidden, key]))
+          return (
+            <>
+              <SeriesToggles series={series} colours={palette} hidden={hidden} onToggle={toggle} />
+              <TimeSeriesChart periods={model.periods} series={series} unit={unit} scale={panel.y_scale} hidden={hidden} {...chartExtras} />
+            </>
+          )
         }}
       </ResourceBoundary>
     </Paper>
