@@ -3,10 +3,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
-import { fetchConfig, fetchData, fetchPhases, fetchPhaseStreams } from '../api.js'
+import { fetchConfig, fetchData, fetchPhases, fetchPhaseStreams, fetchThresholds } from '../api.js'
 import { PhasePanel } from './PhasePanel.jsx'
 
-vi.mock('../api.js', () => ({ fetchConfig: vi.fn(), fetchData: vi.fn(), fetchPhases: vi.fn(), fetchPhaseStreams: vi.fn() }))
+vi.mock('../api.js', () => ({ fetchConfig: vi.fn(), fetchData: vi.fn(), fetchPhases: vi.fn(), fetchPhaseStreams: vi.fn(),
+                              fetchThresholds: vi.fn() }))
 // The chart draws on a canvas; its props are what the panel decides.
 const charted = []
 // Each mock chart reports a y-axis width by its label, as a real one reports its fitted axis.
@@ -43,6 +44,22 @@ function renderPanel(location = { value: 'Greece' }, range = { from: '2026-W09',
 }
 
 describe('PhasePanel', () => {
+  it("shades each stream's chart with its levels, as its own tab does", async () => {
+    fetchConfig.mockResolvedValue({ methods: METHOD })
+    fetchPhases.mockResolvedValue(PHASES)
+    fetchPhaseStreams.mockResolvedValue([STREAM])
+    fetchData.mockResolvedValue([
+      { location: 'Greece', period: '2026-W10', indicator: 'ILIconsultationrate', value: 57, unit: 'per_100k', dimensions: {} }])
+    fetchThresholds.mockResolvedValue([
+      { location: 'Greece', indicator: 'ILIconsultationrate', method: 'aedseo', from: '2025-W21', to: '2026-W20', level: 'low',
+        lower_bound: 40, dimensions: {} }])
+    renderPanel()
+    await vi.waitFor(() => expect(charted.some((c) => c.bands?.length)).toBe(true))
+    expect(fetchThresholds).toHaveBeenCalledWith(expect.objectContaining({ indicator: 'ILIconsultationrate', method: 'aedseo' }))
+    expect(charted.find((c) => c.bands?.length).levels).toEqual(['very_low', 'low'])
+  })
+
+
   it("still charts its streams when the pathogen's phase isn't determined yet, and says so", async () => {
     // One stream graded, the other not yet: no pathogen phase, but its evidence is still worth showing.
     fetchConfig.mockResolvedValue({ methods: METHOD })
