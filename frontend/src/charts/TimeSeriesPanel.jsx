@@ -5,7 +5,7 @@ import { Alert, Button, Paper, Stack, Typography } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import { useTranslation } from 'react-i18next'
 import { fetchAssessments, fetchData, fetchThresholds } from '../api.js'
-import { activeWeeks, bandsFor, combinedState, ofSeries, pickInRange, plottedSeries, singleSeries } from '../assessments.js'
+import { bandsFor, combinedState, ofSeries, pickInRange, plottedSeries, singleSeries } from '../assessments.js'
 import { useMethod } from '../useMethod.js'
 import { StatusTrendTiles, TileGrid, TileMessage } from './StatusTrendTiles.jsx'
 import { ResourceBoundary } from '../ResourceBoundary.jsx'
@@ -35,7 +35,7 @@ export function TimeSeriesPanel({ panel, target, location, range, latest }) {
   const tParams = { ...params, method: method?.name }
   const thresholds = useQuery({ queryKey: ['thresholds', tParams], queryFn: () => fetchThresholds(tParams), enabled: single })
   // Without a location filter the lookups can hold other populations than the one plotted (e.g. Attica's
-  // history beside Greece's chart): keep only the plotted series' rows for tiles, bands and shading.
+  // history beside Greece's chart): keep only the plotted series' rows for tiles and bands.
   const plotted = plottedSeries(query.data)
   const own = (rows) => (plotted?.mixed ? [] : plotted ? (rows ?? []).filter((r) => ofSeries(r, plotted)) : rows ?? [])
   const assessedRows = own(assessed.data)
@@ -43,13 +43,10 @@ export function TimeSeriesPanel({ panel, target, location, range, latest }) {
   const pick = single && range && assessed.data && assessedRows.length ? pickInRange(assessedRows, range, latest) : null
   // Cached rows keep serving through a failed refetch; only a lookup that never loaded counts as failed.
   const lookups = single ? combinedState([assessed, thresholds]) : 'ok'
-  // Bands need no assessment history, but neither overlay may merge several series.
+  // Bands need no assessment history, but may not merge several series. Seasons and waves are shaded only on the
+  // overview's Key signals, which show the pathogen's phase rather than one indicator's.
   const overlays = single && !pick?.ambiguous && singleSeries([...assessedRows, ...thresholdRows])
-  const chartExtras = overlays ? {
-    bands: bandsFor(thresholdRows, method.levels),
-    levels: method.levels,
-    shading: activeWeeks(assessedRows, method.active_phases),
-  } : {}
+  const chartExtras = overlays ? { bands: bandsFor(thresholdRows, method.levels), levels: method.levels } : {}
   const title = panelLabel(t, panel)
   const heading = chartTitle(t, panel, target, location)
   const subtitle = chartSubtitle(t, panel, target, location)

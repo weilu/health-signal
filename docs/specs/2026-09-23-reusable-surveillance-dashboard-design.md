@@ -280,7 +280,7 @@ queries, assessments and phase streams.
     `growth_lower`, `growth_upper` (numbers or blank: the **proportional change per period**, e.g.
     `-0.2` = −20%/week; a producer converts a log-scale rate such as aedseo's with `exp(r) − 1`), and
     `phase` (the series' own phase, e.g.
-    `in_season`, or blank) — the run of active weeks is the shaded band on that series' chart. Each
+    `in_season`, or blank), from which a pathogen's phase is paired across its streams. Each
     period's row is computed **as of that period**, from data available up to it: a past week shows
     what the method said then, not a re-grade with hindsight (aedseo's thresholds and growth shift as
     data arrives). A producer may supply only recent periods (e.g. the latest); the UI handles gaps.
@@ -339,7 +339,7 @@ Greece, and the code ported from greece-public-health is audited as it moves (be
 keep is fixed here and reported back).
 
 **Which series.** The series panels show: each feed with an `assessments` dir × its single-series
-panels (no `series_by`; tiles, bands and shading appear only on those) × every location a viewer can
+panels (no `series_by`; tiles and bands appear only on those) × every location a viewer can
 select (`filters.location`'s options; every location in the feed's data when there's no location
 filter), so a feed covering all EU countries costs nothing for regions the dashboard can't show. No separate list to keep in step with the panels.
 
@@ -585,7 +585,8 @@ precedence over client-side routes.
   The tiles describe **the selected range's last week**: the latest assessment within the range,
   labelled "As of W##", styled as not-current when that week isn't the latest reporting week, and
   "No assessment in this range" when the range has none (never reaching before the range start).
-  Charts draw the method's threshold bands for spans in view and shade the series' own `phase` run.
+  Charts draw the method's threshold bands for spans in view. Only the Overview's phase panel shades a
+  season or wave run; an indicator's own chart doesn't (Nov 2026: one phase per pathogen, read in one place).
   Panel `type` adds `phase` and `summary`, which take no query and work from their target and the
   location filter; an Overview page composes them, and either can be left out. The **phase panel**
   overlays the `phase_streams` series, shaded with the pathogen-level phase, beside a tile stating

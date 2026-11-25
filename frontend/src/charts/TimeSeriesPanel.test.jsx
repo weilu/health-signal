@@ -53,7 +53,7 @@ describe('TimeSeriesPanel assessments', () => {
     expect(await screen.findByText('login page')).toBeTruthy()
   })
 
-  it("uses only the plotted series' rows for tiles, bands and shading", async () => {
+  it("uses only the plotted series' rows for tiles and bands", async () => {
     // No location filter: Greece is plotted, but the lookups also hold Attica.
     fetchConfig.mockResolvedValue({ methods: METHOD })
     fetchData.mockResolvedValue([GREECE_W10])
@@ -65,7 +65,16 @@ describe('TimeSeriesPanel assessments', () => {
     expect(screen.queryByText('level.high')).toBeNull()
     const props = charted.at(-1)
     expect(props.bands ?? []).toEqual([])
-    expect([...props.shading]).toEqual(['2026-W10'])
+  })
+
+  it("shades no season or wave on an indicator's chart, which the overview's Key signals show", async () => {
+    fetchConfig.mockResolvedValue({ methods: METHOD })
+    fetchData.mockResolvedValue([GREECE_W10])
+    fetchAssessments.mockResolvedValue([{ location: 'Greece', period: '2026-W10', level: 'low', phase: 'in_season', method: 'aedseo' }])
+    fetchThresholds.mockResolvedValue([])
+    renderPanel(null)
+    expect(await screen.findByText('level.low')).toBeTruthy()
+    expect(charted.at(-1).shading ?? null).toBeNull()
   })
 
   it("shows no other population's status or bands on a chart", async () => {
