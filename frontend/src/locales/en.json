@@ -267,7 +267,8 @@
     "pathogensubtype": "subtype",
     "age": "age group",
     "aggregation": "aggregation",
-    "fraction": "fraction"
+    "fraction": "fraction",
+    "site": "Site"
   },
   "panelTypes": {
     "summary": "Summary",

@@ -142,3 +142,28 @@ describe('TimeSeriesPanel lines a reader can turn on and off', () => {
     await vi.waitFor(() => expect([...charted.at(-1).hidden]).toEqual([]))
   })
 })
+
+describe('TimeSeriesPanel sites', () => {
+  const SITED = { ...PANEL, site_by: 'site' }
+  const row = (site, value) => ({ location: 'Thessaly', period: '2026-W10', indicator: 'fluA', value, unit: 'gcL', dimensions: { site } })
+
+  it('draws one line per site where the location has several, with no tiles', async () => {
+    fetchConfig.mockResolvedValue({ methods: METHOD })
+    fetchData.mockResolvedValue([row('Larissa', 5), row('Volos', 7)])
+    fetchAssessments.mockResolvedValue([{ ...row('Larissa'), level: 'low', method: 'aedseo' }, { ...row('Volos'), level: 'low', method: 'aedseo' }])
+    fetchThresholds.mockResolvedValue([])
+    renderPanel({ value: 'Thessaly' }, SITED)
+    await vi.waitFor(() => expect(charted.at(-1)?.series.map((s) => s.label)).toEqual(['Larissa', 'Volos']))
+    expect(screen.queryByText('level.low')).toBeNull()
+    expect(screen.queryByText('assessment.ambiguous')).toBeNull()
+  })
+
+  it("keeps a single site's tiles", async () => {
+    fetchConfig.mockResolvedValue({ methods: METHOD })
+    fetchData.mockResolvedValue([row('Larissa', 5)])
+    fetchAssessments.mockResolvedValue([{ ...row('Larissa'), level: 'low', method: 'aedseo' }])
+    fetchThresholds.mockResolvedValue([])
+    renderPanel({ value: 'Thessaly' }, SITED)
+    expect(await screen.findByText('level.low')).toBeTruthy()
+  })
+})

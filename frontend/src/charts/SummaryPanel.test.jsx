@@ -133,3 +133,18 @@ describe('SummaryPanel rows for charts nothing grades', () => {
     expect(fetchAssessments).not.toHaveBeenCalled()
   })
 })
+
+describe('SummaryPanel sites', () => {
+  it('lists each site of a location as its own row', async () => {
+    fetchConfig.mockResolvedValue({ methods: METHOD })
+    fetchPhaseStreams.mockResolvedValue([])
+    const sited = { ...target, pages: [{ ...target.pages[0], panels: [{ ...target.pages[0].panels[0], site_by: 'site' }] }] }
+    fetchAssessments.mockResolvedValue([
+      { location: 'Thessaly', period: '2026-W10', level: 'low', trend: 'stable', method: 'aedseo', dimensions: { site: 'Larissa' } },
+      { location: 'Thessaly', period: '2026-W10', level: 'very_low', trend: 'stable', method: 'aedseo', dimensions: { site: 'Volos' } }])
+    renderPanel({ value: 'Thessaly' }, sited)
+    expect((await screen.findAllByRole('link')).map((l) => l.textContent)).toEqual(['load · Larissa', 'load · Volos'])
+    expect(screen.getAllByText('level.low').length).toBeGreaterThan(0)
+    expect(screen.queryByText('assessment.ambiguous')).toBeNull()
+  })
+})

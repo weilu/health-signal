@@ -267,7 +267,8 @@
     "pathogensubtype": "υπότυπο",
     "age": "ηλικιακή ομάδα",
     "aggregation": "συνάθροιση",
-    "fraction": "φάση"
+    "fraction": "φάση",
+    "site": "Σημείο δειγματοληψίας"
   },
   "panelTypes": {
     "summary": "Σύνοψη",

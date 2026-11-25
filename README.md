@@ -67,6 +67,11 @@ Each feed in `data.feeds` names a **profile**: the columns, indicators, units an
 must use, checked when the app starts. Two are built in: `erviss` (ECDC/WHO ERVISS respiratory indicators,
 vocabulary pinned to its published dataset) and `phes_odm` (PHES-ODM v3 wastewater measures).
 
+A wastewater row may name its plant in an optional `site` column (ODM's site ID, free text). Each site within
+a location is its own series: graded on its own, charted as its own line and listed as its own summary row
+where a location has several. A location with one site keeps the chart's Status/Trend tiles. A season or wave
+stream needs one series at its location, so it can't read a panel at a location with several sites.
+
 A country whose own series mostly fit a built-in profile can **extend** it in config rather than in the
 library. Extensions are additive, so data valid under the base stays valid. They may add indicators, units,
 dimension values, qualities, count and censored units, pathogen-specific indicators and denominators; they

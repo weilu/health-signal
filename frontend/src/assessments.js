@@ -35,6 +35,17 @@ export function ofSeries(row, series) {
       .every((k) => (mine[k] ?? '') === (series.dimensions[k] ?? ''))
 }
 
+// Rows by site, where a panel's location has several (each its own series); null where it has one or none.
+export function bySite(rows, siteBy) {
+  if (!siteBy || !rows?.length) return null
+  const sites = new Map()
+  for (const r of rows) {
+    const site = r.dimensions?.[siteBy] ?? ''
+    sites.set(site, [...(sites.get(site) ?? []), r])
+  }
+  return sites.size > 1 ? sites : null
+}
+
 // Whether rows (assessments, thresholds) all belong to one series: one location, one set of dimensions.
 export function singleSeries(rows) {
   const key = (r) => `${r.location}|${JSON.stringify(Object.entries(r.dimensions ?? {}).filter(([, v]) => v !== '').sort())}`

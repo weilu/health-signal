@@ -3,11 +3,11 @@ import { Navigate, Link as RouterLink, useLocation } from 'react-router-dom'
 import { Alert, Box, Chip, CircularProgress, Link, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { fetchAssessments, fetchData, fetchPhaseStreams } from '../api.js'
-import { combinedState, levelTone, pickInRange, sameSeries } from '../assessments.js'
+import { bySite, combinedState, levelTone, pickInRange, sameSeries } from '../assessments.js'
 import { ToneDot, TrendMark } from './TrendMark.jsx'
 import { panelParams, withFilters } from '../filters.js'
 import { groupPanels } from '../groups.js'
-import { chartTitle, panelLabel, weekStamp } from '../labels.js'
+import { chartTitle, panelLabel, seriesLabel, weekStamp } from '../labels.js'
 import { useMethod } from '../useMethod.js'
 import { phaseQuery } from './PhasePanel.jsx'
 
@@ -36,8 +36,13 @@ export function SummaryPanel({ panel, target, location, range, latest }) {
       : { queryKey: ['data', e.params], queryFn: () => fetchData(e.params), enabled: !!method }),
   })
   const state = method ? combinedState([...results, streams]) : 'loading'
+  // A location with several sites lists each as its own row, as its chart draws each as its own line.
   const rows = entries
-    .map((e, i) => ({ ...e, data: results[i].data }))
+    .flatMap((e, i) => {
+      const sites = bySite(results[i].data, e.panel.site_by)
+      return sites ? [...sites].sort(([a], [b]) => a.localeCompare(b)).map(([site, data]) => ({ ...e, site, data }))
+        : [{ ...e, data: results[i].data }]
+    })
     .filter((e) => e.data?.length)
   const title = chartTitle(t, panel, target, location)
   const groups = groupPanels(t, rows, { panelOf: (r) => r.panel, alwaysSource: true })
@@ -76,7 +81,7 @@ export function SummaryPanel({ panel, target, location, range, latest }) {
                   </Stack>
                 </TableCell>
               </TableRow>
-              {members.map(({ page, panel: p, data, graded }) => {
+              {members.map(({ page, panel: p, data, graded, site }) => {
                 // Ungraded: as of its last week of data up to the range's end, however long before it that was.
                 const last = !graded && data.map((r) => r.period).filter((w) => !range || w <= range.to).sort().at(-1)
                 const pick = !graded ? (last ? { row: { period: last }, asOf: last, current: last === latest } : null)
@@ -96,14 +101,14 @@ export function SummaryPanel({ panel, target, location, range, latest }) {
                 return (
                   // A real row with a real link, stretched over the row so the whole row is clickable. A stream is
                   // marked by its role chip alone: the amber there is the table's one accent.
-                  <TableRow key={`${page.id}/${p.id}`} hover
+                  <TableRow key={`${page.id}/${p.id}/${site ?? ''}`} hover
                     sx={{ position: 'relative', '& > td': { borderBottom: 1, borderColor: 'divider' },
                           '&:last-of-type > td': { borderBottom: 0 } }}>
                     <TableCell>
                       <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                         <Link component={RouterLink} to={withFilters(page.path, search)} underline="hover" color="inherit"
                           sx={{ '&::after': { content: '""', position: 'absolute', inset: 0 } }}>
-                          {panelLabel(t, p)}
+                          {site === undefined ? panelLabel(t, p) : `${panelLabel(t, p)} · ${seriesLabel(t, p.site_by, site)}`}
                         </Link>
                         {stream && <Chip size="small" variant="outlined" color="primary" label={t(`role.${stream.role}`, { defaultValue: stream.role })} />}
                       </Stack>

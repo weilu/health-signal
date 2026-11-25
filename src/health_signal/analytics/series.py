@@ -48,17 +48,19 @@ def _drift(rows: list[FeedRow]) -> str:
     return ", ".join(varying)
 
 
-def _by_location(rows: list[FeedRow]) -> dict[str, list[FeedRow]]:
-    out: dict[str, list[FeedRow]] = {}
+def _by_place(rows: list[FeedRow], site: str | None) -> dict[tuple[str, str], list[FeedRow]]:
+    # (location, site): each site within a location is its own series; "" where the profile names no site.
+    out: dict[tuple[str, str], list[FeedRow]] = {}
     for row in sorted(rows, key=lambda r: r.period):
-        out.setdefault(row.location, []).append(row)
+        out.setdefault((row.location, row.dimensions.get(site, "") if site else ""), []).append(row)
     return out
 
 
 def assessed_series(config: Config, sources: dict[str, FileDataSource]):
     """The series panels show (spec §6.3.1): each single-series panel of an assessed feed, at every location
-    a viewer can select (all in the data when there's no location filter). Returns the series, each panel
-    reference's series by (pathogen, location, "<page>/<panel>"), and warnings for panels that can't be assessed."""
+    a viewer can select (all in the data when there's no location filter), one per site where the feed's profile
+    names sites. Returns the series, each panel reference's series by (pathogen, location, "<page>/<panel>") where
+    the location has just one, and warnings for panels that can't be assessed."""
     assessed = {f.id for f in config.data.feeds if f.assessments}
     location_filter = config.filters.location
     selectable = {o.value for o in location_filter.options} if location_filter else None
@@ -73,8 +75,12 @@ def assessed_series(config: Config, sources: dict[str, FileDataSource]):
                     continue
                 source = sources[query.feed]
                 ref = f"{page.id}/{panel.id}"
-                for location, rows in _by_location(source.query(indicator=query.indicator,
-                                                                **query.dimensions)).items():
+                places = _by_place(source.query(indicator=query.indicator, **query.dimensions),
+                                   source.profile.site_dimension)
+                sites = {}
+                for location, _ in places:
+                    sites[location] = sites.get(location, 0) + 1
+                for (location, _), rows in places.items():
                     if selectable is not None and location not in selectable:
                         continue
                     if len({r.period for r in rows}) != len(rows):
@@ -92,7 +98,8 @@ def assessed_series(config: Config, sources: dict[str, FileDataSource]):
                         shared = series.setdefault((found.feed, found.key), found)
                         shared.pathogens.add(target.id)
                         shared.panels.add(f"{target.id}/{ref}")
-                        refs[(target.id, location, ref)] = shared
+                        if sites[location] == 1:
+                            refs[(target.id, location, ref)] = shared
     return list(series.values()), refs, warnings
 
 

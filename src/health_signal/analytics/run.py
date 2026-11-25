@@ -264,7 +264,7 @@ def _phase_files(config: Config, refs: dict, stores: dict[str, FeedStore], profi
             s = refs.get((entry.pathogen, entry.location, ref))
             if s is None:
                 raise ValueError(f"analytics.phase_streams {entry.pathogen}/{entry.location}: panel {ref!r} has no "
-                                 f"assessed series at {entry.location}")
+                                 f"single assessed series at {entry.location} (none, or one per site)")
             by_role[role] = stores[s.feed].phases(s, entry.method)
             provisional[role] = stores[s.feed].provisional(s, entry.method)
             resolved[role] = s
