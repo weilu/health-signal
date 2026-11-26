@@ -19,13 +19,14 @@ _PLACEHOLDER = re.compile(r"\{\{\s*(>\s*)?([a-z_.]+)\s*\}\}")
 # since LaTeX writes double braces of its own.
 _BRACES = re.compile(r"\{\{(.*?)\}\}")
 _MATH = re.compile(r"\$\$.*?\$\$|\$[^$\n]+\$")
+_FENCE = re.compile(r"`{3,}|~{3,}")
 
 
-def load_methodology(config: Config) -> dict[str, dict]:
+def load_methodology(config: Config, data_locations: set[str] | None = None) -> dict[str, dict]:
     """{language: {"markdown", "blocks"}}: values become inline markers the browser styles as settings, blocks
     become fenced markers it draws from `blocks` with its own labels, so tables read as the tabs do."""
     values = placeholder_values(config)
-    blocks = block_data(config)
+    blocks = block_data(config, data_locations)
     directory = config.site.methodology_dir
     pages = {}
     for language in config.site.locales:
@@ -70,18 +71,26 @@ def _library_text(language: str, values: dict[str, str], name: str) -> str:
 
 
 def _fill(text: str, file: str, values: dict[str, str], method_text: Callable[[], str] | None) -> str:
-    lines, fenced, display_math = [], False, False
+    lines, fence, display_math = [], None, False
     for number, line in enumerate(text.splitlines(), start=1):
-        if line.lstrip().startswith("```"):
-            fenced = not fenced
-        # An author showing a placeholder in code means it as written.
-        if fenced or line.lstrip().startswith("```"):
+        where = f"{file} line {number}"
+        # An author showing a placeholder in code means it as written. As in CommonMark, a fence closes only on a run
+        # of its own character at least as long, alone on its line, so a shorter or other fence inside is content.
+        marker = _FENCE.match(line.lstrip())
+        if fence is None and marker:
+            fence = marker.group(0)
+        elif fence is not None:
+            if marker and line.strip() == marker.group(0) and marker.group(0)[0] == fence[0] and len(marker.group(0)) >= len(fence):
+                fence = None
+        else:
+            marker = None
+        if fence is not None or marker:
             lines.append(line)
             continue
         if line.strip() == "$$":
             display_math = not display_math
         if display_math or line.strip() == "$$":
-            lines.append(_in_maths(line, values))
+            lines.append(_in_maths(line, where, values))
             continue
         block = _PLACEHOLDER.fullmatch(line.strip())
         if block and block.group(1):
@@ -91,14 +100,14 @@ def _fill(text: str, file: str, values: dict[str, str], method_text: Callable[[]
                 raise ValueError(f"{file} line {number}: unknown placeholder {block.group(0)}")
             lines.append(method_text(name) if method else f"```hs-block\n{name}\n```")
             continue
-        lines.append(_fill_line(line, f"{file} line {number}", values))
+        lines.append(_fill_line(line, where, values))
     return "\n".join(lines) + "\n"
 
 
 def _fill_line(line: str, where: str, values: dict[str, str]) -> str:
     out, last = [], 0
     for math in _MATH.finditer(line):
-        out += [_fill_prose(line[last:math.start()], where, values), _in_maths(math.group(0), values)]
+        out += [_fill_prose(line[last:math.start()], where, values), _in_maths(math.group(0), where, values)]
         last = math.end()
     out.append(_fill_prose(line[last:], where, values))
     return "".join(out)
@@ -118,11 +127,16 @@ def _fill_prose(text: str, where: str, values: dict[str, str]) -> str:
     return filled
 
 
-def _in_maths(text: str, values: dict[str, str]) -> str:
-    # KaTeX can't show the marked value, so maths gets the bare one; LaTeX's own double braces stay.
+def _in_maths(text: str, where: str, values: dict[str, str]) -> str:
+    # KaTeX can't show the marked value, so maths gets the bare one; LaTeX's own double braces stay. A dotted name
+    # is a setting's, never LaTeX's, so an unknown one is a typo.
     def bare(match: re.Match) -> str:
         placeholder = _PLACEHOLDER.fullmatch(match.group(0))
-        if placeholder is None or placeholder.group(1) or placeholder.group(2) not in values:
+        if placeholder is None or placeholder.group(1):
+            return match.group(0)
+        if placeholder.group(2) not in values:
+            if "." in placeholder.group(2):
+                raise ValueError(f"{where}: unknown placeholder {match.group(0)}")
             return match.group(0)
         return values[placeholder.group(2)].strip("`").removeprefix("hs:")
     return _PLACEHOLDER.sub(bare, text)
@@ -141,7 +155,8 @@ def placeholder_values(config: Config) -> dict[str, str]:
     wave_end = config.analytics.aedseo.wave_end
     values = {
         "surveillance.year_start_week": _value(start),
-        "surveillance.year_end_week": _value(start - 1 if start > 1 else 52),
+        # A calendar year ends in week 52 or, in a long ISO year, 53.
+        "surveillance.year_end_week": _value(start - 1 if start > 1 else "52/53"),
         "analytics.min_seasons": _value(config.analytics.min_seasons),
         "analytics.aedseo.wave_end.steps_with_decrease": _value(wave_end.steps_with_decrease),
         "analytics.aedseo.wave_end.burden_level_decrease": _label(f"level.{wave_end.burden_level_decrease.replace(' ', '_')}"),
@@ -170,9 +185,11 @@ def _builds(config: Config) -> list[str]:
     return builds
 
 
-def block_data(config: Config) -> dict:
+def block_data(config: Config, data_locations: set[str] | None = None) -> dict:
     options = config.filters.location.options if config.filters.location else []
-    locations = [o.value for o in options] or sorted({e.location for e in config.analytics.phase_streams})
+    # Without a location filter the data hold one location; without streams too, it's only in the data.
+    locations = ([o.value for o in options] or sorted({e.location for e in config.analytics.phase_streams})
+                 or sorted(data_locations or ()))
     entries = {(e.pathogen, e.location): e for e in config.analytics.phase_streams}
 
     def streams(target: str, location: str) -> dict | None:
@@ -190,7 +207,7 @@ def block_data(config: Config) -> dict:
                   for d in profile.denominators]
     rules.append({"kind": "constant"})
     unique = list({json.dumps(r, sort_keys=True): r for r in rules}.values())
-    pathogens = [t for t in config.targets if t.id in PATHOGENS]
+    pathogens = [t for t in config.targets if t.id in PATHOGENS and any(page.panels for page in t.pages)]
     return {
         "streams": [{"target": t.id, "location": location, "streams": streams(t.id, location)}
                     for t in pathogens for location in locations],

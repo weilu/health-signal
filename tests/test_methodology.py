@@ -5,8 +5,8 @@ from fastapi.testclient import TestClient
 
 from health_signal import create_app, load_config
 from health_signal.config import Config, Page, Target
-from health_signal.methodology import block_data, library_sections, load_methodology
-from analytics_support import write_feed
+from health_signal.methodology import block_data, library_sections, load_methodology, placeholder_values
+from analytics_support import erviss_rows, write_feed
 from auth_stubs import AllowAll, DenyAll
 
 _GR = {"extends": "erviss", "units": ["per_1000_admissions"],
@@ -205,3 +205,45 @@ def test_censored_values_are_named_inline_from_the_profiles(tmp_path):
 def test_without_censored_values_the_sentence_says_none(tmp_path):
     md = _page(tmp_path, "Values {{censored.qualities}} in {{censored.feeds}}")["markdown"]
     assert md.count("`hs:t:methodology.none`") == 2
+
+
+@pytest.mark.parametrize("source", ["~~~\n{{unknown}}\n~~~\n", "````\n```\n{{unknown}}\n```\n````\n"])
+def test_placeholders_in_tilde_and_longer_fences_are_left_as_written(tmp_path, source):
+    assert _page(tmp_path, source)["markdown"] == source
+
+
+@pytest.mark.parametrize("source", ["$k = {{method.windw_weeks}}$", "$$\nk = {{method.windw_weeks}}\n$$"])
+def test_an_unknown_setting_in_maths_stops_startup_naming_its_line(tmp_path, source):
+    with pytest.raises(ValueError, match=r"en\.md line \d: unknown placeholder \{\{method\.windw_weeks\}\}"):
+        _page(tmp_path, source)
+
+
+def test_a_calendar_year_ends_in_week_52_or_53(tmp_path):
+    config = _config(tmp_path)
+    config.surveillance.year_start_week = 1
+    assert placeholder_values(config)["surveillance.year_end_week"] == "`hs:52/53`"
+
+
+def test_without_a_location_filter_or_streams_the_tables_use_the_data_s_location(tmp_path):
+    config = _config(tmp_path)
+    config.filters.location = None
+    config.analytics.phase_streams = []
+    rows = block_data(config, data_locations={"Greece"})["streams"]
+    assert [(r["target"], r["location"], r["streams"]) for r in rows] == [("Influenza", "Greece", None)]
+
+
+def test_a_pathogen_with_no_panels_stays_out_of_the_pathogen_tables(tmp_path):
+    config = _config(tmp_path)
+    config.targets.append(Target(id="RSV", pages=[Page(id="overview")]))
+    blocks = block_data(config)
+    assert {r["target"] for r in blocks["streams"]} == {r["target"] for r in blocks["phase_patterns"]} == {"Influenza"}
+
+
+def test_the_app_gives_the_tables_its_data_s_location_when_nothing_else_names_one(tmp_path):
+    config = _config(tmp_path)
+    config.filters.location = None
+    config.analytics.phase_streams = []
+    write_feed(tmp_path / "c", erviss_rows("Greece", "ILIconsultationrate", "per_100k", [1.0],
+                                          survtype="primary care syndromic"))
+    rows = _client(config).get("/api/methodology/en").json()["blocks"]["streams"]
+    assert [(r["location"], r["streams"]) for r in rows] == [("Greece", None)]
