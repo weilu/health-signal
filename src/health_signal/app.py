@@ -69,7 +69,6 @@ def create_app(
 ) -> FastAPI:
     app = FastAPI(title=config.site.title)
     overlays = load_overlays(config.site.locales_dir, config.site.locales)
-    methodology = {method: load_methodology(config, method) for method in config.analytics.methods}
     # Only the slice safe pre-login (the view-model is gated behind /api/config), with the deployment's public text:
     # sign-in renders before its gated text can load.
     bootstrap = {**config.bootstrap_config(), "text": public_text(overlays)}
@@ -85,6 +84,8 @@ def create_app(
                      if config.data and config.data.phase_streams else None)
     if config.filters.location is None:
         _require_one_location(data_sources, phase_source)
+    locations = set().union(*(s.locations() for s in data_sources.values()))
+    methodology = {method: load_methodology(config, method, locations) for method in config.analytics.methods}
 
     _ALWAYS_PUBLIC = ("/healthz", "/login", "/logout")
 

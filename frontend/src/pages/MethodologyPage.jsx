@@ -1,10 +1,10 @@
 import 'katex/dist/katex.min.css'
-import { Children, isValidElement, useEffect, useState } from 'react'
+import { Children, isValidElement, useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Box, Link, Paper, Typography } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import { useTranslation } from 'react-i18next'
-import { Link as RouterLink } from 'react-router-dom'
+import { Link as RouterLink, useLocation } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import rehypeKatex from 'rehype-katex'
 import remarkGfm from 'remark-gfm'
@@ -21,20 +21,12 @@ export const slug = (text) => text.toLowerCase().trim().replace(/[^\p{L}\p{N}]+/
 const textOf = (children) => Children.toArray(children)
   .map((c) => (typeof c === 'string' ? c : isValidElement(c) ? textOf(c.props.children) : '')).join('')
 
-// The contents list reads the Markdown's own ## and ### headings, skipping any inside a fenced block.
-function headings(markdown) {
-  let fenced = false
-  return markdown.split('\n').flatMap((line) => {
-    if (line.startsWith('```')) fenced = !fenced
-    const match = !fenced && line.match(/^(##|###)\s+(.+)$/)
-    return match ? [{ level: match[1].length, text: match[2].replace(/[*_`]/g, '') }] : []
-  })
-}
 
 function Setting({ value }) {
   const { t } = useTranslation()
   // A label (a level, a feed) sits mid-sentence, so it loses its capital unless that starts an acronym.
-  const text = value.startsWith('t:') ? inSentence(t(value.slice(2))) : value
+  // A feed or quality the deployment gives no label is named by its id, as elsewhere on the dashboard.
+  const text = value.startsWith('t:') ? inSentence(t(value.slice(2), { defaultValue: value.split('.').at(-1) })) : value
   return (
     <Box component="span" data-setting sx={(theme) => ({ px: 0.25, bgcolor: alpha(theme.palette.warning.main, 0.1),
                                                          borderBottom: '1px dotted', borderColor: 'warning.main' })}>
@@ -48,7 +40,14 @@ function Heading({ as, children }) {
     sx={{ mt: 4, mb: 1, scrollMarginTop: 16 }}>{children}</Typography>
 }
 
-function Article({ page }) {
+// The contents list reads the rendered ## and ### headings, so its text and anchors are the headings' own (links,
+// emphasis and code included), and a heading-like line in a code block is never one.
+function Article({ page, onHeadings }) {
+  const article = useRef(null)
+  useEffect(() => {
+    onHeadings([...article.current.querySelectorAll('h2, h3')]
+      .map((el) => ({ level: el.tagName === 'H3' ? 3 : 2, text: el.textContent, id: el.id })))
+  }, [page, onHeadings])
   const components = {
     h2: ({ children }) => <Heading as="h2">{children}</Heading>,
     h3: ({ children }) => <Heading as="h3">{children}</Heading>,
@@ -66,7 +65,7 @@ function Article({ page }) {
     },
   }
   return (
-    <Box sx={{ '& table': { borderCollapse: 'collapse', my: 2 }, '& th, & td': { textAlign: 'left', px: 1, py: 0.5,
+    <Box ref={article} sx={{ '& table': { borderCollapse: 'collapse', my: 2 }, '& th, & td': { textAlign: 'left', px: 1, py: 0.5,
                                                                                    borderBottom: 1, borderColor: 'divider' } }}>
       <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]} components={components}>
         {page.markdown}
@@ -77,6 +76,7 @@ function Article({ page }) {
 
 function Contents({ items }) {
   const { t } = useTranslation()
+  const { search } = useLocation()
   const [current, setCurrent] = useState(null)
   useEffect(() => {
     if (typeof IntersectionObserver === 'undefined') return undefined
@@ -84,7 +84,7 @@ function Contents({ items }) {
       const seen = entries.filter((e) => e.isIntersecting).map((e) => e.target.id)
       if (seen.length) setCurrent(seen[0])
     }, { rootMargin: '0px 0px -70% 0px' })
-    items.forEach((h) => { const el = document.getElementById(slug(h.text)); if (el) observer.observe(el) })
+    items.forEach((h) => { const el = document.getElementById(h.id); if (el) observer.observe(el) })
     return () => observer.disconnect()
   }, [items])
   return (
@@ -92,13 +92,14 @@ function Contents({ items }) {
       sx={{ position: { md: 'sticky' }, top: 16, alignSelf: 'start', pr: 2, borderRight: { md: 1 }, borderColor: 'divider' }}>
       {items.map((h) => (
         // A router link keeps the page's own path: the served page has a <base href>, against which a bare
-        // "#section" would leave the page. The router doesn't scroll to a hash, so the click does.
-        <Link key={slug(h.text)} component={RouterLink} to={{ hash: slug(h.text) }} replace underline="hover"
-          onClick={() => document.getElementById(slug(h.text))?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-          aria-current={current === slug(h.text) ? 'location' : undefined}
+        // "#section" would leave the page. It keeps the header's filters too. The router doesn't scroll to a hash,
+        // so the click does.
+        <Link key={h.id} component={RouterLink} to={{ search, hash: h.id }} replace underline="hover"
+          onClick={() => document.getElementById(h.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+          aria-current={current === h.id ? 'location' : undefined}
           sx={{ display: 'block', pl: h.level === 3 ? 2 : 0, py: 0.5, fontSize: '0.875rem',
-                color: current === slug(h.text) ? 'text.primary' : 'text.secondary',
-                fontWeight: current === slug(h.text) ? 600 : 400 }}>
+                color: current === h.id ? 'text.primary' : 'text.secondary',
+                fontWeight: current === h.id ? 600 : 400 }}>
           {h.text}
         </Link>
       ))}
@@ -112,14 +113,15 @@ export default function MethodologyPage() {
   // The selected method's page, once the config says which that is.
   const query = useQuery({ queryKey: ['methodology', i18n.language, method], queryFn: () => fetchMethodology(i18n.language, method),
                            enabled: !!method })
+  const [items, setItems] = useState([])
   return (
     <ResourceBoundary query={query}>
       {(page) => (
         <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
           <Typography variant="h4" component="h1" sx={{ mb: 2 }}>{t('nav.methodology')}</Typography>
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '220px minmax(0, 1fr)' }, gap: 4 }}>
-            <Contents items={headings(page.markdown)} />
-            <Article page={page} />
+            <Contents items={items} />
+            <Article page={page} onHeadings={setItems} />
           </Box>
         </Paper>
       )}
