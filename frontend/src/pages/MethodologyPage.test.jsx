@@ -11,11 +11,11 @@ import MethodologyPage from './MethodologyPage.jsx'
 vi.mock('../api.js', async (original) => ({ ...(await original()), fetchMethodology: vi.fn() }))
 afterEach(() => { cleanup(); vi.resetAllMocks() })
 
-function renderPage(markdown) {
+function renderPage(markdown, entry = '/methodology') {
   initI18n({ defaultLocale: 'en', locales: ['en', 'el'] })
   fetchMethodology.mockResolvedValue({ markdown, blocks: {} })
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  return render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/methodology']}>
+  return render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[entry]}>
     <MethodologyPage /><Where testId="where" />
   </MemoryRouter></QueryClientProvider>)
 }
@@ -62,7 +62,7 @@ it('never renders raw HTML', async () => {
 
 function Where({ testId }) {
   const location = useLocation()
-  return <output data-testid={testId}>{location.pathname + location.hash}</output>
+  return <output data-testid={testId}>{location.pathname + location.search + location.hash}</output>
 }
 
 it('sends the old configuration address to the methodology page', async () => {
@@ -72,4 +72,25 @@ it('sends the old configuration address to the methodology page', async () => {
     <AppRoutes view={{ targets: [] }} /><Where />
   </MemoryRouter></QueryClientProvider>)
   expect(await screen.findByText('/methodology')).toBeTruthy()
+})
+
+it("links a heading with inline markup to the heading's own anchor", async () => {
+  renderPage('## Methods [source](https://example.org) *now*\n\nText.\n')
+  const contents = await screen.findByRole('navigation', { name: 'Contents' })
+  const link = await vi.waitFor(() => { const a = contents.querySelector('a'); if (!a) throw new Error('no contents yet'); return a })
+  const heading = document.querySelector('h2')
+  expect(link.textContent).toBe(heading.textContent)
+  expect(link.getAttribute('href')).toBe(`/methodology#${heading.id}`)
+})
+
+it("keeps the header's filters when following a contents link", async () => {
+  Element.prototype.scrollIntoView = vi.fn()
+  renderPage('## Status\n\nText.\n', '/methodology?location=Attica')
+  fireEvent.click(await screen.findByRole('link', { name: 'Status' }))
+  expect(screen.getByTestId('where').textContent).toBe('/methodology?location=Attica#status')
+})
+
+it('names a feed or quality the deployment gives no label by its id', async () => {
+  renderPage('Feeds: `hs:t:feeds.sewage`.\n')
+  expect(await screen.findByText('sewage')).toBeTruthy()
 })
