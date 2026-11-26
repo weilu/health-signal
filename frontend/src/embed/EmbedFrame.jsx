@@ -10,7 +10,8 @@ export function embedSrc(embed, { lang, location, range }) {
     params.set('from', range.from)
     params.set('to', range.to)
   }
-  return `${url(`/embeds/${embed}`)}?${params}`
+  // Each segment encoded, so a # or ? in a file name stays part of its path.
+  return `${url(`/embeds/${embed.split('/').map(encodeURIComponent).join('/')}`)}?${params}`
 }
 
 // Sized by the page itself, which posts {type: 'health-signal:height', height}, so the tab scrolls as one page

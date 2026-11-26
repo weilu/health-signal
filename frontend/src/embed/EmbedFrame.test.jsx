@@ -12,6 +12,12 @@ it('hands the frame the language and filters in its address', () => {
   expect(Object.fromEntries(url.searchParams)).toEqual({ lang: 'el', location: 'Attica', from: '2025-W45', to: '2026-W44' })
 })
 
+it("keeps a file name's # or ? in its path rather than reading them as the address's own", () => {
+  const url = new URL(embedSrc('forecast/report#1?.html', { lang: 'en', location: null, range: null }), 'http://x')
+  expect(url.pathname).toBe('/embeds/forecast/report%231%3F.html')
+  expect(url.hash).toBe('')
+})
+
 it('leaves out a filter the dashboard does not have', () => {
   expect(embedSrc('f.html', { lang: 'en', location: null, range: null })).toBe('/embeds/f.html?lang=en')
 })
