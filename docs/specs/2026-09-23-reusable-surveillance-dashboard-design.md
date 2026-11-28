@@ -552,6 +552,7 @@ provider's login routes are always public. Default-locked matches "keep content 
 | `GET /api/phases?…` | required | pathogen phase rows; filters `location`, `pathogen`, `method`, `week_from`/`week_to` |
 | `GET /api/locales/{lang}` | required | translation bundle (library base + country overrides, merged) |
 | `GET /api/methodology/{lang}` | required | config-selected methodology content (Markdown) for the Methodology view |
+| `GET /embeds/{path}` | required | files under `site.embeds_dir`, for pages the deployment writes itself |
 | `GET /docs`, `/redoc`, `/openapi.json` | required | auto-generated API documentation (Swagger UI / ReDoc / OpenAPI schema) |
 | `GET /` and `/{path}` | required | serves the compiled SPA (`_ui/index.html` + assets) |
 
@@ -563,10 +564,9 @@ precedence over client-side routes.
 
 - **Config-driven rendering.** The SPA fetches `/api/config` and builds pathogen tabs, panels, and
   indicator charts from it. One route per configured page. Layout (after greece-public-health): a plain
-  utility strip for session controls (language, Configuration, Sign out), a header with the title on the
+  utility strip for session controls (language, Methodology, Sign out), a header with the title on the
   left and the dashboard filters on the right as label/value rows (Region, Date range, Reporting week;
-  stacked under the title on phones), a row of target tabs whose right end is reserved for a Methods
-  link, and a second row of page tabs when a target has more than one page — MUI `Tabs`, active state
+  stacked under the title on phones), a row of target tabs, and a second row of page tabs when a target has more than one page — MUI `Tabs`, active state
   from the URL. `/` lands on the first target. Filters live in the URL (`?location=`, and `?range=` for
   a preset or `?from=&to=` for custom weeks) so a view is deep-linkable, and tab links carry them;
   presets stay relative, so a shared "last 52 weeks" link rolls forward with new data. Adding/removing/reconfiguring a surveillance target = config + data,
@@ -647,6 +647,17 @@ precedence over client-side routes.
   replaceable via branding) and are never cycled. A panel whose rows can't make an honest chart —
   none, mixed units, several rows per series-week, or more series than colours — shows a message
   instead of a misleading plot.
+- **Methodology page.** Replaces the configuration page (design: `docs/specs/2026-11-01-methodology-page-design.md`).
+  A deployment writes `site.methodology_dir/<language>.md` per offered language; placeholders fill values
+  (`{{surveillance.year_start_week}}`) and generated tables (`{{> streams}}`) from its settings, and `{{> method}}`
+  inlines the library's general text for the method in use, or `{{> method.<section>}}` one section of it. Unknown placeholders stop startup. Served behind login
+  at `/api/methodology/{language}`; rendered as CommonMark with tables and KaTeX maths, no raw HTML.
+- **Pages of the deployment's own.** A page may `embed` a file under `site.embeds_dir` instead of having panels,
+  shown in a frame under the header and tabs. Its address carries the language and the header's filters
+  (`?lang=&location=&from=&to=`), and the page posts its height so the tab scrolls as one page.
+- **Under a mount path.** Behind a proxy that serves the app below a path (Posit Connect's `/content/<guid>/`), the
+  server's redirects keep that path, and the SPA resolves its requests and routes against the `<base href>` the
+  server injects, so nothing escapes to the host's own routes.
 
 ## 10. Packaging & reuse
 

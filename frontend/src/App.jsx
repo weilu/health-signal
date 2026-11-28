@@ -1,11 +1,13 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { BrowserRouter, Routes, Route, NavLink, Navigate, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { AppBar, Toolbar, Typography, Button, Container, Box, Snackbar, Alert, Stack, Tab, Tabs } from '@mui/material'
+import { AppBar, Toolbar, Typography, Button, Container, Box, Snackbar, Alert, Stack, Tab, Tabs, CircularProgress } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { fetchConfig, fetchPeriods } from './api.js'
 import { ResourceBoundary } from './ResourceBoundary.jsx'
-import ConfigView from './pages/ConfigView.jsx'
+import { basePath, url } from './base.js'
+// Its own chunk: the Markdown renderer and KaTeX load only with this page.
+const MethodologyPage = lazy(() => import('./pages/MethodologyPage.jsx'))
 import LoginPage from './pages/LoginPage.jsx'
 import TargetPage from './pages/TargetPage.jsx'
 import { HeaderFilters } from './HeaderFilters.jsx'
@@ -20,18 +22,19 @@ import { useDeploymentText } from './useDeploymentText.js'
 // content does.
 const rule = { borderBottom: 1, borderColor: 'divider' }
 
-function AppRoutes({ view, location, range, latest }) {
+export function AppRoutes({ view, location, range, latest }) {
   const { t } = useTranslation()
   const { search } = useLocation()
   const pages = view.targets.flatMap((target) => target.pages.map((page) => ({ target, page })))
-  const home = pages[0]?.page.path ?? '/config'
+  const home = pages[0]?.page.path ?? '/methodology'
   return (
     <Routes>
       {pages.map(({ target, page }) => (
         // Keyed by path: react-router reuses unkeyed elements, carrying panel state across pages.
         <Route key={page.path} path={page.path} element={<TargetPage key={page.path} target={target} page={page} location={location} range={range} latest={latest} />} />
       ))}
-      <Route path="/config" element={<ConfigView />} />
+      <Route path="/methodology" element={<Suspense fallback={<CircularProgress aria-label={t('app.loading')} />}><MethodologyPage /></Suspense>} />
+      <Route path="/config" element={<Navigate to={withFilters('/methodology', search)} replace />} />
       <Route path="/" element={<Navigate to={withFilters(home, search)} replace />} />
       <Route path="*" element={<Alert severity="info">{t('app.notFound')}</Alert>} />
     </Routes>
@@ -50,9 +53,9 @@ function Shell({ config }) {
 
   async function handleLogout() {
     // Only the server can clear the httpOnly cookie, so redirect only on a confirmed 303.
-    const res = await fetch('/logout', { method: 'POST', credentials: 'same-origin', redirect: 'manual' }).catch(() => null)
+    const res = await fetch(url('/logout'), { method: 'POST', credentials: 'same-origin', redirect: 'manual' }).catch(() => null)
     if (res && (res.ok || res.type === 'opaqueredirect' || res.status === 303)) {
-      window.location.assign('/login')
+      window.location.assign(url('/login'))
       return
     }
     setLogoutFailed(true)
@@ -87,8 +90,8 @@ function Shell({ config }) {
           <Stack direction="row" spacing={1} sx={{ ...rule, justifyContent: 'flex-end', alignItems: 'center', py: 0.5 }}>
             <LocaleToggle locales={config.locales} />
             {/* Outside the tab rows, so the selected state is styled off NavLink's aria-current. */}
-            <Button size="small" component={NavLink} to={withFilters('/config', search)} sx={{ '&[aria-current="page"]': { bgcolor: 'action.selected' } }}>
-              {t('nav.configuration')}
+            <Button size="small" component={NavLink} to={withFilters('/methodology', search)} sx={{ '&[aria-current="page"]': { bgcolor: 'action.selected' } }}>
+              {t('nav.methodology')}
             </Button>
             <Button size="small" onClick={handleLogout}>{t('nav.logout')}</Button>
           </Stack>
@@ -156,7 +159,7 @@ function Shell({ config }) {
 
 export default function App({ config }) {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={basePath() || undefined}>
       <Shell config={config} />
     </BrowserRouter>
   )

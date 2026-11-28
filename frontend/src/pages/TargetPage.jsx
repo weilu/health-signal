@@ -4,13 +4,19 @@ import { PhasePanel } from '../charts/PhasePanel.jsx'
 import { SummaryPanel } from '../charts/SummaryPanel.jsx'
 import { TimeSeriesPanel } from '../charts/TimeSeriesPanel.jsx'
 import { groupPanels } from '../groups.js'
+import { EmbedFrame, embedSrc } from '../embed/EmbedFrame.jsx'
+import { configLabel } from '../labels.js'
 
 const PANELS = { timeseries: TimeSeriesPanel, phase: PhasePanel, summary: SummaryPanel }
 
 // The shell's tabs name the target and page, so this renders only the panels, nested under the same groups the
 // overview's summary uses where the page has more than one.
 export default function TargetPage({ target, page, location, range, latest }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  if (page.embed) {
+    const src = embedSrc(page.embed, { lang: i18n.language, location: location?.value, range })
+    return <EmbedFrame src={src} title={configLabel(t, page.label_key, page.id)} />
+  }
   if (!page.panels.length) return <Typography color="text.secondary">{t('page.noPanels')}</Typography>
   return (
     <Stack spacing={5}>

@@ -3,6 +3,8 @@ from collections import Counter
 from dataclasses import dataclass
 from datetime import date
 
+from ..methods import MAX_DIP, MAX_MISSING
+
 # A log-growth rate this large is a degenerate fit or R's NA_integer_ sentinel (-2^31, finite), not a
 # rate: real weekly log-growth is O(1), and exp() overflows above ~709.
 MAX_ABS_LOG_GROWTH = 700
@@ -60,8 +62,6 @@ def weeks_between(a: str, b: str) -> int:
     return (monday(b) - monday(a)).days // 7
 
 
-MAX_DIP = 1      # below-threshold weeks a season survives: a brief lull, not its end
-MAX_MISSING = 8  # missing weeks a season survives: a reporting outage, not its end
 
 
 # A wave's too (wave_phase): in_season then reads as in a wave.

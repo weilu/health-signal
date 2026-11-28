@@ -31,6 +31,11 @@ def hash_password(password: str) -> str:
     return _ph.hash(password)
 
 
+def mounted(request: Request, path: str) -> str:
+    # Under a proxy mount (Posit Connect's /content/<guid>/) a bare path would leave the app for the host's own.
+    return request.scope.get("root_path", "").rstrip("/") + path
+
+
 def _reject_cross_origin(request: Request) -> None:
     # Cookie-based sessions still need login-CSRF defense: a cross-site POST
     # riding the browser's ambient cookie must not be able to drive /login or
@@ -104,17 +109,17 @@ class LocalAccountsProvider:
 
     def install(self, app: FastAPI) -> None:
         @app.post("/login", dependencies=[Depends(_reject_cross_origin)])
-        def login(email: str = Form(...), password: str = Form(...)) -> Response:
+        def login(request: Request, email: str = Form(...), password: str = Form(...)) -> Response:
             user = self.authenticate(email, password)
             if user is None:
                 raise HTTPException(status_code=401, detail="Invalid credentials")
-            response = RedirectResponse(url="/", status_code=303)
+            response = RedirectResponse(url=mounted(request, "/"), status_code=303)
             self._issue_session(response, user)
             return response
 
         @app.post("/logout", dependencies=[Depends(_reject_cross_origin)])
-        def logout() -> Response:
-            response = RedirectResponse(url="/login", status_code=303)
+        def logout(request: Request) -> Response:
+            response = RedirectResponse(url=mounted(request, "/login"), status_code=303)
             response.delete_cookie(key=self.manager.cookie_name)
             return response
 

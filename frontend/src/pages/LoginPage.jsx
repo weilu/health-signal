@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Paper, TextField, Button, Typography, Alert } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { LocaleToggle } from '../LocaleToggle.jsx'
+import { url } from '../base.js'
 
 export default function LoginPage({ config }) {
   const { t } = useTranslation()
@@ -15,7 +16,7 @@ export default function LoginPage({ config }) {
     const body = new URLSearchParams(new FormData(e.currentTarget))
     // fetch (not a native form) so a 401 shows inline, not a raw-JSON page. On success the 303 (seen
     // as opaqueredirect) lets us full-navigate to '/', loading the authenticated SPA.
-    const res = await fetch('/login', {
+    const res = await fetch(url('/login'), {
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -23,7 +24,7 @@ export default function LoginPage({ config }) {
       redirect: 'manual',
     }).catch(() => null)
     if (res && (res.ok || res.type === 'opaqueredirect' || res.status === 303)) {
-      window.location.assign('/')
+      window.location.assign(url('/'))
       return
     }
     setSubmitting(false)

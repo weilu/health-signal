@@ -7,8 +7,8 @@
   },
   "nav": {
     "signedInOnly": "Signed-in users only",
-    "configuration": "Configuration",
-    "logout": "Sign out"
+    "logout": "Sign out",
+    "methodology": "Methodology"
   },
   "login": {
     "email": "Email",
@@ -18,9 +18,7 @@
     "failed": "Sign-in failed — please try again."
   },
   "config": {
-    "title": "Configuration",
-    "targets": "Surveillance targets",
-    "locales": "Languages"
+    "targets": "Surveillance targets"
   },
   "filters": {
     "location": "Region",
@@ -247,5 +245,41 @@
   "panelTypes": {
     "summary": "Summary",
     "phase": "Key signals"
+  },
+  "methodology": {
+    "contents": "Contents",
+    "notConfigured": "Not configured",
+    "caption": {
+      "streams": "This dashboard's streams",
+      "indicator_models": "How this dashboard's indicators enter the method",
+      "phase_patterns": "This dashboard's season or wave by pathogen",
+      "levels": "The levels and their colours"
+    },
+    "columns": {
+      "pathogen": "Pathogen",
+      "location": "Location",
+      "indicator": "Indicator",
+      "modelled": "How it's modelled",
+      "gradedAs": "Graded as",
+      "level": "Level",
+      "colour": "Colour"
+    },
+    "models": {
+      "count": "Counts ({{units}})",
+      "asCounts": "As counts",
+      "asRate": "As a rate of {{denominator}}, per {{per}}",
+      "other": "Any other rate or load",
+      "constant": "Against a constant exposure"
+    },
+    "pattern": {
+      "season": "One season a year",
+      "waves": "Waves through the year"
+    },
+    "tone": {
+      "success": "Green",
+      "warning": "Amber",
+      "error": "Red"
+    },
+    "none": "none"
   }
 }

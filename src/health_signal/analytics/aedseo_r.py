@@ -5,12 +5,23 @@ from datetime import date, timedelta
 import numpy as np
 
 from ..config import WaveEnd
+from ..methods import AEDSEO, Method
 from .backend import NO_BANDS, BackendError, FitError, FitInput, WeekFit
 
-# The aedseo paper's validated settings (SSI; medRxiv 2025, doi:10.1101/2025.11.18.25340240): k, the families
-# and decay_factor are aedseo's defaults; n_peak=3 and conf_levels=0.975 (Supplement S5) override its 6 and 0.95.
-_ONSET = dict(family="quasipoisson", k=5)
-_BURDEN = dict(family="lnorm", n_peak=3, decay_factor=0.8, conf_levels=0.975)
+
+def onset_args(method: Method) -> dict:
+    p = method.parameters
+    return dict(family=p["onset_family"], k=p["window_weeks"], level=p["interval_percent"] / 100)
+
+
+def burden_args(method: Method) -> dict:
+    p = method.parameters
+    return dict(family=p["burden_family"], n_peak=p["n_peak"], decay_factor=p["decay_factor"],
+                conf_levels=p["conf_levels"])
+
+
+_ONSET = onset_args(AEDSEO)
+_BURDEN = burden_args(AEDSEO)
 # combined_seasonal_output refits the onset and bands itself and ends waves against them: give it the settings we
 # grade by. How a wave ends comes from config (analytics.aedseo.wave_end).
 _WAVES = dict(family=_ONSET["family"], k=_ONSET["k"],
