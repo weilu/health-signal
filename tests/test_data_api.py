@@ -108,3 +108,14 @@ def test_api_data_filters_on_survtype(tmp_path):
     assert [(r["dimensions"]["survtype"], r["value"]) for r in sari] == [("SARI virological", 9.5)]
     rest = client.get("/api/data", params={"feed": "clinical", "survtype": "non-sentinel"}).json()
     assert len(rest) == 4 and {r["dimensions"]["survtype"] for r in rest} == {"non-sentinel"}
+
+
+def test_a_wastewater_panel_tells_the_client_its_site_dimension(tmp_path):
+    d = tmp_path / "w"
+    d.mkdir()
+    (d / "feed.csv").write_text(ODM.read_text(), encoding="utf-8")
+    panels = [{"id": "ww", "query": {"feed": "wastewater", "indicator": "fluA", "dimensions": {"aggregation": "floMean"}}}]
+    cfg = Config(schema_version="1.0.0", site=SiteConfig(title="T"),
+                 data=DataConfig(feeds=[{"id": "wastewater", "profile": "phes_odm", "dir": str(d)}]),
+                 targets=[{"id": "Influenza", "pages": [{"id": "ww", "panels": panels}]}])
+    assert cfg.client_config()["targets"][0]["pages"][0]["panels"][0]["site_by"] == "site"

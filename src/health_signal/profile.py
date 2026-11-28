@@ -46,6 +46,9 @@ class Profile(BaseModel):
     denominators: list[DenominatorRule] = []
     # Indicators reported per pathogen: a series of one without a pathogen mixes every pathogen's figures.
     pathogen_specific: set[str] = set()
+    # The dimension naming where within a location a series is sampled (a wastewater plant): each value is its own
+    # series, charted as its own line, in a location with several.
+    site_dimension: str | None = None
 
     def denominator_for(self, indicator: str, unit: str) -> DenominatorRule | None:
         # A unit-scoped rule wins: e.g. a SARI rate per admissions uses admissions, one per population doesn't.
@@ -159,7 +162,7 @@ _ODM_PATHOGEN = {
 PHES_ODM = Profile(
     name="phes_odm",
     version="3.0.1",
-    dimension_keys=["pathogen", "aggregation", "fraction"],
+    dimension_keys=["pathogen", "aggregation", "fraction", "site"],  # site: ODM's siteID, free text
     indicators=set(_ODM_PATHOGEN) | {"ppmv"},  # ppmv: the PMMoV faecal-strength marker, no pathogen
     units={"gcL", "gcMl", "log10cpL", "gCGS", "gcPpmov", "gcDay", "gcDay100k"},
     dimension_vocab={
@@ -171,6 +174,7 @@ PHES_ODM = Profile(
     qualities={"beLOD"},  # below LOD: the value is the producer's stand-in (0, LOD/2, …), not a measurement
     censored_qualities={"beLOD"},
     indicator_implies={measure: {"pathogen": p} for measure, p in {**_ODM_PATHOGEN, "ppmv": ""}.items()},
+    site_dimension="site",
 )
 
 PROFILES = {p.name: p for p in (ERVISS, PHES_ODM)}

@@ -559,6 +559,8 @@ class Config(BaseModel):
         # several pathogens.
         out["name"]["pathogen"] = (specific and not implied and panel.series_by != "pathogen"
                                    and not any(d.startswith("pathogen") for d in out["name"]["dimensions"]))
+        if profile.site_dimension and panel.series_by is None:
+            out["site_by"] = profile.site_dimension   # one line (and summary row) per site where a location has several
         return out
 
     def bootstrap_config(self) -> dict:

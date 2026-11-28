@@ -154,3 +154,23 @@ def test_below_detection_rows_are_marked_censored(tmp_path):
                                          "Attica,2021-W03,Influenza,floMean,fluA,900,gcDay100k,\n")
     [s], _, _ = assessed_series(cfg, sources)
     assert s.censored == [False, True, False] and s.values == [1200.0, 0.0, 900.0]
+
+
+def test_each_wastewater_site_in_a_location_is_its_own_series(tmp_path):
+    p = weeks(2021, 3)
+    rows = "".join(f"{loc},{w},Influenza,floMean,fluA,{v},gcDay100k,,{site}\n"
+                   for loc, site, vals in (("Thessaly", "Larissa", [1, 2, 3]), ("Thessaly", "Volos", [4, 5, 6]),
+                                           ("Attica", "Psyttalia", [7, 8, 9]))
+                   for w, v in zip(p, vals))
+    feed = write_feed(tmp_path / "w", rows, header="location,period,pathogen,aggregation,indicator,value,unit,quality,site\n")
+    cfg = Config(schema_version="1", site=SiteConfig(title="T"),
+                 data={"feeds": [{"id": "ww", "profile": "phes_odm", "dir": str(feed), "assessments": str(tmp_path / "a")}]},
+                 targets=[{"id": "Influenza", "pages": [{"id": "ww", "panels": [
+                     {"id": "flu", "query": {"feed": "ww", "indicator": "fluA", "dimensions": {"aggregation": "floMean"}}}]}]}])
+    series, refs, warnings = assessed_series(cfg, {"ww": FileDataSource(feed, PROFILES["phes_odm"])})
+    assert sorted((s.location, s.dimensions["site"], s.values[0]) for s in series) == [
+        ("Attica", "Psyttalia", 7), ("Thessaly", "Larissa", 1), ("Thessaly", "Volos", 4)]
+    assert not warnings
+    # A location's panel names one series only where it has one site: a phase stream can't pick between two.
+    assert refs[("Influenza", "Attica", "ww/flu")].dimensions["site"] == "Psyttalia"
+    assert ("Influenza", "Thessaly", "ww/flu") not in refs

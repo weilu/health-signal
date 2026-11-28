@@ -5,7 +5,7 @@ import { Alert, Button, Paper, Stack, Typography } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import { useTranslation } from 'react-i18next'
 import { fetchAssessments, fetchData, fetchThresholds } from '../api.js'
-import { activeWeeks, bandsFor, combinedState, ofSeries, pickInRange, plottedSeries, singleSeries } from '../assessments.js'
+import { bandsFor, bySite, combinedState, ofSeries, pickInRange, plottedSeries, singleSeries } from '../assessments.js'
 import { useMethod } from '../useMethod.js'
 import { StatusTrendTiles, TileGrid, TileMessage } from './StatusTrendTiles.jsx'
 import { ResourceBoundary } from '../ResourceBoundary.jsx'
@@ -25,17 +25,19 @@ export function TimeSeriesPanel({ panel, target, location, range, latest }) {
   const [toggled, setToggled] = useState(null)
   const params = panelParams(panel.query, location?.value, range)
   const query = useQuery({ queryKey: ['data', params], queryFn: () => fetchData(params) })
+  // A location with several sites draws one line each, as if split by the site.
+  const splitBy = panel.series_by ?? (bySite(query.data, panel.site_by) ? panel.site_by : null)
   // Tiles describe one series, so panels split into several lines get none; nor does a panel the selected method
   // doesn't grade, which says so rather than show another method's grade.
   const graded = !panel.methods || panel.methods.includes(method?.name)
-  const single = !panel.series_by && !!method && graded
+  const single = !splitBy && !!method && graded
   // Over the whole history, so the range only re-picks a row; the summary builds the same key and shares the cache.
   const aParams = { ...panelParams(panel.query, location?.value), method: method?.name }
   const assessed = useQuery({ queryKey: ['assessments', aParams], queryFn: () => fetchAssessments(aParams), enabled: single })
   const tParams = { ...params, method: method?.name }
   const thresholds = useQuery({ queryKey: ['thresholds', tParams], queryFn: () => fetchThresholds(tParams), enabled: single })
   // Without a location filter the lookups can hold other populations than the one plotted (e.g. Attica's
-  // history beside Greece's chart): keep only the plotted series' rows for tiles, bands and shading.
+  // history beside Greece's chart): keep only the plotted series' rows for tiles and bands.
   const plotted = plottedSeries(query.data)
   const own = (rows) => (plotted?.mixed ? [] : plotted ? (rows ?? []).filter((r) => ofSeries(r, plotted)) : rows ?? [])
   const assessedRows = own(assessed.data)
@@ -43,13 +45,10 @@ export function TimeSeriesPanel({ panel, target, location, range, latest }) {
   const pick = single && range && assessed.data && assessedRows.length ? pickInRange(assessedRows, range, latest) : null
   // Cached rows keep serving through a failed refetch; only a lookup that never loaded counts as failed.
   const lookups = single ? combinedState([assessed, thresholds]) : 'ok'
-  // Bands need no assessment history, but neither overlay may merge several series.
+  // Bands need no assessment history, but may not merge several series. Seasons and waves are shaded only on the
+  // overview's Key signals, which show the pathogen's phase rather than one indicator's.
   const overlays = single && !pick?.ambiguous && singleSeries([...assessedRows, ...thresholdRows])
-  const chartExtras = overlays ? {
-    bands: bandsFor(thresholdRows, method.levels),
-    levels: method.levels,
-    shading: activeWeeks(assessedRows, method.active_phases),
-  } : {}
+  const chartExtras = overlays ? { bands: bandsFor(thresholdRows, method.levels), levels: method.levels } : {}
   const title = panelLabel(t, panel)
   const heading = chartTitle(t, panel, target, location)
   const subtitle = chartSubtitle(t, panel, target, location)
@@ -70,14 +69,14 @@ export function TimeSeriesPanel({ panel, target, location, range, latest }) {
       </Stack>
       <ResourceBoundary query={query}>
         {(rows) => {
-          const model = toChartModel(rows, panel.series_by, palette.length, range)
+          const model = toChartModel(rows, splitBy, palette.length, range)
           if (model.status !== 'ok') {
             const span = range && { from: weekStamp(t, range.from), to: weekStamp(t, range.to) }
             const message = model.status !== 'empty' || !span ? t(`chart.${model.status}`, model)
               : location ? t('chart.emptyAt', { location: location.label, ...span }) : t('chart.emptyIn', span)
             return <Alert severity={model.status === 'empty' ? 'info' : 'warning'}>{message}</Alert>
           }
-          const series = model.series.map((s) => ({ ...s, label: panel.series_by ? seriesLabel(t, panel.series_by, s.key) : title }))
+          const series = model.series.map((s) => ({ ...s, label: splitBy ? seriesLabel(t, splitBy, s.key) : title }))
           const unit = t(`unit.${model.unit}`, { defaultValue: model.unit })
           if (asTable) return <SeriesTable periods={model.periods} series={series} unit={unit} />
           if (series.length < 2) return <TimeSeriesChart periods={model.periods} series={series} unit={unit} scale={panel.y_scale} {...chartExtras} />
@@ -96,7 +95,7 @@ export function TimeSeriesPanel({ panel, target, location, range, latest }) {
   if (lookups === 'unauth') return <Navigate to="/login" replace />
   // A failed lookup must not read as "never assessed"; an ambiguous one leaves the chart's own warning to explain.
   const methodName = method && t(`methods.${method.name}.name`, { defaultValue: method.name })
-  const tiles = !panel.series_by && method && !graded ? <TileMessage text={t('assessment.notGradedWith', { method: methodName })} />
+  const tiles = !splitBy && method && !graded ? <TileMessage text={t('assessment.notGradedWith', { method: methodName })} />
     : lookups === 'error' ? <Alert severity="warning">{t('assessment.unavailable')}</Alert>
     : pick?.ambiguous ? <Alert severity="info">{t('assessment.ambiguous')}</Alert>
     : pick && <StatusTrendTiles pick={pick} method={method} />
