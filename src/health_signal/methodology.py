@@ -20,6 +20,9 @@ _PLACEHOLDER = re.compile(r"\{\{\s*(>\s*)?([a-z_.]+)\s*\}\}")
 _BRACES = re.compile(r"\{\{(.*?)\}\}")
 _MATH = re.compile(r"\$\$.*?\$\$|\$[^$\n]+\$")
 _FENCE = re.compile(r"`{3,}|~{3,}")
+# A dotted name after {{ is a setting's, however it's mistyped (a capital, a hyphen, a missing brace): LaTeX's own
+# double braces never hold one.
+_DOTTED = re.compile(r"\{\{\s*>?\s*[A-Za-z_][\w-]*\.[^\s{}$]*\s*\}?\}?")
 
 
 def load_methodology(config: Config, data_locations: set[str] | None = None) -> dict[str, dict]:
@@ -139,7 +142,10 @@ def _in_maths(text: str, where: str, values: dict[str, str]) -> str:
                 raise ValueError(f"{where}: unknown placeholder {match.group(0)}")
             return match.group(0)
         return values[placeholder.group(2)].strip("`").removeprefix("hs:")
-    return _PLACEHOLDER.sub(bare, text)
+    filled = _PLACEHOLDER.sub(bare, text)
+    if leftover := _DOTTED.search(filled):
+        raise ValueError(f"{where}: malformed placeholder {leftover.group(0)}")
+    return filled
 
 
 def _value(text) -> str:
