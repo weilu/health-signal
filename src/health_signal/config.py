@@ -81,6 +81,8 @@ class Panel(BaseModel):
     type: Literal["timeseries", "phase", "summary"] = "timeseries"  # phase and summary build the Overview
     query: PanelQuery | None = None
     series_by: str | None = None  # one line per value of this dimension
+    # The lines shown at first, by series_by value; readers turn the others on. None = every line.
+    series_shown: list[str] | None = None
     # Log for values spanning orders of magnitude (wastewater loads), where linear flattens all but the peaks.
     y_scale: Literal["linear", "log"] = "linear"
 
@@ -92,6 +94,8 @@ class Panel(BaseModel):
         if self.type != "timeseries" and (self.query is not None or self.series_by is not None
                                           or self.y_scale != "linear"):
             raise ValueError(f"panel {self.id!r}: a {self.type} panel takes no query, series_by or y_scale")
+        if self.series_shown is not None and self.series_by is None:
+            raise ValueError(f"panel {self.id!r}: series_shown picks among series_by's lines, and it has no series_by")
         return self
 
     @computed_field
@@ -303,6 +307,15 @@ class AedseoConfig(BaseModel):
     # aedseo's own settings that depend on the data, in its names and level vocabulary.
     model_config = ConfigDict(extra="forbid")
     wave_end: WaveEnd = Field(default_factory=WaveEnd)
+    panels: list[str] | None = None   # "<target>/<page>/<panel>" it grades; None = every single-series panel
+
+
+class MemConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    # MEM's own season window, so its thresholds can match those of an outside source laid out on another one.
+    season_start_week: int = Field(40, ge=1, le=52)
+    seasons: PositiveInt = 5   # past seasons each season's thresholds come from
+    panels: list[str] | None = None
 
 
 class AnalyticsConfig(BaseModel):
@@ -311,7 +324,9 @@ class AnalyticsConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
     min_seasons: PositiveInt = 3
     wave_pathogens: list[str] = Field(default_factory=lambda: ["SARS-CoV-2"])
+    methods: list[str] = Field(default_factory=lambda: ["aedseo"], min_length=1)   # graded; the first is the default
     aedseo: AedseoConfig = Field(default_factory=AedseoConfig)
+    mem: MemConfig = Field(default_factory=MemConfig)
     phase_streams: list[PhaseStreamsEntry] = Field(default_factory=list)
 
 
@@ -440,6 +455,10 @@ class Config(BaseModel):
             method = METHODS.get(entry.method)
             if method is None or not method.stream_roles:
                 raise ValueError(f"{where}: method {entry.method!r} derives no phase from streams")
+            if entry.method not in self.analytics.methods:
+                raise ValueError(f"{where}: {entry.method} isn't graded (analytics.methods)")
+            if not method.waves and entry.pathogen in self.analytics.wave_pathogens:
+                raise ValueError(f"{where}: {entry.method} can't phase {entry.pathogen}, which is graded in waves")
             if set(entry.streams) != set(method.stream_roles):
                 raise ValueError(f"{where}: roles {sorted(entry.streams)} must be {entry.method}'s {method.stream_roles}")
             for role, ref in entry.streams.items():
@@ -448,11 +467,35 @@ class Config(BaseModel):
                     raise ValueError(f"{where}: {role} names no panel {ref!r} under target {entry.pathogen!r}")
                 if panel.query is None or panel.series_by is not None:
                     raise ValueError(f"{where}: {role} panel {ref!r} must show a single series")
+                allow = self.method_panels(entry.method)
+                if allow is not None and f"{entry.pathogen}/{ref}" not in allow:
+                    raise ValueError(f"{where}: {entry.method} doesn't grade its {role} panel {ref!r} "
+                                     f"(analytics.{entry.method}.panels)")
                 if panel.query.feed not in assessed:
                     raise ValueError(f"{where}: {role} panel {ref!r} reads feed {panel.query.feed!r}, "
                                      f"which has no assessments dir")
         if self.analytics.phase_streams and not (self.data and self.data.phases and self.data.phase_streams):
             raise ValueError("analytics.phase_streams writes data.phases and data.phase_streams; set both")
+        return self
+
+    def method_panels(self, method: str) -> set[str] | None:
+        panels = getattr(self.analytics, method).panels
+        return None if panels is None else set(panels)
+
+    @model_validator(mode="after")
+    def _graded_methods(self) -> "Config":
+        methods = self.analytics.methods
+        if unknown := [m for m in methods if m not in METHODS]:
+            raise ValueError(f"analytics.methods: {unknown} aren't registered methods {sorted(METHODS)}")
+        if len(set(methods)) != len(methods):
+            raise ValueError("analytics.methods repeats a method")
+        for method in METHODS:
+            for ref in getattr(self.analytics, method).panels or ():
+                target, _, page_panel = ref.partition("/")
+                panel = self.panel(target, page_panel) if page_panel.count("/") == 1 else None
+                if panel is None or panel.query is None or panel.series_by is not None:
+                    raise ValueError(f"analytics.{method}.panels: {ref!r} isn't a single-series panel "
+                                     f"(<target>/<page>/<panel>)")
         return self
 
     def panel(self, target_id: str, ref: str) -> Panel | None:
@@ -468,11 +511,29 @@ class Config(BaseModel):
         dims = self.profile(feed.profile).canonical(query.indicator, query.dimensions)
         return query.feed, query.indicator, tuple(sorted(dims.items()))
 
-    def _client_page(self, target: Target, page: Page, shared: dict[tuple, list[str]]) -> dict:
+    def _client_page(self, target: Target, page: Page, shared: dict[tuple, list[str]], refs: dict[tuple, set[str]]) -> dict:
         keys = {p.id: key for p in page.panels if p.query and (key := self._canonical_query(p.query))}
         path = page_path(target.id, page.id)
         return {**page.model_dump(mode="json"), "path": path, "public": self.site.opens(path),
-                "panels": [self._client_panel(x, shared, keys) for x in page.panels]}
+                "panels": [{**self._client_panel(x, shared, keys), "methods": self._grading(target, x, keys.get(x.id), shared, refs),
+                            # Before there's a phase to read it from, the tile still names seasons or waves.
+                            **({"pattern": "waves" if target.id in self.analytics.wave_pathogens else "season"}
+                               if x.type == "phase" else {})}
+                           for x in page.panels]}
+
+    def _grading(self, target: Target, panel: Panel, key: tuple | None, shared: dict[tuple, list[str]],
+                 refs: dict[tuple, set[str]]) -> list[str]:
+        # The methods that grade this panel's series, so the browser can say "not graded with" rather than show another's
+        # grade. Per series, as assess grades: listed on one tab, a series is graded on every tab showing it, and it's
+        # graded in waves only if every tab showing it is a wave pathogen's.
+        if panel.type == "phase":   # the methods with a season or wave for this pathogen
+            phased = {e.method for e in self.analytics.phase_streams if e.pathogen == target.id}
+            return [m for m in self.analytics.methods if m in phased]
+        if key is None or panel.series_by is not None:
+            return []
+        waves = all(t in self.analytics.wave_pathogens for t in shared[key])
+        return [m for m in self.analytics.methods
+                if (self.method_panels(m) is None or self.method_panels(m) & refs[key]) and (METHODS[m].waves or not waves)]
 
     def _client_panel(self, panel: Panel, shared: dict[tuple, list[str]], page_keys: dict[str, tuple]) -> dict:
         out = panel.model_dump(mode="json")
@@ -512,24 +573,28 @@ class Config(BaseModel):
     def client_config(self) -> dict:
         # Full view-model (authenticated); still excludes server-only fields.
         shared: dict[tuple, list[str]] = {}
+        refs: dict[tuple, set[str]] = {}   # every panel showing a series, for the methods' allowlists
         for t in self.targets:
             for page in t.pages:
                 for panel in page.panels:
                     key = self._canonical_query(panel.query) if panel.query else None
                     if key is not None and t.id not in shared.setdefault(key, []):
                         shared[key].append(t.id)
+                    if key is not None and panel.series_by is None:
+                        refs.setdefault(key, set()).add(f"{t.id}/{page.id}/{panel.id}")
         return {
             **self.bootstrap_config(),
             "targets": [
                 {**t.model_dump(mode="json"),
-                 "pages": [self._client_page(t, p, shared) for p in t.pages]}
+                 "pages": [self._client_page(t, p, shared, refs) for p in t.pages]}
                 for t in self.targets
             ],
             # The client keeps reading the year start beside the range settings it shapes.
             "filters": {**self.filters.model_dump(mode="json"),
                         "date_range": {**self.filters.date_range.model_dump(mode="json"),
                                        "year_start_week": self.surveillance.year_start_week}},
-            "methods": {name: m.model_dump(mode="json", exclude={"name"}) for name, m in METHODS.items()},
+            # The graded methods, in the deployment's order: the first is the one shown by default.
+            "methods": {name: METHODS[name].model_dump(mode="json", exclude={"name"}) for name in self.analytics.methods},
         }
 
 

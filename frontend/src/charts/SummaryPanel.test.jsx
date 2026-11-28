@@ -3,10 +3,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
-import { fetchAssessments, fetchConfig, fetchPhaseStreams } from '../api.js'
+import { fetchAssessments, fetchConfig, fetchData, fetchPhaseStreams } from '../api.js'
 import { SummaryPanel } from './SummaryPanel.jsx'
 
-vi.mock('../api.js', () => ({ fetchAssessments: vi.fn(), fetchConfig: vi.fn(), fetchPhaseStreams: vi.fn() }))
+vi.mock('../api.js', () => ({ fetchAssessments: vi.fn(), fetchConfig: vi.fn(), fetchData: vi.fn(), fetchPhaseStreams: vi.fn() }))
 afterEach(() => { cleanup(); vi.resetAllMocks() })
 
 const METHOD = { aedseo: { levels: ['very_low', 'low'], phases: [], active_phases: [], stream_roles: [], trend: true } }
@@ -112,5 +112,24 @@ describe('SummaryPanel', () => {
     renderPanel()
     const cell = (await screen.findByRole('link', { name: 'load' })).closest('td')
     expect(cell.textContent).toContain('level.low · trend.stable · range.week')
+  })
+})
+
+describe('SummaryPanel rows for charts nothing grades', () => {
+  it('lists them as not graded, as of their last week of data, even before the range', async () => {
+    fetchConfig.mockResolvedValue({ methods: METHOD })
+    fetchPhaseStreams.mockResolvedValue([])
+    fetchAssessments.mockResolvedValue([])
+    fetchData.mockResolvedValue([
+      { location: 'Greece', period: '2023-W34', indicator: 'vaccinedoses', value: 900, unit: 'count', dimensions: {} },
+      { location: 'Greece', period: '2023-W35', indicator: 'vaccinedoses', value: 800, unit: 'count', dimensions: {} }])
+    const doses = { id: 'doses', type: 'timeseries', label_key: 'panels.doses', methods: [],
+                    query: { feed: 'vaccination', indicator: 'vaccinedoses', dimensions: {} } }
+    renderPanel({ value: 'Greece' }, { id: 'SARS-CoV-2', pages: [{ id: 'vacc', path: '/sars-cov-2/vacc', label_key: 'pages.vacc',
+                                                                  panels: [doses] }] })
+    await vi.waitFor(() => expect(document.querySelector('a[href="/sars-cov-2/vacc"]')).toBeTruthy())
+    expect(screen.getAllByText('assessment.ungraded').length).toBeGreaterThan(0)
+    expect(screen.queryByText('assessment.noneInRange')).toBeNull()
+    expect(fetchAssessments).not.toHaveBeenCalled()
   })
 })

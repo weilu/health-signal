@@ -2,7 +2,7 @@ import math
 
 import pytest
 
-from health_signal.analytics.rules import (SeasonState, completed_seasons, value_scale, level_for, season_of,
+from health_signal.analytics.rules import (SeasonState, completed_seasons, mem_trend, value_scale, level_for, season_of,
                                           season_phase, trend_for, wave_phase, weeks_between)
 
 LEVELS = ["very_low", "low", "medium", "high", "very_high"]
@@ -122,3 +122,18 @@ def test_an_unavailable_onset_alarm_is_no_phase_not_out_of_season():
     assert season_phase(state, "2025-W02", 15, 10.0, None) == (None, state)
     in_season = SeasonState(True, 0, "2025-W01")
     assert season_phase(in_season, "2025-W02", 15, 10.0, None)[0] == "in_season"   # a running season needs no alarm
+
+
+@pytest.mark.parametrize("value,previous,expected", [
+    (12, 8, "increasing"),       # first week over the epidemic threshold of 10
+    (30, 20, "increasing"),      # +10 > delta 5
+    (20, 30, "decreasing"),      # -10 < eta -5
+    (22, 20, "stable"),
+    (8, 12, "decreasing"),       # first week back below
+    (8, 6, "not_assessed"),      # below: MEM doesn't assess
+    (20, None, "not_assessed"),  # a gap before the week
+    (20, math.nan, "not_assessed"),
+    (math.nan, 20, "not_assessed"),
+])
+def test_mem_trend(value, previous, expected):
+    assert mem_trend(value, previous, epidemic=10, delta=5, eta=-5) == expected

@@ -5,7 +5,9 @@ import TargetPage from './TargetPage.jsx'
 
 // The panels themselves are tested on their own; here only where the page puts them.
 vi.mock('../charts/TimeSeriesPanel.jsx', () => ({ TimeSeriesPanel: ({ panel }) => <p>{`panel:${panel.id}`}</p> }))
-vi.mock('../charts/PhasePanel.jsx', () => ({ PhasePanel: () => null }))
+vi.mock('../charts/PhasePanel.jsx', () => ({ PhasePanel: () => <p>key signals</p> }))
+const selected = vi.hoisted(() => ({ method: { name: 'aedseo', phases: ['in_season'] } }))
+vi.mock('../useMethod.js', () => ({ useMethod: () => selected.method }))
 vi.mock('../charts/SummaryPanel.jsx', () => ({ SummaryPanel: () => null }))
 afterEach(cleanup)
 
@@ -31,4 +33,14 @@ it("shows an embedding page's own page in a frame, with the selected location", 
   const src = new URL(container.querySelector('iframe').getAttribute('src'), 'http://x')
   expect(src.pathname).toBe('/embeds/forecast/index.html')
   expect(src.searchParams.get('location')).toBe('Attica')
+})
+
+it("shows Key signals only under a method that phases the pathogen", () => {
+  const overview = (methods) => ({ id: 'overview', panels: [{ id: 'phase', type: 'phase', methods }, { id: 'summary', type: 'summary' }] })
+  selected.method = { name: 'mem', phases: ['in_season'] }
+  render(<TargetPage target={{ id: 'Influenza' }} page={overview(['aedseo', 'mem'])} />)
+  expect(screen.queryByText('key signals')).toBeTruthy()
+  cleanup()
+  render(<TargetPage target={{ id: 'SARS-CoV-2' }} page={overview(['aedseo'])} />)
+  expect(screen.queryByText('key signals')).toBeNull()
 })

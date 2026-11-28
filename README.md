@@ -102,7 +102,9 @@ reword any library text, or a panel's default name, by setting its key. Config c
 labelled by convention (`pages.<page id>`, `targets.<target id>`, a location option's `label_key`, `unit.<unit>`,
 `dimensions.<dimension>.<value>` for a split chart's lines, and `panels.<panel id>` to replace a panel's default name).
 
-A time-series panel can set `y_scale: log` for values spanning orders of magnitude, such as wastewater loads.
+A time-series panel can set `y_scale: log` for values spanning orders of magnitude, such as wastewater loads. A panel
+split into lines (`series_by`) shows them as buttons above the chart that readers turn on and off; `series_shown` lists
+the ones shown at first (e.g. `series_shown: [60-69, 70-79, 80+]` for the oldest age groups), the rest off.
 Weeks whose value is zero (e.g. a below-detection stand-in) then show as a gap with a mark at the axis floor.
 
 A chart's title also names the tab's pathogen and the selected location ("Hospital admissions · COVID-19 (Attica)"),
@@ -148,6 +150,14 @@ page can't drift from them:
   `{{> method.status}}`, `{{> method.trend}}`, `{{> method.seasons}}` (ending with the streams table),
   `{{> method.waves}}`, `{{> method.indicators}}`, `{{> method.references}}`.
 
+**One page per method.** The page shows the method selected in the header. A deployment grading with several methods
+writes `methodology_dir/<method>/<language>.md` for each (e.g. `aedseo/el.md`, `mem/el.md`); one without a folder
+shows the library's text for it, and a single-method deployment's `methodology_dir/<language>.md` is read as aedseo's.
+Placeholders mean the page's method: on a MEM page `{{> method}}` is MEM's text, and `{{method.seasons}}`,
+`{{method.season_start_week}}`, `{{method.season_end_week}}`, `{{method.epidemic_param}}` and
+`{{method.intensity_levels}}` its settings; `{{> streams}}`, `{{> indicator_models}}` and `{{> phase_patterns}}`
+are aedseo's alone.
+
 The page is CommonMark with tables and `$…$` / `$$…$$` maths; raw HTML isn't rendered. Inside maths a value
 placeholder becomes the bare value and LaTeX's own double braces are left alone; inside a fenced code block
 placeholders are shown as written. Its `##` and `###` headings
@@ -185,6 +195,7 @@ week by week, each week from the data available up to it. It needs R, which the 
 # once: R (https://cran.r-project.org) with aedseo, and the analytics extra. Until ssi-dk/aedseo#114 reaches
 # CRAN, aedseo from this development commit: CRAN's 1.1.0 can't place a wave after a reporting gap
 Rscript -e 'install.packages("remotes"); remotes::install_github("ssi-dk/aedseo@f65ddf153060773f9bac4759a458b2ff76df6027")'
+Rscript -e 'install.packages("mem")'          # only if analytics.methods includes mem
 pip install "health-signal[analytics]"        # or: uv sync --extra analytics
 
 health-signal assess --config dashboard.yaml --full --jobs 8   # first run: every week of history
@@ -204,6 +215,25 @@ Phase tables may come from another producer, so `assess` writes them only while 
 lists streams: to stop showing its phases, remove `data.phases` and `data.phase_streams` too. The
 policy settings live under `analytics:` (see the example config); countries may also write the tables
 themselves in the same format, with or without aedseo.
+
+**More than one method.** `analytics.methods` lists the methods `assess` grades with, `[aedseo]` by default; the first
+is the one the dashboard shows by default. The other is the **Moving Epidemic Method** ([mem](https://cran.r-project.org/package=mem),
+Vega et al.), as ERVISS uses it for ILI/ARI: each season's epidemic and intensity thresholds come from the
+`analytics.mem.seasons` (default 5) complete seasons before it, in MEM's own window starting at
+`analytics.mem.season_start_week` (default 40), and stay fixed for the season. Its levels are baseline, low, medium,
+high and very high; its trend compares each week with the last, and isn't assessed below the epidemic threshold.
+MEM assumes one epidemic a season, so it leaves out series graded in waves; a pathogen's MEM season pairs two streams
+as aedseo's does (`analytics.phase_streams` entries with `method: mem`), each in an epidemic from the week it
+reaches its epidemic threshold. Each method grades
+every single-series panel unless it lists some, as `"<target>/<page>/<panel>"`:
+
+```yaml
+analytics:
+  methods: [aedseo, mem]
+  mem: { season_start_week: 25, seasons: 5, panels: [Influenza/clinical/ili_rate] }
+```
+
+`assess --full --method mem` recomputes one method's tables and keeps the others'.
 
 ### Authentication & access
 

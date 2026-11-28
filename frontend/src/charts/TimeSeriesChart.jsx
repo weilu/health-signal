@@ -26,7 +26,9 @@ export function useChartPalette() {
 // Before layout there's no drawn width yet: room enough.
 const weekSpacing = (chart) => (chart?.chartArea ? chart.chartArea.width / Math.max(chart.data.labels.length - 1, 1) : Infinity)
 
-export function TimeSeriesChart({ periods, series, unit, bands = [], levels = [], shading = null, scale = 'linear', height = 320 }) {
+// `hidden`: keys of lines a reader turned off, with SeriesToggles as the legend in place of the canvas's.
+export function TimeSeriesChart({ periods, series, unit, bands = [], levels = [], shading = null, scale = 'linear', height = 320,
+                                 hidden = null }) {
   const { axisWidth, onAxisWidth } = useAlignedAxis()
   const theme = useTheme()
   const { t, i18n } = useTranslation()
@@ -36,15 +38,16 @@ export function TimeSeriesChart({ periods, series, unit, bands = [], levels = []
   const { primary: ink, secondary: ink2 } = theme.palette.text
   const rule = theme.palette.divider
   const font = { family: theme.typography.fontFamily, size: 12 }
-  const labelled = series.length >= 2 && series.length <= 4
+  const visible = hidden ? series.filter((s) => !hidden.has(s.key)) : series
+  const labelled = visible.length >= 2 && visible.length <= 4
   const labelFont = `12px ${theme.typography.fontFamily}`
   // Room for the longest end-label so it isn't clipped.
   const labelRoom = useMemo(() => {
     if (!labelled) return 8
     const ctx = document.createElement('canvas').getContext('2d')
     ctx.font = labelFont
-    return Math.ceil(Math.max(...series.map((s) => ctx.measureText(s.label).width))) + 12
-  }, [labelled, labelFont, series])
+    return Math.ceil(Math.max(...visible.map((s) => ctx.measureText(s.label).width))) + 12
+  }, [labelled, labelFont, visible])
   const log = scale === 'log'
   // A zero (e.g. a non-detect's stand-in) has no place on a log axis: a gap in the line, marked at the floor.
   const floor = log ? series.flatMap((s, i) => s.values.flatMap((v, j) => (v != null && v <= 0 ? [[i, j]] : []))) : []
@@ -56,6 +59,7 @@ export function TimeSeriesChart({ periods, series, unit, bands = [], levels = []
     labels: periods,
     datasets: series.map((s, i) => ({
       label: s.label, data: log ? s.values.map((v) => (v > 0 ? v : null)) : s.values, qualities: s.qualities,
+      hidden: !!hidden?.has(s.key),
       borderColor: colours[i], backgroundColor: colours[i], pointBackgroundColor: colours[i], pointBorderColor: colours[i],
       borderWidth: single ? 1.8 : 2, borderCapStyle: 'round', borderJoinStyle: 'round',
       pointRadius: (c) => (isolated(c.dataset.data, c.dataIndex) ? 3 : single ? dotRadius(weekSpacing(c.chart)) : 0),
@@ -90,7 +94,7 @@ export function TimeSeriesChart({ periods, series, unit, bands = [], levels = []
     },
     plugins: {
       // Identifies series only: click-to-hide isn't keyboard-operable on a canvas.
-      legend: { display: series.length >= 2, onClick: null, align: 'start', labels: { color: ink, font, usePointStyle: true, pointStyle: 'line' } },
+      legend: { display: series.length >= 2 && !hidden, onClick: null, align: 'start', labels: { color: ink, font, usePointStyle: true, pointStyle: 'line' } },
       tooltip: {
         usePointStyle: true, backgroundColor: theme.palette.background.paper, titleColor: ink, bodyColor: ink,
         borderColor: rule, borderWidth: 1, titleFont: font, bodyFont: font,

@@ -2,7 +2,7 @@ import math
 from datetime import date, timedelta
 from pathlib import Path
 
-from health_signal.analytics.backend import FitError, FitInput, WeekFit
+from health_signal.analytics.backend import FitError, FitInput, MemFit, WeekFit
 
 ERVISS_HEADER = "location,period,survtype,pathogen,pathogentype,pathogensubtype,age,indicator,value,unit\n"
 
@@ -75,3 +75,11 @@ class RecordingBackend(FakeBackend):
     def fit(self, data: FitInput) -> WeekFit:
         self.inputs.append(data)
         return super().fit(data)
+
+
+class FakeMem:
+    """Stand-in for R's mem: thresholds 10/20/40/80, delta 5, eta -5, whatever the history."""
+    version = "fake-mem-1"
+
+    def fit_season(self, history):
+        return MemFit((10.0, 20.0, 40.0, 80.0), 5.0, -5.0)

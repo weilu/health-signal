@@ -1,13 +1,19 @@
 import { addWeeks, isWeek } from './weeks.js'
 
 // Links between pages carry these, so switching page keeps the view.
-const FILTER_PARAMS = ['location', 'range', 'from', 'to']
+const FILTER_PARAMS = ['location', 'range', 'from', 'to', 'method']
 
 // In the URL so a regional view is deep-linkable; an unknown value falls back to the default.
 export function selectedLocation(filter, search) {
   if (!filter) return null
   const wanted = new URLSearchParams(search).get('location')
   return filter.options.some((o) => o.value === wanted) ? wanted : filter.default
+}
+
+// The graded methods in the deployment's order: the first is the default, also for a link naming one it doesn't grade.
+export function selectedMethod(names, search) {
+  const wanted = new URLSearchParams(search).get('method')
+  return names.includes(wanted) ? wanted : names[0]
 }
 
 export function withFilters(path, search) {

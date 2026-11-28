@@ -30,6 +30,7 @@ def _parse(argv=None):
     run = commands.add_parser("assess", parents=[common],
                               help="Write Status/Trend/phase tables from the feeds (needs R + aedseo).")
     run.add_argument("--full", action="store_true", help="Recompute every week instead of only new ones.")
+    run.add_argument("--method", help="With --full, recompute only this method's tables (e.g. mem).")
     run.add_argument("--jobs", type=int, default=1, help="Series assessed in parallel processes.")
     argv = list(sys.argv[1:] if argv is None else argv)
     # A bare `health-signal --config ...` predates the subcommands and still serves.
@@ -48,7 +49,7 @@ def main(argv=None):
     if hasattr(os, "nice"):   # absent on Windows
         os.nice(10)
     try:
-        assess(load_config(args.config), full=args.full, jobs=args.jobs)
+        assess(load_config(args.config), full=args.full, method=args.method, jobs=args.jobs)
     except (SettingsChanged, RuntimeError, ValueError) as e:
         # A scheduled run must fail visibly, with the reason rather than a traceback.
         print(f"health-signal assess: {e}", file=sys.stderr)

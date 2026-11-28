@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Alert, Box, Button, Chip, Paper, Stack, Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
-import { fetchData, fetchPhases, fetchPhaseStreams } from '../api.js'
-import { activeWeeks, phaseRuns, phaseSince, pickInRange, streamPanel, streamScale } from '../assessments.js'
+import { fetchData, fetchPhases, fetchPhaseStreams, fetchThresholds } from '../api.js'
+import { activeWeeks, bandsFor, phaseRuns, phaseSince, pickInRange, streamPanel, streamScale } from '../assessments.js'
 import { chartTitle, inSentence, panelLabel, weekStamp } from '../labels.js'
 import { ResourceBoundary } from '../ResourceBoundary.jsx'
 import { toChartModel } from '../series.js'
@@ -18,11 +18,15 @@ export function phaseQuery(target, location, method) {
 }
 
 // One compact chart per stream on the same weeks: the streams' units differ, so they can't share an axis.
-function StreamChart({ stream, range, shading, named, scale, name: panelName }) {
+function StreamChart({ stream, range, shading, named, scale, method, name: panelName }) {
   const { t } = useTranslation()
   // The stream's own location, as the producer recorded it: without a location filter, the feed may hold others.
   const params = { feed: stream.feed, ...stream.series, location: stream.location, week_from: range?.from, week_to: range?.to }
   const query = useQuery({ queryKey: ['data', params], queryFn: () => fetchData(params) })
+  // Its levels, as its own tab shades them; without them the chart still stands.
+  const tParams = { ...params, method: method.name }
+  const thresholds = useQuery({ queryKey: ['thresholds', tParams], queryFn: () => fetchThresholds(tParams) })
+  const bands = bandsFor((thresholds.data ?? []).filter((r) => r.location === stream.location), method.levels)
   // What it stands for, then what measures it, named as on its tab (or by its indicator, with no panel there).
   const name = panelName ?? t(`indicators.${stream.series.indicator}`, { defaultValue: stream.series.indicator })
   const title = t('phase.streamTitle', { role: t(`role.${stream.role}`, { defaultValue: stream.role }),
@@ -48,7 +52,7 @@ function StreamChart({ stream, range, shading, named, scale, name: panelName }) 
           return asTable
             ? <SeriesTable periods={model.periods} series={series} unit={unit} />
             : <TimeSeriesChart periods={model.periods} series={series} unit={unit} shading={shading} scale={scale}
-                height={180} />
+                bands={bands} levels={method.levels} height={180} />
         }}
       </ResourceBoundary>
     </Box>
@@ -73,12 +77,20 @@ export function PhasePanel({ panel, target, location, range, latest }) {
   const span = range ?? (rows.length ? { from: rows.reduce((m, r) => (r.period < m ? r.period : m), rows[0].period),
                                           to: rows.reduce((m, r) => (r.period > m ? r.period : m), rows[0].period) } : null)
   const pick = rows.length && span ? pickInRange(rows, span, latest ?? span.to) : null
-  // The rule in the terms of the pathogen's own pattern: seasons or year-round waves, read off its phase codes.
-  const pattern = rows.some((r) => r.phase === 'in_wave' || r.phase === 'between_waves') ? 'waves' : 'season'
+  // The rule in the terms of the pathogen's own pattern: seasons or year-round waves, read off its phase codes, or
+  // the config's before there are any.
+  const pattern = rows.length ? (rows.some((r) => r.phase === 'in_wave' || r.phase === 'between_waves') ? 'waves' : 'season')
+    : panel.pattern ?? 'season'
   const title = chartTitle(t, panel, target, location)
   const rule = method && t(`methods.${method.name}.phase_rule.${pattern}`, { defaultValue: '' })
+  // Streams with no phase yet (one not graded): their charts still say something, the tile says why there's no phase.
+  const undetermined = phases.data && !rows.length && streams.data?.length
   // Without a location filter, several locations' phases can share a week; none of them is "the" phase.
-  const tile = pick && (pick.ambiguous ? (
+  const tile = undetermined ? (
+    <Tile title={t(`phase.title.${pattern}`)} current note={t('phase.undeterminedNote')}>
+      <Typography variant="h5" component="p">{t(`phase.undetermined.${pattern}`)}</Typography>
+    </Tile>
+  ) : pick && (pick.ambiguous ? (
     <Tile title={t(`phase.title.${pattern}`)} current>
       <Typography variant="body1" component="p">{t('phase.ambiguous')}</Typography>
     </Tile>
@@ -95,15 +107,14 @@ export function PhasePanel({ panel, target, location, range, latest }) {
       <Typography variant="h6" component="h2" sx={{ mb: 1 }}>{title}</Typography>
       <ResourceBoundary query={phases}>
         {(loaded) => {
-          if (!loaded.length) return <Typography color="text.secondary">{t('phase.none')}</Typography>
           // A declared or stream-less phase has no evidence to chart; the card keeps just the rule text.
           return (
             <ResourceBoundary query={streams}>
-              {(list) => (
+              {(list) => !loaded.length && !list.length ? <Typography color="text.secondary">{t('phase.none')}</Typography> : (
                 <AlignedCharts>
                   <Stack spacing={2}>
                     {list.map((s) => (
-                      <StreamChart key={`${s.location}/${s.role}`} stream={s} range={range} named={!location}
+                      <StreamChart key={`${s.location}/${s.role}`} stream={s} range={range} named={!location} method={method}
                         scale={streamScale(target, s)} name={streamPanel(target, s) && panelLabel(t, streamPanel(target, s))}
                         shading={activeWeeks(loaded.filter((r) => r.location === s.location), method.active_phases)} />
                     ))}

@@ -33,13 +33,17 @@ export function Tile({ title, current, footer, note, children }) {
   )
 }
 
-export function NoneInRange() {
-  const { t } = useTranslation()
+export function TileMessage({ text }) {
   return (
     <Paper variant="outlined" sx={{ px: 3, py: 2.75 }}>
-      <Typography variant="body2" color="text.secondary">{t('assessment.noneInRange')}</Typography>
+      <Typography variant="body2" color="text.secondary">{text}</Typography>
     </Paper>
   )
+}
+
+export function NoneInRange() {
+  const { t } = useTranslation()
+  return <TileMessage text={t('assessment.noneInRange')} />
 }
 
 // Names the part of the method behind the tile (burden levels, growth rate), not just the method: tiles of one
@@ -87,11 +91,13 @@ export function StatusTrendTiles({ pick, method }) {
           {row.provisional && <Chip size="small" variant="outlined" label={t('assessment.provisional')} />}
         </Stack>
       </Tile>
-      <Tile title={t('assessment.trend')} current={current} footer={trendFooter(t, pick, row)}>
+      <Tile title={t('assessment.trend')} current={current} footer={trendFooter(t, pick, row)}
+        note={row.trend === 'not_assessed' ? t(`methods.${row.method}.trend_note`, { defaultValue: '' }) || undefined : undefined}>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
           {row.trend && <TrendMark trend={row.trend} size={28} />}
           <Typography variant="h5" component="p" sx={{ color: toneTextColor(trend) }}>
-            {row.trend ? t(`trend.${row.trend}`) : '—'}
+            {/* A method may word a trend its own way: MEM says why it didn't assess one. */}
+            {row.trend ? t(`methods.${row.method}.trend.${row.trend}`, { defaultValue: t(`trend.${row.trend}`) }) : '—'}
           </Typography>
         </Stack>
         {hasGrowth(row) && (

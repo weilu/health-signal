@@ -6,7 +6,7 @@ import pandas as pd
 from pydantic import BaseModel, ConfigDict, Field
 
 from .datasource import PROVENANCE, drop_copies_reject_conflicts, filter_rows, raise_row, read_table, with_provenance
-from .methods import METHODS, TRENDS
+from .methods import METHODS
 from .profile import PATHOGENS, Profile, first_match, implies_message
 
 
@@ -106,7 +106,7 @@ class AssessmentSource:
             (_outside_method(df, "phase", "phases"), lambda r: f"phase {r['phase']!r} is not a {r['method']} phase"),
             (~df["provisional"].isin({"true", "false"}),
              lambda r: f"provisional {r['provisional']!r} is not true or false"),
-            (df["trend"].ne("") & ~df["trend"].isin(TRENDS), lambda r: f"unknown trend {r['trend']!r}"),
+            (_outside_method(df, "trend", "trends"), lambda r: f"unknown trend {r['trend']!r}"),
             (df["trend"].ne("") & no_trend, lambda r: f"method {r['method']} has no trend"),
             (blank.any(axis=1) & ~blank.all(axis=1),
              lambda r: "growth_rate, growth_lower and growth_upper must be all set or all blank"),
@@ -166,8 +166,10 @@ def _check_spans(thresholds: pd.DataFrame, series: list[str]) -> None:
             ranked = span.assign(_rank=span["level"].map(order.index)).sort_values("_rank")
             bounds = ranked["lower_bound"].tolist()
             for (_, row), lower, upper in zip(ranked.iloc[1:].iterrows(), bounds, bounds[1:]):
-                if upper <= lower:
-                    raise ValueError(f"{row['_file']} row {row['_row']}: lower bounds must rise in level order")
+                # Equal is a level no value can reach that span (MEM's low, when its medium threshold sits at the
+                # epidemic one); falling would grade inconsistently.
+                if upper < lower:
+                    raise ValueError(f"{row['_file']} row {row['_row']}: lower bounds can't fall in level order")
 
 
 class PhaseSource:

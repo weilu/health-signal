@@ -84,7 +84,8 @@ def create_app(
                      if config.data and config.data.phase_streams else None)
     if config.filters.location is None:
         _require_one_location(data_sources, phase_source)
-    methodology = load_methodology(config, set().union(*(s.locations() for s in data_sources.values())))
+    locations = set().union(*(s.locations() for s in data_sources.values()))
+    methodology = {method: load_methodology(config, method, locations) for method in config.analytics.methods}
 
     _ALWAYS_PUBLIC = ("/healthz", "/login", "/logout")
 
@@ -118,11 +119,14 @@ def create_app(
         return overlays.get(language, {})
 
     @app.get("/api/methodology/{language}")
-    def get_methodology(language: str, user: User = Depends(require_auth)) -> dict:
+    def get_methodology(language: str, method: str | None = None, user: User = Depends(require_auth)) -> dict:
         # Gated like the locale text: it names the panels and settings only signed-in users are sent.
         if language not in config.site.locales:
             raise HTTPException(status_code=404, detail=f"{language!r} is not one of this dashboard's languages")
-        return methodology[language]
+        pages = methodology.get(method or config.analytics.methods[0])
+        if pages is None:
+            raise HTTPException(status_code=404, detail=f"{method!r} isn't a method this dashboard grades with")
+        return pages[language]
 
     def _feed_dimensions(feed: str, request: Request, fixed: set[str] = _FIXED_PARAMS) -> dict[str, str]:
         # Dimension filters come from the feed's profile, so a new profile needs no route change.

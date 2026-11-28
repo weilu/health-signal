@@ -44,3 +44,20 @@ class Backend(Protocol):
     version: str
 
     def fit(self, data: FitInput) -> WeekFit: ...
+
+
+@dataclass(frozen=True)
+class MemFit:
+    # mem's epidemic and low-, medium-, high-intensity thresholds: the lower bounds of low, medium, high, very high.
+    thresholds: tuple[float, float, float, float]
+    delta: float   # memtrend's ascending parameter: a rise larger than this is increasing
+    eta: float     # its descending parameter, a fall (negative): a change below it is decreasing
+
+
+class MemBackend(Protocol):
+    version: str
+
+    def fit_season(self, history: list[list[float]]) -> MemFit:
+        """`history`: past seasons, oldest first, each 53 weekly values from the season's start week (week 53 its own
+        slot, NaN in a year without one; missing weeks NaN). Raises FitError when mem can't fit them."""
+        ...

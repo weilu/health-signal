@@ -15,7 +15,7 @@ import { LocaleToggle } from './LocaleToggle.jsx'
 import { TabLabel } from './TabLabel.jsx'
 import { configLabel, reportingWeek } from './labels.js'
 import { activePage } from './nav.js'
-import { selectedLocation, selectedRange, withFilters } from './filters.js'
+import { selectedLocation, selectedMethod, selectedRange, withFilters } from './filters.js'
 import { useDeploymentText } from './useDeploymentText.js'
 
 // On the page-width boxes, not the full-width rows: the page reads as one sheet, its lines ending where its
@@ -82,6 +82,7 @@ function Shell({ config }) {
   const location = selectedLocation(locationFilter, search)
   const locationLabel = (value) => configLabel(t, locationFilter?.options.find((o) => o.value === value)?.label_key, value)
   const periods = periodsQuery.data ?? null
+  const methodNames = Object.keys(configQuery.data?.methods ?? {})
   const range = filters ? selectedRange(filters.date_range, periods, search) : null
   return (
     <>
@@ -112,7 +113,8 @@ function Shell({ config }) {
             {/* Defined, not isSuccess: a failed background refresh keeps the cached span (null included). */}
             {filters && periodsQuery.data !== undefined && (
               <HeaderFilters locationFilter={locationFilter} location={location} locationLabel={locationLabel}
-                rangeFilter={filters.date_range} periods={periods} range={range} />
+                rangeFilter={filters.date_range} periods={periods} range={range}
+                methods={methodNames} method={selectedMethod(methodNames, search)} />
             )}
           </Toolbar>
         </Container>

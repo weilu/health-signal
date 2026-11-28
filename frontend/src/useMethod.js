@@ -1,9 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
+import { useLocation } from 'react-router-dom'
 import { fetchConfig } from './api.js'
+import { selectedMethod } from './filters.js'
 
-// The first registered method until a method switch exists (spec §6.3).
+// The method the reader selected in the header (spec §6.3), or the deployment's default.
 export function useMethod() {
   const { data } = useQuery({ queryKey: ['config'], queryFn: fetchConfig })
-  const [name, method] = Object.entries(data?.methods ?? {})[0] ?? []
-  return name ? { name, ...method } : null
+  const { search } = useLocation()
+  const methods = data?.methods ?? {}
+  const name = selectedMethod(Object.keys(methods), search)
+  return name ? { name, ...methods[name] } : null
 }
