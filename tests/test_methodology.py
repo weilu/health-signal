@@ -276,6 +276,13 @@ def test_an_unknown_setting_in_maths_stops_startup_naming_its_line(tmp_path, sou
         _page(tmp_path, source)
 
 
+@pytest.mark.parametrize("source", ["$k = {{Method.window_weeks}}$", "$k = {{method.window_weeks}$",
+                                    "$$\nk = {{ method.window-weeks }}\n$$"])
+def test_a_malformed_setting_in_maths_stops_startup_naming_its_line(tmp_path, source):
+    with pytest.raises(ValueError, match=r"en\.md line \d: "):
+        _page(tmp_path, source)
+
+
 def test_a_calendar_year_ends_in_week_52_or_53(tmp_path):
     config = _config(tmp_path)
     config.surveillance.year_start_week = 1
